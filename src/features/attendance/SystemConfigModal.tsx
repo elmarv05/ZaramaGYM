@@ -4,7 +4,8 @@
 // Ubicación: src/features/attendance/SystemConfigModal.tsx
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '../../components/primitives/Icon';
 import { validateSystemConfig } from '../../domain/attendance';
 import { SystemConfigDto, UpdateSystemConfigInput } from '../../types/attendance';
@@ -30,6 +31,15 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
     config?.precioPaseDiarioCreditoDefault ?? '10.00'
   );
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isLoading) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isLoading, onClose]);
 
   if (!isOpen) return null;
 
@@ -60,14 +70,14 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
     }
   };
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="sysconfig-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-contain zg-modal-backdrop"
     >
-      <div className="bg-surface border border-border rounded-2xl max-w-md w-full p-6 shadow-xl flex flex-col gap-5">
+      <div className="bg-surface border border-border rounded-2xl max-w-md w-full my-auto max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-3rem)] overflow-y-auto overscroll-contain p-6 shadow-xl flex flex-col gap-5 zg-modal-panel">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-xl bg-canvas-subtle text-txt-primary border border-border flex items-center justify-center">
@@ -113,7 +123,7 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
               max="30"
               value={diasAmarillo}
               onChange={(e) => setDiasAmarillo(parseInt(e.target.value, 10) || 1)}
-              className="w-full px-3 py-2 rounded-xl border border-border bg-canvas text-sm font-semibold text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand"
+              className="w-full px-3 py-2 rounded-xl border border-border bg-canvas text-sm font-semibold text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
             />
             <span className="text-[11px] text-txt-muted">
               Si a la membresía le quedan estos días o menos, se activará el semáforo amarillo.
@@ -131,7 +141,7 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
               max="60"
               value={minutosRebote}
               onChange={(e) => setMinutosRebote(parseInt(e.target.value, 10) || 0)}
-              className="w-full px-3 py-2 rounded-xl border border-border bg-canvas text-sm font-semibold text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand"
+              className="w-full px-3 py-2 rounded-xl border border-border bg-canvas text-sm font-semibold text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
             />
             <span className="text-[11px] text-txt-muted">
               Tiempo en el que lecturas consecutivas del mismo socio se ignoran para no duplicar asistencias.
@@ -160,7 +170,7 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
                     setPrecioPase(v.toFixed(2));
                   }
                 }}
-                className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border bg-canvas text-sm font-semibold text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand"
+                className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border bg-canvas text-sm font-semibold text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </div>
             <span className="text-[11px] text-txt-muted">
@@ -189,4 +199,10 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 };

@@ -225,7 +225,17 @@ pub async fn create_local_backup(
     state: State<'_, AppState>,
 ) -> Result<BackupRecord, AppError> {
     let session = state.require_unlocked_session().await?;
-    printing_backup_service::create_local_backup(&state.pool(), &session, None).await
+    let app_backups_dir = state.db_path().and_then(|p| {
+        p.parent()
+            .filter(|d| !d.as_os_str().is_empty())
+            .map(|d| d.join("backups"))
+    });
+    printing_backup_service::create_local_backup(
+        &state.pool(),
+        &session,
+        app_backups_dir.as_deref(),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -250,6 +260,70 @@ pub async fn verify_backup_integrity(
         .ok_or_else(|| AppError::Validation("Debe indicar el ID del respaldo.".into()))?;
 
     printing_backup_service::verify_backup_integrity(&state.pool(), &session, resolved_id).await
+}
+
+#[tauri::command]
+pub async fn pick_export_folder(
+    state: State<'_, AppState>,
+) -> Result<Option<String>, AppError> {
+    let session = state.require_unlocked_session().await?;
+    session.require_admin()?;
+
+    #[cfg(target_os = "windows")]
+    {
+        let selected = tokio::task::spawn_blocking(|| -> Result<Option<String>, AppError> {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+            let script = r#"
+Add-Type -AssemblyName System.Windows.Forms
+$dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+$dlg.Description = 'Seleccione la carpeta o memoria USB donde exportar la base de datos ZaramaGYM'
+$dlg.ShowNewFolderButton = $true
+if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    [Console]::Out.Write($dlg.SelectedPath)
+}
+"#;
+
+            let output = std::process::Command::new("powershell")
+                .args(["-NoProfile", "-STA", "-WindowStyle", "Hidden", "-Command", script])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+                .map_err(|e| {
+                    AppError::Internal(format!(
+                        "No se pudo abrir el selector de carpetas de Windows: {}",
+                        e
+                    ))
+                })?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(AppError::Internal(format!(
+                    "El selector de carpetas falló: {}",
+                    stderr.trim()
+                )));
+            }
+
+            let trimmed = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if trimmed.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(trimmed))
+            }
+        })
+        .await
+        .map_err(|e| AppError::Internal(format!("Error ejecutando selector de carpetas: {}", e)))??;
+
+        return Ok(selected);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err(AppError::Validation(
+            "El selector nativo de carpetas está soportado únicamente en Windows.".into(),
+        ))
+    }
 }
 
 #[tauri::command]

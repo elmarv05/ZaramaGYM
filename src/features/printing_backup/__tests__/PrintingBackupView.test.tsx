@@ -291,6 +291,66 @@ describe('Suite Frontend: Slice 8 - Impresión Térmica, PDFs y Respaldos', () =
           name: /Guardar Configuración de Impresión/i,
         })
       ).not.toBeInTheDocument();
+
+      // Tampoco debe existir el botón Autocompletar Gmail para SUPERVISOR
+      expect(
+        screen.queryByRole('button', { name: /Autocompletar Gmail/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it('autocompleta parámetros de Gmail y abre el modal Guía Paso a Paso SMTP', () => {
+      const customConfig: PrintingBackupConfigDto = {
+        ...mockConfig,
+        smtp_enabled: false,
+        smtp_host: '',
+        smtp_port: 25,
+      };
+
+      render(
+        <PrintingBackupView
+          currentSession={adminSession}
+          initialTab="printer"
+          config={customConfig}
+          series={mockSeries}
+          backups={mockBackups}
+        />
+      );
+
+      const autofillBtn = screen.getByRole('button', {
+        name: /Autocompletar Gmail/i,
+      });
+      fireEvent.click(autofillBtn);
+
+      const smtpCheckbox = screen.getByLabelText(
+        /Habilitar envío automático de comprobantes/i
+      ) as HTMLInputElement;
+      expect(smtpCheckbox.checked).toBe(true);
+      expect(screen.getByDisplayValue('smtp.gmail.com')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('587')).toBeInTheDocument();
+
+      // Abrir Guía Paso a Paso SMTP
+      const guideBtn = screen.getByRole('button', {
+        name: /Guía Paso a Paso SMTP/i,
+      });
+      fireEvent.click(guideBtn);
+
+      expect(
+        screen.getByRole('dialog', {
+          name: /Guía Paso a Paso: Correo SMTP con Gmail/i,
+        })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Activar la Verificación en 2 Pasos en tu Cuenta Google/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/myaccount\.google\.com\/apppasswords/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Generar Contraseña de Aplicación de 16 caracteres/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Protección en Llavero Nativo de Windows \(keyring\)/i)
+      ).toBeInTheDocument();
     });
   });
 
@@ -624,6 +684,94 @@ describe('Suite Frontend: Slice 8 - Impresión Térmica, PDFs y Respaldos', () =
         screen.getByRole('dialog', { name: /Restaurar Base de Datos/i })
       ).toBeInTheDocument();
       expect(handleDatabaseRestored).not.toHaveBeenCalled();
+    });
+
+    it('muestra campos Google Drive OAuth, badge Secret en Keyring, guarda credenciales y abre Guía Paso a Paso Cloud', async () => {
+      const cloudConfig: PrintingBackupConfigDto = {
+        ...mockConfig,
+        backup_gdrive_enabled: true,
+        backup_gdrive_folder_id: 'folder-abc-123',
+        backup_gdrive_client_id: '999888-test.apps.googleusercontent.com',
+        has_gdrive_client_secret_configured: true,
+        has_gdrive_token_configured: true,
+      };
+      const handleUpdateConfig = vi.fn().mockResolvedValue(cloudConfig);
+
+      render(
+        <PrintingBackupView
+          currentSession={adminSession}
+          initialTab="backups"
+          config={cloudConfig}
+          series={mockSeries}
+          backups={mockBackups}
+          onUpdateConfig={handleUpdateConfig}
+        />
+      );
+
+      // Badges de Keyring
+      expect(screen.getByText('Secret en Keyring')).toBeInTheDocument();
+      expect(screen.getByText('Token en Keyring')).toBeInTheDocument();
+
+      // Campos Client ID y Client Secret
+      const clientIdInput = screen.getByLabelText(
+        /Client ID OAuth \(Google Cloud\)/i
+      ) as HTMLInputElement;
+      const clientSecretInput = screen.getByLabelText(
+        /Client Secret OAuth \(Keyring\)/i
+      ) as HTMLInputElement;
+
+      expect(clientIdInput.value).toBe('999888-test.apps.googleusercontent.com');
+      expect(clientSecretInput.placeholder).toMatch(/Secret protegido en OS Keyring/i);
+
+      fireEvent.change(clientIdInput, {
+        target: { value: '  123456789-abc.apps.googleusercontent.com  ' },
+      });
+      fireEvent.change(clientSecretInput, {
+        target: { value: '  GOCSPX-secret-value  ' },
+      });
+
+      const saveDriveBtn = screen.getByRole('button', {
+        name: /Guardar Parámetros Cloud/i,
+      });
+      fireEvent.click(saveDriveBtn);
+
+      await waitFor(() => {
+        expect(handleUpdateConfig).toHaveBeenCalledWith({
+          backup_gdrive_enabled: true,
+          backup_gdrive_folder_id: 'folder-abc-123',
+          backup_auto_interval_hours: 2,
+          backup_gdrive_client_id: '123456789-abc.apps.googleusercontent.com',
+          backup_gdrive_client_secret: 'GOCSPX-secret-value',
+          backup_gdrive_token: null,
+        });
+      });
+
+      await waitFor(() => {
+        expect(clientSecretInput.value).toBe('');
+      });
+
+      // Abrir Guía Paso a Paso Cloud
+      const cloudGuideBtn = screen.getByRole('button', {
+        name: /Guía Paso a Paso Cloud/i,
+      });
+      fireEvent.click(cloudGuideBtn);
+
+      const cloudDialog = screen.getByRole('dialog', {
+        name: /Guía Paso a Paso: Google Drive Cloud y OAuth/i,
+      });
+      expect(cloudDialog).toBeInTheDocument();
+      expect(
+        screen.getByText(/Obtener el Folder ID en Google Drive/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Generar Client ID y Client Secret en Google Cloud/i)
+      ).toBeInTheDocument();
+      expect(screen.getByText(/Obtener el Token OAuth2/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Paso 4: Cifrado en el Administrador de Credenciales de Windows \(keyring\)/i
+        )
+      ).toBeInTheDocument();
     });
   });
 

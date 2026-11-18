@@ -177,6 +177,13 @@ export const printingBackupIpc = {
   },
 
   /**
+   * Abre el selector nativo de carpetas del sistema operativo para elegir dónde exportar
+   */
+  async pickExportFolder(): Promise<string | null> {
+    return safeInvoke<string | null>('pick_export_folder');
+  },
+
+  /**
    * Sincroniza un respaldo local existente con Google Drive API v3
    */
   async syncBackupToGdrive(backupId: number): Promise<BackupRecord> {

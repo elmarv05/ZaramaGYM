@@ -421,4 +421,42 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
       });
     });
   });
+
+  // --------------------------------------------------------------------------
+  // CP-7: GUÍA DIDÁCTICA DE FIREWALL WINDOWS (:3443)
+  // --------------------------------------------------------------------------
+  it('7. Abre el modal Guía Firewall Windows (:3443) y permite copiar el comando PowerShell', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: { writeText: writeTextMock },
+    });
+
+    render(<LanServerView currentSession={adminSession} clients={mockClients} />);
+
+    const firewallBtn = await screen.findByRole('button', {
+      name: /Guía Firewall Windows \(:3443\)/i,
+    });
+    fireEvent.click(firewallBtn);
+
+    expect(
+      screen.getByRole('dialog', { name: /Guía Firewall Windows \(:3443\)/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/scripts\/Instalar-Regla-Firewall-LAN\.bat/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/New-NetFirewallRule -DisplayName "ZaramaGYM - Servidor Escaner Movil LAN \(TCP 3443\)"/i)
+    ).toBeInTheDocument();
+
+    const copyBtn = screen.getByRole('button', {
+      name: /Copiar Comando PowerShell/i,
+    });
+    fireEvent.click(copyBtn);
+
+    await waitFor(() => {
+      expect(writeTextMock).toHaveBeenCalledWith(
+        'New-NetFirewallRule -DisplayName "ZaramaGYM - Servidor Escaner Movil LAN (TCP 3443)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3443 -RemoteAddress LocalSubnet -Profile Private,Domain,Public -Enabled True'
+      );
+    });
+  });
 });

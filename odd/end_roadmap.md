@@ -73,17 +73,17 @@ Para evitar retrabajos y mantener la interfaz consistente, las iteraciones de mo
   - Generación de reportes PDF ejecutivos listos para imprimir o entregar a contabilidad.
 
 ### FASE 3: Asesoría Técnica y Configuración de Infraestructura
-- [ ] **3.1. Sesión Guiada de Credenciales en la Nube:**
-  - Explicación didáctica paso a paso de qué son y cómo operan las credenciales de Google Drive OAuth y el servidor de correo SMTP.
+- [x] **3.1. Sesión Guiada de Credenciales en la Nube:**
+  - Explicación didáctica paso a paso de qué son y cómo operan las credenciales de Google Drive OAuth y el servidor de correo SMTP (`odd/guia-infraestructura-fase3.md` + modales interactivos en UI).
   - Acompañamiento en la generación del `client_id` y `client_secret` de Google Cloud y la contraseña de aplicación de correo.
-  - Almacenamiento seguro en el llavero nativo del sistema operativo (`keyring`).
-- [ ] **3.2. Configuración de Red y Regla de Windows Firewall:**
-  - Guía sencilla y script automatizado (PowerShell / Batch) para autorizar el puerto LAN `:3443` en Windows Defender Firewall, garantizando conexión transparente de los smartphones de recepción sin advertencias intrusivas.
+  - Almacenamiento seguro en el llavero nativo del sistema operativo (`keyring` con feature `windows-native` en Windows Credential Manager).
+- [x] **3.2. Configuración de Red y Regla de Windows Firewall:**
+  - Guía sencilla y script automatizado (PowerShell `scripts/allow-lan-firewall.ps1` / Batch `scripts/Instalar-Regla-Firewall-LAN.bat` + asistente en `LanServerView.tsx`) para autorizar el puerto LAN `:3443` en Windows Defender Firewall, garantizando conexión transparente de los smartphones de recepción sin advertencias intrusivas.
 
 ### FASE 4: Pulido Global de Frontend y Empaquetado Final de Despliegue (Go-Live)
-- [ ] **4.1. Pulido Estético Final (Momento 3 de Frontend):**
+- [x] **4.1. Pulido Estético Final (Momento 3 de Frontend):**
   - Chequeo visual integral en modo Claro (Kinetic Ledger) y Oscuro (Kinetic Obsidian).
-  - Verificación de ausencia de emojis, suavidad de modales y ausencia de parpadeos de carga (skeletons activos).
+  - Verificación de ausencia de emojis en `.tsx`, suavidad de modales (portales sobre `document.body`, `my-auto` y `max-h-[calc(100dvh-...)]`), corrección de *Containing Block* en `.zg-view-enter`, límites horizontales de `<main>` (`max-w-[1440px] min-w-0`) y ausencia de parpadeos de carga (skeletons activos).
 - [ ] **4.2. Compilación de Release y Creación del Instalador:**
   - Ejecutar `npm run tauri build` para empaquetar el binario optimizado para Windows (`.msi` / `.exe`).
   - Validación de empaquetado de assets embebidos (servidor Axum LAN, `jsQR`, migraciones SQLite y certificados).
@@ -98,4 +98,4 @@ Para evitar retrabajos y mantener la interfaz consistente, las iteraciones de mo
 ## 5. Historial de Cambios y Sesiones
 - **Fecha de creación:** 2026-11-17
 - **Autor:** `@odd-orchestrator` en acuerdo con el Product Owner / Usuario.
-- **Estado actual:** **Fases 1 y 2 completadas y verificadas al 100%** (+ fixes de Momento 1: apertura nativa de WhatsApp `open_external_url` y botón intuitivo `Ver QR`). Suite verificada: `cargo test` 87/87, `vitest` 27 archivos / 305/305, `tsc && vite build` limpio. Lista para iniciar **Fase 3 (Asesoría Técnica y Configuración de Infraestructura)** o atender nuevas observaciones manuales.
+- **Estado actual:** **Fases 1, 2 y 3 completadas y verificadas al 100%** (llavero nativo de Windows `keyring` activo, soporte OAuth `Client ID`/`Client Secret`/`Token`, asistentes guiados integrados en UI, scripts automatizados de Firewall LAN `:3443` y guía `odd/guia-infraestructura-fase3.md`). Suite verificada: `cargo test` 88/88, `vitest` 27 archivos / 309/309, `tsc && vite build` limpio. Lista para iniciar **Fase 4 (Pulido Global y Empaquetado Final de Despliegue)** o configurar las credenciales en vivo.

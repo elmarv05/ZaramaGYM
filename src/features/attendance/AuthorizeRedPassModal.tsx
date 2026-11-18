@@ -4,7 +4,8 @@
 // Ubicación: src/features/attendance/AuthorizeRedPassModal.tsx
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '../../components/primitives/Icon';
 import { AuthorizeRedPassInput, CheckInEvaluationDto } from '../../types/attendance';
 
@@ -28,6 +29,15 @@ export const AuthorizeRedPassModal: React.FC<AuthorizeRedPassModalProps> = ({
   const [monto, setMonto] = useState<string>(String(defaultMonto));
   const [notas, setNotas] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isLoading) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isLoading, onClose]);
 
   if (!isOpen || !evaluation) return null;
 
@@ -56,14 +66,14 @@ export const AuthorizeRedPassModal: React.FC<AuthorizeRedPassModalProps> = ({
     }
   };
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-red-pass-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-contain zg-modal-backdrop"
     >
-      <div className="bg-surface border border-border rounded-2xl max-w-md w-full p-6 shadow-xl flex flex-col gap-5">
+      <div className="bg-surface border border-border rounded-2xl max-w-md w-full my-auto max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-3rem)] overflow-y-auto overscroll-contain p-6 shadow-xl flex flex-col gap-5 zg-modal-panel">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-xl bg-status-danger-bg text-status-danger flex items-center justify-center">
@@ -132,7 +142,7 @@ export const AuthorizeRedPassModal: React.FC<AuthorizeRedPassModalProps> = ({
                     setMonto(v.toFixed(2));
                   }
                 }}
-                className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border bg-canvas text-sm font-black text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-rose-500"
+                className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border bg-canvas text-sm font-black text-txt-primary focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
             </div>
             <p className="text-[11px] text-txt-muted">
@@ -150,7 +160,7 @@ export const AuthorizeRedPassModal: React.FC<AuthorizeRedPassModalProps> = ({
               placeholder="Ej. Socio regular olvidó billetera"
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-canvas text-xs text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-rose-500"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-canvas text-xs text-txt-primary focus:outline-none focus:ring-2 focus:ring-rose-500"
             />
           </div>
 
@@ -192,4 +202,10 @@ export const AuthorizeRedPassModal: React.FC<AuthorizeRedPassModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 };

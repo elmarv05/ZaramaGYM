@@ -9,6 +9,7 @@ import { Badge } from '../../../components/primitives/Badge';
 import { Button } from '../../../components/primitives/Button';
 import { Icon } from '../../../components/primitives/Icon';
 import { Input } from '../../../components/primitives/Input';
+import { Modal } from '../../../components/primitives/Modal';
 import { Select } from '../../../components/primitives/Select';
 import { PRINTER_MODE_LABELS } from '../../../domain/printingBackup';
 import {
@@ -86,6 +87,7 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
   // Simulador Test
   const [testVentaId, setTestVentaId] = useState<string>('1');
   const [simWidth, setSimWidth] = useState<58 | 80>(widthMm);
+  const [isSmtpGuideOpen, setIsSmtpGuideOpen] = useState(false);
 
   const hasUnsavedChanges = React.useMemo(() => {
     if (!config) return false;
@@ -189,6 +191,13 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
     } catch {
       // Error manejado en hook
     }
+  };
+
+  const handleAutofillGmail = () => {
+    if (!isAdmin) return;
+    setSmtpEnabled(true);
+    setSmtpHost('smtp.gmail.com');
+    setSmtpPort(587);
   };
 
   return (
@@ -440,7 +449,7 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
                   Despacho de Comprobantes por Correo (SMTP)
                 </h3>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {config?.has_smtp_password_configured && (
                   <Badge variant="success" size="sm">
                     <span className="inline-flex items-center gap-1">
@@ -452,6 +461,27 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
                 <Badge variant={smtpEnabled ? 'success' : 'default'} size="sm">
                   {smtpEnabled ? 'SMTP Activo' : 'Desactivado'}
                 </Badge>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsSmtpGuideOpen(true)}
+                  leftIcon={<Icon name="info" className="w-3.5 h-3.5" aria-hidden="true" />}
+                >
+                  Guía Paso a Paso SMTP
+                </Button>
+                {isAdmin && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleAutofillGmail}
+                    disabled={isActionLoading || isLoading}
+                    leftIcon={<Icon name="sparkles" className="w-3.5 h-3.5" aria-hidden="true" />}
+                  >
+                    Autocompletar Gmail
+                  </Button>
+                )}
                 {isAdmin && (
                   <Button
                     type="submit"
@@ -603,6 +633,84 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
           />
         </div>
       </div>
+
+      {/* Modal: Guía Paso a Paso SMTP (Gmail App Password + Keyring) */}
+      <Modal
+        isOpen={isSmtpGuideOpen}
+        onClose={() => setIsSmtpGuideOpen(false)}
+        title="Guía Paso a Paso: Correo SMTP con Gmail"
+        description="Configura el envío seguro de comprobantes usando una Contraseña de Aplicación de Google."
+        size="lg"
+        footer={
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => setIsSmtpGuideOpen(false)}
+          >
+            Entendido
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-3 text-xs">
+          <div className="p-3 rounded-lg bg-canvas-subtle border border-border flex flex-col gap-1">
+            <div className="flex items-center gap-2 font-bold text-txt-primary">
+              <span className="w-5 h-5 rounded-full bg-brand text-brand-text flex items-center justify-center text-[11px] shrink-0">
+                1
+              </span>
+              <span>Activar la Verificación en 2 Pasos en tu Cuenta Google</span>
+            </div>
+            <p className="text-txt-secondary pl-7">
+              Ingresa a la configuración de seguridad de tu cuenta Gmail y habilita la{' '}
+              <strong>Verificación en 2 pasos</strong> (requisito obligatorio de Google para emitir contraseñas de aplicación).
+            </p>
+          </div>
+
+          <div className="p-3 rounded-lg bg-canvas-subtle border border-border flex flex-col gap-1">
+            <div className="flex items-center gap-2 font-bold text-txt-primary">
+              <span className="w-5 h-5 rounded-full bg-brand text-brand-text flex items-center justify-center text-[11px] shrink-0">
+                2
+              </span>
+              <span>Generar Contraseña de Aplicación de 16 caracteres</span>
+            </div>
+            <p className="text-txt-secondary pl-7">
+              Visita{' '}
+              <span className="font-mono font-semibold text-txt-primary">
+                myaccount.google.com/apppasswords
+              </span>
+              , crea una nueva contraseña con el nombre <strong>ZaramaGYM</strong> y copia la{' '}
+              <strong>Contraseña de Aplicación de 16 caracteres</strong> generada (sin necesidad de usar tu contraseña personal de Gmail).
+            </p>
+          </div>
+
+          <div className="p-3 rounded-lg bg-canvas-subtle border border-border flex flex-col gap-1">
+            <div className="flex items-center gap-2 font-bold text-txt-primary">
+              <span className="w-5 h-5 rounded-full bg-brand text-brand-text flex items-center justify-center text-[11px] shrink-0">
+                3
+              </span>
+              <span>Completar Parámetros SMTP en ZaramaGYM</span>
+            </div>
+            <p className="text-txt-secondary pl-7">
+              Haz clic en <strong>Autocompletar Gmail</strong> para rellenar{' '}
+              <span className="font-mono">smtp.gmail.com</span> y puerto{' '}
+              <span className="font-mono">587</span>, ingresa tu correo en Usuario SMTP y Remitente, y pega la clave de 16 caracteres en{' '}
+              <strong>Contraseña de Aplicación SMTP</strong>.
+            </p>
+          </div>
+
+          <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 flex items-start gap-2.5">
+            <Icon name="lock" className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="flex flex-col gap-0.5">
+              <span className="font-bold">
+                Protección en Llavero Nativo de Windows (keyring)
+              </span>
+              <p className="opacity-90">
+                ZaramaGYM nunca almacena tu contraseña SMTP en la base de datos ni en archivos de configuración; se guarda cifrada en el llavero nativo de Windows (<strong>keyring</strong>).
+              </p>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

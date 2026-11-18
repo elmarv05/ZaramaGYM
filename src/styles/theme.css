@@ -111,42 +111,62 @@
 }
 
 /* ============================================================================
-   ANIMACIONES FLUIDAS CON @starting-style Y RESPETO A prefers-reduced-motion
+   CONTENEDOR RAÍZ DE APLICACIÓN (EVITA DOBLE SCROLL FUERA DE MAIN)
    ============================================================================ */
 
-.zg-view-enter {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
-.zg-modal-backdrop {
-  opacity: 1;
-  transition: opacity 200ms cubic-bezier(0.22, 1, 0.36, 1);
-}
+/* ============================================================================
+   ANIMACIONES FLUIDAS SIN CREAR CONTAINING BLOCK PERMANENTE PARA MODALES
+   ============================================================================ */
 
-.zg-modal-panel {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@starting-style {
-  .zg-view-enter {
+@keyframes zgViewFadeIn {
+  from {
     opacity: 0;
     transform: translateY(6px);
   }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
-  .zg-modal-backdrop {
+@keyframes zgBackdropFadeIn {
+  from {
     opacity: 0;
   }
+  to {
+    opacity: 1;
+  }
+}
 
-  .zg-modal-panel {
+@keyframes zgModalPanelIn {
+  from {
     opacity: 0;
     transform: translateY(8px) scale(0.97);
   }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.zg-view-enter {
+  animation: zgViewFadeIn 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.zg-modal-backdrop {
+  animation: zgBackdropFadeIn 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.zg-modal-panel {
+  animation: zgModalPanelIn 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {

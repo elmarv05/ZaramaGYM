@@ -39,6 +39,13 @@ import {
   TableEmptyState,
   TableLoadingSkeleton,
 } from '../../components/primitives/Table';
+import {
+  EntityFlashCard,
+  EntityFlashCardEmptyState,
+  EntityFlashCardGrid,
+  EntityFlashCardSkeletonGrid,
+} from '../entities/EntityFlashCard';
+import { EntityProfileModal } from '../entities/EntityProfileModal';
 
 export interface UserManagementTableProps {
   currentSession: AuthSession;
@@ -73,6 +80,8 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
   onClearError,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [selectedProfileUser, setSelectedProfileUser] = useState<UserListItem | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activePhotoUserId, setActivePhotoUserId] = useState<number | null>(null);
   const tableFileInputRef = useRef<HTMLInputElement>(null);
@@ -429,6 +438,41 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
               }
             />
           </div>
+          <div
+            role="group"
+            aria-label="Modo de visualización de usuarios"
+            className="inline-flex items-center rounded-lg bg-canvas-subtle p-0.5 border border-border"
+          >
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              aria-pressed={viewMode === 'cards'}
+              title="Vista de tarjetas interactivas"
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                viewMode === 'cards'
+                  ? 'bg-surface text-txt-primary shadow-xs border border-border'
+                  : 'text-txt-muted hover:text-txt-primary'
+              }`}
+            >
+              <Icon name="dashboard" className="w-3.5 h-3.5" />
+              <span>Tarjetas</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              aria-pressed={viewMode === 'table'}
+              title="Vista de tabla clásica"
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                viewMode === 'table'
+                  ? 'bg-surface text-txt-primary shadow-xs border border-border'
+                  : 'text-txt-muted hover:text-txt-primary'
+              }`}
+            >
+              <Icon name="menu" className="w-3.5 h-3.5" />
+              <span>Tabla</span>
+            </button>
+          </div>
+
           <Button
             variant="secondary"
             size="md"
@@ -468,49 +512,31 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
         </Alert>
       )}
 
-      {/* Tabla de Usuarios */}
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-16">Foto</TableHead>
-            <TableHead>Usuario</TableHead>
-            <TableHead>Nombres y Apellidos</TableHead>
-            <TableHead>Documento</TableHead>
-            <TableHead>Rol</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead>Último Acceso</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-
-        <TableBody>
-          {isLoading ? (
-            <TableLoadingSkeleton colSpan={8} rows={4} />
-          ) : filteredUsers.length === 0 ? (
-            <TableEmptyState
-              colSpan={8}
-              title="No hay usuarios registrados"
-              description={
-                searchTerm
-                  ? 'No se encontraron usuarios que coincidan con la búsqueda.'
-                  : 'Crea el primer usuario u operador del sistema con el botón superior.'
-              }
-              action={
-                <Button variant="primary" size="sm" onClick={handleOpenCreateModal}>
-                  Crear Usuario
-                </Button>
-              }
-            />
-          ) : (
-            filteredUsers.map((user) => {
+      {/* Vista de Usuarios: Flash Cards (por defecto) o Tabla */}
+      {viewMode === 'cards' ? (
+        isLoading ? (
+          <EntityFlashCardSkeletonGrid count={6} />
+        ) : filteredUsers.length === 0 ? (
+          <EntityFlashCardEmptyState
+            icon="users"
+            title="No hay usuarios registrados"
+            description={
+              searchTerm
+                ? 'No se encontraron usuarios que coincidan con la búsqueda.'
+                : 'Crea el primer usuario u operador del sistema con el botón superior.'
+            }
+            action={
+              <Button variant="primary" size="sm" onClick={handleOpenCreateModal}>
+                Crear Usuario
+              </Button>
+            }
+          />
+        ) : (
+          <EntityFlashCardGrid>
+            {filteredUsers.map((user) => {
               const isCurrentUser = user.id === currentSession.user_id;
               const isRootAdmin = user.id === 1;
 
-              // Regla de jerarquía:
-              // - Root Admin no puede ser desactivado
-              // - Nadie puede desactivarse a sí mismo
-              // - Supervisor solo puede alternar a Recepcionistas
-              // - Administrador puede alternar a cualquiera (excepto a sí mismo y a root)
               const canToggle =
                 !isCurrentUser &&
                 !isRootAdmin &&
@@ -526,90 +552,69 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                 isAdmin ||
                 (isSupervisor && user.rol === 'RECEPCIONISTA');
 
+              const fullName = `${user.nombres} ${user.apellidos}`.trim();
+
               return (
-                <TableRow key={user.id} className={!user.estado_activo ? 'opacity-60 bg-canvas-subtle/50' : ''}>
-                  <TableCell>
-                    <div className="relative group w-10 h-10">
-                      <div className="w-10 h-10 rounded-full overflow-hidden border border-border bg-surface flex items-center justify-center font-bold text-xs text-txt-secondary">
-                        {user.foto_perfil_data_url ? (
-                          <img
-                            src={user.foto_perfil_data_url}
-                            alt={`Foto de ${user.username}`}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span>{getInitials(user.nombres)}</span>
-                        )}
-                      </div>
-
-                      {canUploadPhoto && (
-                        <button
-                          type="button"
-                          onClick={() => handleTriggerRowPhotoUpload(user.id)}
-                          title="Cambiar foto de este usuario"
-                          className="absolute inset-0 bg-black/40 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-txt-primary">@{user.username}</span>
+                <EntityFlashCard
+                  key={user.id}
+                  entityTag="USUARIO"
+                  entityTagVariant={
+                    user.rol === 'ADMINISTRADOR'
+                      ? 'default'
+                      : user.rol === 'SUPERVISOR'
+                      ? 'warning'
+                      : 'info'
+                  }
+                  secondaryBadges={[
+                    {
+                      label: user.rol,
+                      variant:
+                        user.rol === 'ADMINISTRADOR'
+                          ? 'default'
+                          : user.rol === 'SUPERVISOR'
+                          ? 'warning'
+                          : 'info',
+                    },
+                  ]}
+                  isActive={user.estado_activo}
+                  avatarPhotoUrl={user.foto_perfil_data_url}
+                  avatarInitials={getInitials(user.nombres)}
+                  onAvatarClick={
+                    canUploadPhoto ? () => handleTriggerRowPhotoUpload(user.id) : undefined
+                  }
+                  avatarActionTitle="Cambiar foto de este usuario"
+                  title={fullName}
+                  subtitleTag={
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-mono text-xs font-semibold text-accent-indigo">
+                        @{user.username}
+                      </span>
                       {isCurrentUser && (
                         <span className="text-[10px] text-sky-600 font-bold uppercase tracking-wider">
                           (Tu cuenta activa)
                         </span>
                       )}
                     </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="font-medium text-txt-primary">
-                      {user.nombres} {user.apellidos}
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <span className="font-mono text-xs text-txt-secondary">
-                      {user.tipo_documento}: {user.numero_documento}
-                    </span>
-                  </TableCell>
-
-                  <TableCell>
-                    <Badge
-                      variant={
-                        user.rol === 'ADMINISTRADOR'
-                          ? 'default'
-                          : user.rol === 'SUPERVISOR'
-                          ? 'warning'
-                          : 'info'
-                      }
-                      size="sm"
-                    >
-                      {user.rol}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell>
-                    <Badge variant={user.estado_activo ? 'success' : 'danger'} size="sm">
-                      {user.estado_activo ? 'Activo' : 'Inactivo'}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell>
-                    <span className="text-xs text-txt-muted">
-                      {user.ultimo_login ? user.ultimo_login : 'Nunca'}
-                    </span>
-                  </TableCell>
-
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1.5">
+                  }
+                  documentLabel={`${user.tipo_documento}: ${user.numero_documento}`}
+                  phone={user.telefono}
+                  email={user.email}
+                  metrics={[
+                    {
+                      label: 'Rol Asignado',
+                      value: <span>{user.rol}</span>,
+                    },
+                    {
+                      label: 'Último Acceso',
+                      value: (
+                        <span className="font-mono text-[11px] truncate">
+                          {user.ultimo_login ? user.ultimo_login : 'Nunca'}
+                        </span>
+                      ),
+                    },
+                  ]}
+                  quickActions={
+                    <>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -643,14 +648,248 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                       >
                         {user.estado_activo ? 'Desactivar' : 'Activar'}
                       </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                    </>
+                  }
+                  onOpenProfile={() => setSelectedProfileUser(user)}
+                />
               );
-            })
-          )}
-        </TableBody>
-      </Table>
+            })}
+          </EntityFlashCardGrid>
+        )
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-16">Foto</TableHead>
+              <TableHead>Usuario</TableHead>
+              <TableHead>Nombres y Apellidos</TableHead>
+              <TableHead>Documento</TableHead>
+              <TableHead>Rol</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Último Acceso</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {isLoading ? (
+              <TableLoadingSkeleton colSpan={8} rows={4} />
+            ) : filteredUsers.length === 0 ? (
+              <TableEmptyState
+                colSpan={8}
+                title="No hay usuarios registrados"
+                description={
+                  searchTerm
+                    ? 'No se encontraron usuarios que coincidan con la búsqueda.'
+                    : 'Crea el primer usuario u operador del sistema con el botón superior.'
+                }
+                action={
+                  <Button variant="primary" size="sm" onClick={handleOpenCreateModal}>
+                    Crear Usuario
+                  </Button>
+                }
+              />
+            ) : (
+              filteredUsers.map((user) => {
+                const isCurrentUser = user.id === currentSession.user_id;
+                const isRootAdmin = user.id === 1;
+
+                const canToggle =
+                  !isCurrentUser &&
+                  !isRootAdmin &&
+                  (isAdmin || (isSupervisor && user.rol === 'RECEPCIONISTA'));
+
+                const canEdit =
+                  isCurrentUser ||
+                  isAdmin ||
+                  (isSupervisor && user.rol === 'RECEPCIONISTA');
+
+                const canUploadPhoto =
+                  isCurrentUser ||
+                  isAdmin ||
+                  (isSupervisor && user.rol === 'RECEPCIONISTA');
+
+                return (
+                  <TableRow
+                    key={user.id}
+                    className={!user.estado_activo ? 'opacity-60 bg-canvas-subtle/50' : ''}
+                  >
+                    <TableCell>
+                      <div className="relative group w-10 h-10">
+                        <div className="w-10 h-10 rounded-full overflow-hidden border border-border bg-surface flex items-center justify-center font-bold text-xs text-txt-secondary">
+                          {user.foto_perfil_data_url ? (
+                            <img
+                              src={user.foto_perfil_data_url}
+                              alt={`Foto de ${user.username}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span>{getInitials(user.nombres)}</span>
+                          )}
+                        </div>
+
+                        {canUploadPhoto && (
+                          <button
+                            type="button"
+                            onClick={() => handleTriggerRowPhotoUpload(user.id)}
+                            title="Cambiar foto de este usuario"
+                            className="absolute inset-0 bg-black/40 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          >
+                            <svg
+                              className="w-3.5 h-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-txt-primary">@{user.username}</span>
+                        {isCurrentUser && (
+                          <span className="text-[10px] text-sky-600 font-bold uppercase tracking-wider">
+                            (Tu cuenta activa)
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="font-medium text-txt-primary">
+                        {user.nombres} {user.apellidos}
+                      </div>
+                    </TableCell>
+
+                    <TableCell>
+                      <span className="font-mono text-xs text-txt-secondary">
+                        {user.tipo_documento}: {user.numero_documento}
+                      </span>
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge
+                        variant={
+                          user.rol === 'ADMINISTRADOR'
+                            ? 'default'
+                            : user.rol === 'SUPERVISOR'
+                            ? 'warning'
+                            : 'info'
+                        }
+                        size="sm"
+                      >
+                        {user.rol}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge variant={user.estado_activo ? 'success' : 'danger'} size="sm">
+                        {user.estado_activo ? 'Activo' : 'Inactivo'}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell>
+                      <span className="text-xs text-txt-muted">
+                        {user.ultimo_login ? user.ultimo_login : 'Nunca'}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedProfileUser(user)}
+                        >
+                          Ver perfil
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={!canEdit || isActionLoading}
+                          onClick={() => handleOpenEditModal(user)}
+                        >
+                          Editar
+                        </Button>
+
+                        <Button
+                          variant={user.estado_activo ? 'outline' : 'secondary'}
+                          size="sm"
+                          disabled={!canToggle || isActionLoading}
+                          onClick={() => onToggleActive(user.id, user.estado_activo)}
+                          title={
+                            isCurrentUser
+                              ? 'No puedes desactivar tu propia cuenta en sesión'
+                              : isRootAdmin
+                              ? 'El Administrador Root no puede ser desactivado'
+                              : !canToggle
+                              ? 'No tienes permisos suficientes para alternar a este usuario'
+                              : user.estado_activo
+                              ? 'Desactivar acceso a este usuario'
+                              : 'Reactivar acceso a este usuario'
+                          }
+                          className={
+                            user.estado_activo
+                              ? 'text-status-danger border-red-300 hover:bg-status-danger-bg'
+                              : 'text-status-success border-emerald-300 hover:bg-status-success-bg'
+                          }
+                        >
+                          {user.estado_activo ? 'Desactivar' : 'Activar'}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      )}
+
+      {/* Modal de Perfil Interactivo de Usuario */}
+      <EntityProfileModal
+        isOpen={Boolean(selectedProfileUser)}
+        onClose={() => setSelectedProfileUser(null)}
+        subject={
+          selectedProfileUser
+            ? {
+                kind: 'user',
+                data:
+                  users.find((u) => u.id === selectedProfileUser.id) ?? selectedProfileUser,
+              }
+            : null
+        }
+        currentSession={currentSession}
+        isActionLoading={isActionLoading}
+        onUpdateUser={onUpdateUser}
+        onToggleActive={onToggleActive}
+        onOpenAdvancedEdit={
+          selectedProfileUser
+            ? () => {
+                const target =
+                  users.find((u) => u.id === selectedProfileUser.id) ?? selectedProfileUser;
+                setSelectedProfileUser(null);
+                handleOpenEditModal(target);
+              }
+            : undefined
+        }
+      />
 
       {/* ==================================================================== */}
       {/* MODAL PARA CREAR NUEVO USUARIO (EN 2 FASES) */}

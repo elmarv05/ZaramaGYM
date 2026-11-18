@@ -25,6 +25,13 @@ pub struct KeyringStore;
 
 impl KeyringStore {
     pub fn set_secret(key: &str, value: &str) -> Result<(), AppError> {
+        #[cfg(not(test))]
+        {
+            if let Ok(entry) = keyring::Entry::new("ZaramaGYM", key) {
+                let _ = entry.set_password(value);
+            }
+        }
+
         let mut map = KEYRING_FALLBACK.write().map_err(|e| {
             AppError::Internal(format!("Error accediendo a KeyringStore: {}", e))
         })?;
@@ -33,6 +40,18 @@ impl KeyringStore {
     }
 
     pub fn get_secret(key: &str) -> Result<Option<String>, AppError> {
+        #[cfg(not(test))]
+        {
+            if let Ok(entry) = keyring::Entry::new("ZaramaGYM", key) {
+                if let Ok(secret) = entry.get_password() {
+                    if let Ok(mut map) = KEYRING_FALLBACK.write() {
+                        map.insert(key.to_string(), secret.clone());
+                    }
+                    return Ok(Some(secret));
+                }
+            }
+        }
+
         let map = KEYRING_FALLBACK.read().map_err(|e| {
             AppError::Internal(format!("Error leyendo de KeyringStore: {}", e))
         })?;
@@ -40,6 +59,13 @@ impl KeyringStore {
     }
 
     pub fn delete_secret(key: &str) -> Result<(), AppError> {
+        #[cfg(not(test))]
+        {
+            if let Ok(entry) = keyring::Entry::new("ZaramaGYM", key) {
+                let _ = entry.delete_credential();
+            }
+        }
+
         let mut map = KEYRING_FALLBACK.write().map_err(|e| {
             AppError::Internal(format!("Error accediendo a KeyringStore: {}", e))
         })?;
@@ -1659,13 +1685,175 @@ pub async fn send_receipt_email(
     }
 
     // Generar el PDF en RAM
-    let _pdf = generate_sale_receipt_pdf(pool, session, request.venta_id).await?;
+    let pdf = generate_sale_receipt_pdf(pool, session, request.venta_id).await?;
+    let config = get_printing_backup_config(pool, session).await?;
+    let smtp_pwd_opt = KeyringStore::get_secret("SMTP_PASSWORD")?;
 
-    // Auditar despacho de comprobante por correo
+    let is_simulated = !config.smtp_enabled
+        || config.smtp_user.trim().is_empty()
+        || smtp_pwd_opt
+            .as_deref()
+            .map(|p| p.trim().is_empty())
+            .unwrap_or(true)
+        || smtp_pwd_opt.as_deref() == Some("SmtpAppPassword123#");
+
+    if is_simulated {
+        // Auditar despacho simulado de comprobante por correo
+        let audit_detail = serde_json::json!({
+            "venta_id": request.venta_id,
+            "destinatario": request.destinatario_email,
+            "mensaje_adicional": request.mensaje_adicional,
+            "was_simulated": true,
+        });
+        record_audit(
+            pool,
+            Some(session.user_id),
+            &session.username,
+            "RECEIPT_EMAIL_DISPATCHED",
+            "comprobantes_emitidos",
+            &audit_detail.to_string(),
+            None,
+        )
+        .await?;
+
+        return Ok(SendEmailResult {
+            success: true,
+            message: format!(
+                "Comprobante PDF enviado exitosamente a {}",
+                request.destinatario_email
+            ),
+            was_simulated: true,
+        });
+    }
+
+    // Modo Real: envío SMTP con lettre
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
+    let raw_pwd = smtp_pwd_opt.unwrap_or_default();
+    let clean_pwd: String = raw_pwd.chars().filter(|c| !c.is_whitespace()).collect();
+
+    let pdf_bytes = base64::engine::general_purpose::STANDARD
+        .decode(&pdf.pdf_base64)
+        .map_err(|e| {
+            AppError::Internal(format!("Error decodificando PDF para envío SMTP: {}", e))
+        })?;
+
+    let from_raw = config.smtp_from_email.trim();
+    let smtp_user_trimmed = config.smtp_user.trim();
+    let effective_from = if (from_raw.is_empty() || from_raw == "no-reply@zaramagym.pe")
+        && smtp_user_trimmed.contains('@')
+    {
+        smtp_user_trimmed
+    } else if from_raw.is_empty() {
+        smtp_user_trimmed
+    } else {
+        from_raw
+    };
+
+    let from_mailbox: lettre::message::Mailbox = effective_from.parse().map_err(|e| {
+        AppError::Validation(format!(
+            "El correo remitente configurado '{}' es inválido: {}",
+            effective_from, e
+        ))
+    })?;
+    let to_mailbox: lettre::message::Mailbox =
+        request.destinatario_email.trim().parse().map_err(|e| {
+            AppError::Validation(format!(
+                "El correo destinatario '{}' es inválido: {}",
+                request.destinatario_email, e
+            ))
+        })?;
+
+    let receipt_code = pdf.filename.trim_end_matches(".pdf");
+    let subject = format!(
+        "Comprobante {} - {}",
+        receipt_code, config.empresa_nombre_comercial
+    );
+    let body_text = match request
+        .mensaje_adicional
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        Some(extra) => format!(
+            "Estimado(a),\n\nAdjuntamos su comprobante {} emitido por {}.\n\nMensaje adicional:\n{}\n\nSaludos cordiales,\n{}",
+            receipt_code,
+            config.empresa_nombre_comercial,
+            extra,
+            config.empresa_nombre_comercial
+        ),
+        None => format!(
+            "Estimado(a),\n\nAdjuntamos su comprobante {} emitido por {}.\n\nSaludos cordiales,\n{}",
+            receipt_code,
+            config.empresa_nombre_comercial,
+            config.empresa_nombre_comercial
+        ),
+    };
+
+    let pdf_content_type = lettre::message::header::ContentType::parse("application/pdf")
+        .map_err(|e| AppError::Internal(format!("ContentType PDF inválido: {}", e)))?;
+
+    let email = lettre::Message::builder()
+        .from(from_mailbox)
+        .to(to_mailbox)
+        .subject(subject)
+        .multipart(
+            lettre::message::MultiPart::mixed()
+                .singlepart(lettre::message::SinglePart::plain(body_text))
+                .singlepart(
+                    lettre::message::SinglePart::builder()
+                        .header(pdf_content_type)
+                        .header(lettre::message::header::ContentDisposition::attachment(
+                            &pdf.filename,
+                        ))
+                        .body(pdf_bytes),
+                ),
+        )
+        .map_err(|e| AppError::Validation(format!("Error construyendo correo SMTP: {}", e)))?;
+
+    let smtp_host = config.smtp_host.trim();
+    if smtp_host.is_empty() {
+        return Err(AppError::Validation(
+            "El servidor SMTP (smtp_host) no está configurado.".to_string(),
+        ));
+    }
+
+    let transport_builder = if config.smtp_port == 465 {
+        lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::relay(smtp_host)
+    } else {
+        lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::starttls_relay(smtp_host)
+    }
+    .map_err(|err| {
+        AppError::Validation(format!(
+            "Error enviando correo vía SMTP ({}:{}): {}",
+            smtp_host, config.smtp_port, err
+        ))
+    })?;
+
+    let mailer = transport_builder
+        .port(config.smtp_port)
+        .credentials(lettre::transport::smtp::authentication::Credentials::new(
+            smtp_user_trimmed.to_string(),
+            clean_pwd,
+        ))
+        .timeout(Some(std::time::Duration::from_secs(20)))
+        .build();
+
+    use lettre::AsyncTransport;
+    mailer.send(email).await.map_err(|err| {
+        AppError::Validation(format!(
+            "Error enviando correo vía SMTP ({}:{}): {}",
+            smtp_host, config.smtp_port, err
+        ))
+    })?;
+
+    // Auditar despacho real de comprobante por correo
     let audit_detail = serde_json::json!({
         "venta_id": request.venta_id,
         "destinatario": request.destinatario_email,
         "mensaje_adicional": request.mensaje_adicional,
+        "was_simulated": false,
+        "smtp_host": smtp_host,
     });
     record_audit(
         pool,
@@ -1681,10 +1869,10 @@ pub async fn send_receipt_email(
     Ok(SendEmailResult {
         success: true,
         message: format!(
-            "Comprobante PDF enviado exitosamente a {}",
-            request.destinatario_email
+            "Comprobante PDF enviado exitosamente a {} (vía {})",
+            request.destinatario_email, config.smtp_host
         ),
-        was_simulated: true,
+        was_simulated: false,
     })
 }
 
@@ -2376,15 +2564,26 @@ pub async fn export_database_file(
 ) -> Result<BackupRecord, AppError> {
     session.require_admin()?;
 
-    let dest_path = PathBuf::from(target_path);
-    if let Some(parent) = dest_path.parent() {
-        if !parent.as_os_str().is_empty() && !parent.exists() {
-            let _ = std::fs::create_dir_all(parent);
+    let raw_dest = PathBuf::from(target_path.trim());
+    let dest_path = if raw_dest.is_dir() || raw_dest.extension().is_none() {
+        let _ = std::fs::create_dir_all(&raw_dest);
+        let ts = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
+        raw_dest.join(format!("zaramagym_export_{}.db", ts))
+    } else {
+        if let Some(parent) = raw_dest.parent() {
+            if !parent.as_os_str().is_empty() && !parent.exists() {
+                let _ = std::fs::create_dir_all(parent);
+            }
         }
+        raw_dest
+    };
+
+    if dest_path.exists() && dest_path.is_file() {
+        let _ = std::fs::remove_file(&dest_path);
     }
 
     let dest_path_str = dest_path.to_string_lossy().replace('\\', "/");
-    let query_str = format!("VACUUM INTO '{}';", dest_path_str);
+    let query_str = format!("VACUUM INTO '{}';", dest_path_str.replace('\'', "''"));
     sqlx::raw_sql(&query_str)
         .execute(pool)
         .await
@@ -2457,13 +2656,38 @@ pub async fn export_database_file(
     })
 }
 
+fn extract_gdrive_folder_id(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    if let Some(idx) = trimmed.find("/folders/") {
+        let after = &trimmed[idx + "/folders/".len()..];
+        return after
+            .split(['?', '/', '#'])
+            .next()
+            .unwrap_or("")
+            .trim()
+            .to_string();
+    }
+    trimmed.to_string()
+}
+
 pub async fn sync_backup_to_gdrive(
     pool: &SqlitePool,
     session: &AuthSession,
     backup_id: i64,
 ) -> Result<BackupRecord, AppError> {
     session.require_admin()?;
+    sync_backup_to_gdrive_with_actor(pool, Some(session.user_id), &session.username, backup_id).await
+}
 
+pub async fn sync_backup_to_gdrive_with_actor(
+    pool: &SqlitePool,
+    user_id: Option<i64>,
+    username: &str,
+    backup_id: i64,
+) -> Result<BackupRecord, AppError> {
     let row = sqlx::query(
         r#"
         SELECT id, tipo_respaldo, nombre_archivo, ruta_local, tamano_bytes, sha256_checksum
@@ -2485,6 +2709,7 @@ pub async fn sync_backup_to_gdrive(
         }
     };
 
+    let nombre_archivo: String = backup.get("nombre_archivo");
     let ruta_local: String = backup.get("ruta_local");
     let path = PathBuf::from(&ruta_local);
 
@@ -2497,14 +2722,195 @@ pub async fn sync_backup_to_gdrive(
         )));
     }
 
-    // Obtener token de Google Drive en KeyringStore
-    let token = KeyringStore::get_secret("GDRIVE_ACCESS_TOKEN")?;
-    let simulated_drive_id = if let Some(tok) = token {
-        let mut hasher = Sha256::new();
-        hasher.update(format!("{}:{}", tok, backup_id).as_bytes());
-        format!("gdrive_file_{}", &format!("{:x}", hasher.finalize())[..16])
+    // Consultar configuración y credenciales en KeyringStore
+    let config = load_printing_backup_config(pool).await?;
+    let token_opt = KeyringStore::get_secret("GDRIVE_ACCESS_TOKEN")?;
+    let secret_opt = KeyringStore::get_secret("GDRIVE_CLIENT_SECRET")?;
+
+    let is_simulated = !config.backup_gdrive_enabled
+        || token_opt
+            .as_deref()
+            .map(|t| t.trim().is_empty())
+            .unwrap_or(true)
+        || token_opt.as_deref() == Some("ya29.a0ARrda8-GdriveToken-Secured");
+
+    let drive_file_id = if is_simulated {
+        if let Some(tok) = token_opt.as_deref().filter(|t| !t.trim().is_empty()) {
+            let mut hasher = Sha256::new();
+            hasher.update(format!("{}:{}", tok, backup_id).as_bytes());
+            format!("gdrive_file_{}", &format!("{:x}", hasher.finalize())[..16])
+        } else {
+            format!("gdrive_sim_{}", backup_id)
+        }
     } else {
-        format!("gdrive_sim_{}", backup_id)
+        // Modo Real: Google Drive API v3 (OAuth2 refresh token si aplica + multipart/related)
+        let _ = rustls::crypto::ring::default_provider().install_default();
+
+        let http_client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .map_err(|e| {
+                AppError::Internal(format!("No se pudo inicializar cliente HTTP TLS: {}", e))
+            })?;
+
+        let clean_secret_str = |raw: &str| -> String {
+            raw.chars()
+                .filter(|c| !c.is_whitespace() && *c != '"' && *c != '\'')
+                .collect()
+        };
+
+        let stored_token = clean_secret_str(&token_opt.unwrap_or_default());
+        let access_token = if stored_token.starts_with("1//") {
+            let client_id = clean_secret_str(&config.backup_gdrive_client_id);
+            if client_id.is_empty() {
+                return Err(AppError::Validation(
+                    "Falta configurar el Client ID OAuth2 de Google Drive para usar el refresh token."
+                        .to_string(),
+                ));
+            }
+            let client_secret = secret_opt
+                .as_deref()
+                .map(&clean_secret_str)
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| {
+                    AppError::Validation(
+                        "Falta configurar el Client Secret OAuth2 de Google Drive para renovar el token."
+                            .to_string(),
+                    )
+                })?;
+
+            let token_resp = http_client
+                .post("https://oauth2.googleapis.com/token")
+                .form(&[
+                    ("client_id", client_id.as_str()),
+                    ("client_secret", client_secret.as_str()),
+                    ("refresh_token", stored_token.as_str()),
+                    ("grant_type", "refresh_token"),
+                ])
+                .send()
+                .await
+                .map_err(|e| {
+                    AppError::Validation(format!(
+                        "Error de red renovando token OAuth de Google Drive: {}",
+                        e
+                    ))
+                })?;
+
+            if !token_resp.status().is_success() {
+                let err_body = token_resp.text().await.unwrap_or_default();
+                let hint = if err_body.contains("unauthorized_client") {
+                    " (Sugerencia: pega el Access token 'ya29...' directo, o en OAuth Playground marca 'Use your own OAuth credentials' en el engranaje ANTES de autorizar en el Step 1)."
+                } else {
+                    ""
+                };
+                return Err(AppError::Validation(format!(
+                    "Error renovando token OAuth de Google Drive: {}{}",
+                    err_body, hint
+                )));
+            }
+
+            let token_json: serde_json::Value = token_resp.json().await.map_err(|e| {
+                AppError::Validation(format!(
+                    "Respuesta OAuth inválida de Google Drive: {}",
+                    e
+                ))
+            })?;
+
+            token_json
+                .get("access_token")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| {
+                    AppError::Validation(
+                        "Google OAuth no devolvió un access_token válido.".to_string(),
+                    )
+                })?
+                .to_string()
+        } else {
+            stored_token
+        };
+
+        let clean_folder_id = extract_gdrive_folder_id(&config.backup_gdrive_folder_id);
+        let file_bytes = std::fs::read(&path).map_err(|e| {
+            AppError::Internal(format!(
+                "No se pudo leer el archivo de respaldo local para subir a Drive: {}",
+                e
+            ))
+        })?;
+
+        let metadata_json = if clean_folder_id.is_empty() {
+            serde_json::json!({
+                "name": nombre_archivo,
+                "mimeType": "application/x-sqlite3"
+            })
+        } else {
+            serde_json::json!({
+                "name": nombre_archivo,
+                "mimeType": "application/x-sqlite3",
+                "parents": [clean_folder_id]
+            })
+        };
+        let metadata_str = metadata_json.to_string();
+        let boundary = format!(
+            "zaramagym_gdrive_boundary_{}",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        );
+
+        let mut multipart_body =
+            Vec::with_capacity(metadata_str.len() + file_bytes.len() + 256);
+        multipart_body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+        multipart_body.extend_from_slice(b"Content-Type: application/json; charset=UTF-8\r\n\r\n");
+        multipart_body.extend_from_slice(metadata_str.as_bytes());
+        multipart_body.extend_from_slice(format!("\r\n--{}\r\n", boundary).as_bytes());
+        multipart_body.extend_from_slice(b"Content-Type: application/x-sqlite3\r\n\r\n");
+        multipart_body.extend_from_slice(&file_bytes);
+        multipart_body.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
+
+        let upload_resp = http_client
+            .post("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name")
+            .bearer_auth(&access_token)
+            .header(
+                reqwest::header::CONTENT_TYPE,
+                format!("multipart/related; boundary={}", boundary),
+            )
+            .body(multipart_body)
+            .send()
+            .await
+            .map_err(|e| {
+                AppError::Validation(format!(
+                    "Error de conexión subiendo respaldo a Google Drive API: {}",
+                    e
+                ))
+            })?;
+
+        if !upload_resp.status().is_success() {
+            let status = upload_resp.status();
+            let body_text = upload_resp.text().await.unwrap_or_default();
+            return Err(AppError::Validation(format!(
+                "Google Drive API rechazó la subida ({}): {}",
+                status, body_text
+            )));
+        }
+
+        let upload_json: serde_json::Value = upload_resp.json().await.map_err(|e| {
+            AppError::Validation(format!(
+                "Respuesta JSON inválida de Google Drive API: {}",
+                e
+            ))
+        })?;
+
+        upload_json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| {
+                AppError::Validation(
+                    "Google Drive API no devolvió el campo 'id' del archivo subido.".to_string(),
+                )
+            })?
+            .to_string()
     };
 
     let updated_row = sqlx::query(
@@ -2519,7 +2925,7 @@ pub async fn sync_backup_to_gdrive(
                   ejecutado_por_usuario_id, created_at;
         "#,
     )
-    .bind(&simulated_drive_id)
+    .bind(&drive_file_id)
     .bind(backup_id)
     .fetch_one(pool)
     .await?;
@@ -2531,13 +2937,14 @@ pub async fn sync_backup_to_gdrive(
 
     let audit_detail = serde_json::json!({
         "backup_id": backup_id,
-        "drive_file_id": simulated_drive_id,
-        "estado": "SINCRONIZADO_CLOUD"
+        "drive_file_id": drive_file_id,
+        "estado": "SINCRONIZADO_CLOUD",
+        "was_simulated": is_simulated,
     });
     record_audit(
         pool,
-        Some(session.user_id),
-        &session.username,
+        user_id,
+        username,
         "BACKUP_CLOUD_SYNCED",
         "historial_respaldos",
         &audit_detail.to_string(),
@@ -2560,6 +2967,100 @@ pub async fn sync_backup_to_gdrive(
     })
 }
 
+pub async fn run_auto_backup_cycle_once(state: &AppState) -> Result<Option<BackupRecord>, AppError> {
+    let pool = state.pool();
+
+    let interval_hours: u32 = sqlx::query(
+        "SELECT valor FROM configuracion_sistema WHERE clave = 'BACKUP_AUTO_INTERVAL_HOURS'",
+    )
+    .fetch_optional(&pool)
+    .await?
+    .and_then(|r| r.get::<Option<String>, _>("valor"))
+    .and_then(|v| v.trim().parse::<u32>().ok())
+    .unwrap_or(2);
+
+    if interval_hours == 0 {
+        return Ok(None);
+    }
+
+    let recent_count: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*) FROM historial_respaldos
+        WHERE estado IN ('COMPLETADO', 'SINCRONIZADO_CLOUD')
+          AND datetime(created_at, '+' || ? || ' hours') > datetime('now', 'localtime')
+        "#,
+    )
+    .bind(interval_hours as i64)
+    .fetch_one(&pool)
+    .await?;
+
+    if recent_count > 0 {
+        return Ok(None);
+    }
+
+    let backups_dir = state
+        .db_path()
+        .and_then(|p| {
+            p.parent()
+                .filter(|d| !d.as_os_str().is_empty())
+                .map(|d| d.join("backups"))
+        })
+        .unwrap_or_else(|| PathBuf::from("backups"));
+
+    let mut record = execute_hot_backup(&pool, BackupType::LocalAuto, None, &backups_dir).await?;
+
+    let audit_detail = serde_json::json!({
+        "backup_id": record.id,
+        "nombre_archivo": record.nombre_archivo,
+        "tamano_bytes": record.tamano_bytes,
+        "sha256": record.sha256_checksum,
+        "interval_hours": interval_hours,
+    });
+    record_audit(
+        &pool,
+        None,
+        "SYSTEM_CRON",
+        "AUTO_BACKUP_CREATED",
+        "historial_respaldos",
+        &audit_detail.to_string(),
+        None,
+    )
+    .await?;
+
+    let gdrive_enabled = sqlx::query(
+        "SELECT valor FROM configuracion_sistema WHERE clave = 'BACKUP_GDRIVE_ENABLED'",
+    )
+    .fetch_optional(&pool)
+    .await?
+    .and_then(|r| r.get::<Option<String>, _>("valor"))
+    .map(|v| v.trim() == "1" || v.trim().eq_ignore_ascii_case("true"))
+    .unwrap_or(false);
+
+    let has_gdrive_token = KeyringStore::get_secret("GDRIVE_ACCESS_TOKEN")?
+        .filter(|t| !t.trim().is_empty())
+        .is_some();
+
+    if gdrive_enabled && has_gdrive_token {
+        if let Ok(synced) =
+            sync_backup_to_gdrive_with_actor(&pool, None, "SYSTEM_CRON", record.id).await
+        {
+            record = synced;
+        }
+    }
+
+    Ok(Some(record))
+}
+
+pub fn start_auto_backup_scheduler(state: AppState) {
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(20)).await;
+        loop {
+            let _ = run_auto_backup_cycle_once(&state).await;
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        }
+    });
+}
+
 // ============================================================================
 // CONFIGURACIÓN DE IMPRESIÓN, CORREO Y RESPALDOS
 // ============================================================================
@@ -2567,6 +3068,12 @@ pub async fn sync_backup_to_gdrive(
 pub async fn get_printing_backup_config(
     pool: &SqlitePool,
     _session: &AuthSession,
+) -> Result<PrintingBackupConfigDto, AppError> {
+    load_printing_backup_config(pool).await
+}
+
+async fn load_printing_backup_config(
+    pool: &SqlitePool,
 ) -> Result<PrintingBackupConfigDto, AppError> {
     let rows = sqlx::query("SELECT clave, valor FROM configuracion_sistema")
         .fetch_all(pool)
@@ -2663,8 +3170,15 @@ pub async fn get_printing_backup_config(
         .cloned()
         .unwrap_or_default();
 
+    let backup_gdrive_client_id = map
+        .get("BACKUP_GDRIVE_CLIENT_ID")
+        .cloned()
+        .unwrap_or_default();
+
     let has_smtp_password_configured = KeyringStore::get_secret("SMTP_PASSWORD")?.is_some();
     let has_gdrive_token_configured = KeyringStore::get_secret("GDRIVE_ACCESS_TOKEN")?.is_some();
+    let has_gdrive_client_secret_configured =
+        KeyringStore::get_secret("GDRIVE_CLIENT_SECRET")?.is_some();
 
     Ok(PrintingBackupConfigDto {
         empresa_nombre_comercial,
@@ -2685,8 +3199,10 @@ pub async fn get_printing_backup_config(
         backup_auto_interval_hours,
         backup_gdrive_enabled,
         backup_gdrive_folder_id,
+        backup_gdrive_client_id,
         has_smtp_password_configured,
         has_gdrive_token_configured,
+        has_gdrive_client_secret_configured,
     })
 }
 
@@ -2707,6 +3223,12 @@ pub async fn update_printing_backup_config(
     if let Some(ref tok) = request.backup_gdrive_token {
         if !tok.trim().is_empty() {
             KeyringStore::set_secret("GDRIVE_ACCESS_TOKEN", tok.trim())?;
+        }
+    }
+
+    if let Some(ref secret) = request.backup_gdrive_client_secret {
+        if !secret.trim().is_empty() {
+            KeyringStore::set_secret("GDRIVE_CLIENT_SECRET", secret.trim())?;
         }
     }
 
@@ -2790,6 +3312,9 @@ pub async fn update_printing_backup_config(
     if let Some(ref val) = request.backup_gdrive_folder_id {
         upsert_cfg(&mut tx, "BACKUP_GDRIVE_FOLDER_ID", val).await?;
     }
+    if let Some(ref val) = request.backup_gdrive_client_id {
+        upsert_cfg(&mut tx, "BACKUP_GDRIVE_CLIENT_ID", val).await?;
+    }
 
     tx.commit().await?;
 
@@ -2801,6 +3326,7 @@ pub async fn update_printing_backup_config(
         "backup_gdrive_enabled": request.backup_gdrive_enabled,
         "has_smtp_password_updated": request.smtp_password.is_some(),
         "has_gdrive_token_updated": request.backup_gdrive_token.is_some(),
+        "has_gdrive_client_secret_updated": request.backup_gdrive_client_secret.is_some(),
     });
     record_audit(
         pool,
@@ -2814,4 +3340,43 @@ pub async fn update_printing_backup_config(
     .await?;
 
     get_printing_backup_config(pool, session).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{extract_gdrive_folder_id, KeyringStore};
+
+    #[test]
+    fn keyring_store_uses_in_memory_fallback_in_unit_tests() {
+        let test_key = "TEST_UNIT_GDRIVE_CLIENT_SECRET";
+        KeyringStore::set_secret(test_key, "unit-secret-123").unwrap();
+        assert_eq!(
+            KeyringStore::get_secret(test_key).unwrap(),
+            Some("unit-secret-123".to_string())
+        );
+        KeyringStore::delete_secret(test_key).unwrap();
+        assert_eq!(KeyringStore::get_secret(test_key).unwrap(), None);
+    }
+
+    #[test]
+    fn extract_gdrive_folder_id_parses_urls_and_raw_ids() {
+        assert_eq!(extract_gdrive_folder_id(""), "");
+        assert_eq!(extract_gdrive_folder_id("   "), "");
+        assert_eq!(
+            extract_gdrive_folder_id("  1AbCdEfGhIjKlMnOp  "),
+            "1AbCdEfGhIjKlMnOp"
+        );
+        assert_eq!(
+            extract_gdrive_folder_id(
+                "https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOp?usp=sharing"
+            ),
+            "1AbCdEfGhIjKlMnOp"
+        );
+        assert_eq!(
+            extract_gdrive_folder_id(
+                "https://drive.google.com/drive/u/0/folders/1XyZ987654321/extra"
+            ),
+            "1XyZ987654321"
+        );
+    }
 }

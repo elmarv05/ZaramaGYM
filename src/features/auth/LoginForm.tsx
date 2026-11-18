@@ -160,6 +160,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             <button
               type="button"
               onClick={() => setTheme('light')}
+              aria-label="Modo claro"
               aria-pressed={theme === 'light'}
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
                 theme === 'light'
@@ -173,6 +174,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             <button
               type="button"
               onClick={() => setTheme('dark')}
+              aria-label="Modo oscuro"
               aria-pressed={theme === 'dark'}
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
                 theme === 'dark'

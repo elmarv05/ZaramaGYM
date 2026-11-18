@@ -877,8 +877,16 @@ async fn test_cp_prn_12_secrets_keyring_and_gdrive_sync() {
     .unwrap();
 
     // 1. Actualizar configuración y guardar credenciales secretas
+    let prev_smtp = printing_backup_service::KeyringStore::get_secret("SMTP_PASSWORD").unwrap();
+    let prev_gdrive_token =
+        printing_backup_service::KeyringStore::get_secret("GDRIVE_ACCESS_TOKEN").unwrap();
+    let prev_gdrive_secret =
+        printing_backup_service::KeyringStore::get_secret("GDRIVE_CLIENT_SECRET").unwrap();
+
     let secret_smtp = "SmtpAppPassword123#";
     let secret_gdrive = "ya29.a0ARrda8-GdriveToken-Secured";
+    let gdrive_client_id = "1234567890-zaramagym.apps.googleusercontent.com";
+    let secret_gdrive_client = "GOCSPX-TestClientSecret987";
 
     let cfg_updated = printing_backup_service::update_printing_backup_config(
         &state.pool(),
@@ -904,6 +912,8 @@ async fn test_cp_prn_12_secrets_keyring_and_gdrive_sync() {
             backup_gdrive_enabled: Some(true),
             backup_gdrive_folder_id: Some("1AbCdEfGhIjKlMnOpQrStUvWxYz".into()),
             backup_gdrive_token: Some(secret_gdrive.into()),
+            backup_gdrive_client_id: Some(gdrive_client_id.into()),
+            backup_gdrive_client_secret: Some(secret_gdrive_client.into()),
         },
     )
     .await
@@ -911,16 +921,24 @@ async fn test_cp_prn_12_secrets_keyring_and_gdrive_sync() {
 
     assert!(cfg_updated.has_smtp_password_configured);
     assert!(cfg_updated.has_gdrive_token_configured);
+    assert!(cfg_updated.has_gdrive_client_secret_configured);
+    assert_eq!(cfg_updated.backup_gdrive_client_id, gdrive_client_id);
+    assert_eq!(
+        printing_backup_service::KeyringStore::get_secret("GDRIVE_CLIENT_SECRET").unwrap(),
+        Some(secret_gdrive_client.to_string())
+    );
 
     // 2. Verificar que los secretos NUNCA se guardaron en configuracion_sistema
     let db_pass_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM configuracion_sistema WHERE valor = ? OR clave LIKE '%PASSWORD%' OR clave LIKE '%TOKEN%'",
+        "SELECT COUNT(*) FROM configuracion_sistema WHERE valor = ? OR valor = ? OR valor = ? OR clave LIKE '%PASSWORD%' OR clave LIKE '%TOKEN%' OR clave LIKE '%SECRET%'",
     )
     .bind(secret_smtp)
+    .bind(secret_gdrive)
+    .bind(secret_gdrive_client)
     .fetch_one(&state.pool())
     .await
     .unwrap();
-    assert_eq!(db_pass_count, 0, "Las contraseñas o tokens nunca deben almacenarse en plano en la base de datos");
+    assert_eq!(db_pass_count, 0, "Las contraseñas, tokens o client secrets nunca deben almacenarse en plano en la base de datos");
 
     // 3. Crear backup y sincronizarlo con Google Drive
     let backup_dir = temp_dir.path().join("gdrive_backups");
@@ -967,6 +985,26 @@ async fn test_cp_prn_12_secrets_keyring_and_gdrive_sync() {
         matches!(rbac_series_err, Err(AppError::Forbidden(_))),
         "Recepcionista no debe tener permiso para modificar series de comprobantes"
     );
+
+    // 5. Restaurar estado previo del llavero para no dejar residuos de pruebas
+    match prev_smtp {
+        Some(v) => printing_backup_service::KeyringStore::set_secret("SMTP_PASSWORD", &v).unwrap(),
+        None => printing_backup_service::KeyringStore::delete_secret("SMTP_PASSWORD").unwrap(),
+    }
+    match prev_gdrive_token {
+        Some(v) => {
+            printing_backup_service::KeyringStore::set_secret("GDRIVE_ACCESS_TOKEN", &v).unwrap()
+        }
+        None => printing_backup_service::KeyringStore::delete_secret("GDRIVE_ACCESS_TOKEN").unwrap(),
+    }
+    match prev_gdrive_secret {
+        Some(v) => {
+            printing_backup_service::KeyringStore::set_secret("GDRIVE_CLIENT_SECRET", &v).unwrap()
+        }
+        None => {
+            printing_backup_service::KeyringStore::delete_secret("GDRIVE_CLIENT_SECRET").unwrap()
+        }
+    }
 }
 
 // ============================================================================
@@ -1014,6 +1052,8 @@ async fn test_ticket_word_wrap_separated_ruc_and_accumulated_financial_pdf() {
             backup_gdrive_enabled: None,
             backup_gdrive_folder_id: None,
             backup_gdrive_token: None,
+            backup_gdrive_client_id: None,
+            backup_gdrive_client_secret: None,
         },
     )
     .await
@@ -1117,5 +1157,55 @@ async fn test_ticket_word_wrap_separated_ruc_and_accumulated_financial_pdf() {
     assert!(
         acc_str.contains("100.00"),
         "El PDF acumulado debe incluir el ingreso histórico de la venta registrada"
+    );
+}
+
+// ============================================================================
+// AUTO-RESPALDO PROGRAMADO (run_auto_backup_cycle_once)
+// ============================================================================
+#[tokio::test]
+async fn test_auto_backup_cycle_once_creates_and_skips_within_interval() {
+    let temp_dir = tempfile::tempdir().expect("Error creando directorio temporal");
+    let db_path = temp_dir.path().join("test_auto_backup.db");
+    let db_url = format!("sqlite://{}", db_path.to_string_lossy());
+
+    let pool = init_db(&db_url)
+        .await
+        .expect("Error inicializando SQLite de pruebas");
+    let state = AppState::new_with_db_path(pool.clone(), db_path);
+
+    // 1. Sin respaldos recientes, debe crear un auto-respaldo LocalAuto en temp_dir/backups
+    let first_run = printing_backup_service::run_auto_backup_cycle_once(&state)
+        .await
+        .expect("El primer ciclo de auto-respaldo no debe fallar");
+    let record = first_run.expect("Debe crear un auto-respaldo cuando no hay respaldos recientes");
+
+    assert_eq!(record.tipo_respaldo, BackupType::LocalAuto);
+    assert_eq!(record.estado, BackupStatus::Completado);
+    assert_eq!(record.ejecutado_por_usuario_id, None);
+    assert!(
+        Path::new(&record.ruta_local).exists(),
+        "El archivo de auto-respaldo debe existir en disco"
+    );
+    assert!(
+        Path::new(&record.ruta_local).starts_with(temp_dir.path().join("backups")),
+        "El auto-respaldo debe guardarse dentro de <db_dir>/backups"
+    );
+
+    let audit_cron_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM auditoria_logs WHERE accion = 'AUTO_BACKUP_CREATED' AND username = 'SYSTEM_CRON'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(audit_cron_count, 1);
+
+    // 2. Al llamarlo inmediatamente de nuevo antes de cumplirse el intervalo, debe retornar None
+    let second_run = printing_backup_service::run_auto_backup_cycle_once(&state)
+        .await
+        .expect("El segundo ciclo de auto-respaldo no debe fallar");
+    assert!(
+        second_run.is_none(),
+        "No debe generar un segundo respaldo antes de cumplirse BACKUP_AUTO_INTERVAL_HOURS"
     );
 }

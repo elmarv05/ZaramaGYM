@@ -5,6 +5,7 @@
 // ============================================================================
 
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '../../components/primitives/Icon';
 import { normalizePairingCode, playWebAudioTone, validatePairingCode } from '../../domain/lan';
 import { useWebcamQrScanner } from '../../hooks/useWebcamQrScanner';
@@ -194,12 +195,12 @@ export const MobileScannerSimulatorModal: React.FC<MobileScannerSimulatorModalPr
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="simulator-modal-title"
-      className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain zg-modal-backdrop"
     >
       <div className="relative w-full max-w-sm my-auto flex flex-col items-center">
         {/* Barra superior de controles del simulador */}
@@ -634,4 +635,10 @@ export const MobileScannerSimulatorModal: React.FC<MobileScannerSimulatorModalPr
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 };

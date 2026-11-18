@@ -50,7 +50,8 @@ pub fn run() {
                     let _ = services::lan_service::start_lan_server(&state).await;
                 }
 
-                app.manage(state);
+                app.manage(state.clone());
+                services::printing_backup_service::start_auto_backup_scheduler(state);
             });
 
             Ok(())
@@ -161,6 +162,7 @@ pub fn run() {
             commands::create_local_backup,
             commands::list_backup_history,
             commands::verify_backup_integrity,
+            commands::pick_export_folder,
             commands::export_database_file,
             commands::restore_database,
             commands::sync_backup_to_gdrive,

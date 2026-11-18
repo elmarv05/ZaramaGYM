@@ -159,8 +159,10 @@ export interface PrintingBackupConfigDto {
   backup_auto_interval_hours: number;
   backup_gdrive_enabled: boolean;
   backup_gdrive_folder_id: string;
+  backup_gdrive_client_id?: string;
   has_smtp_password_configured: boolean;
   has_gdrive_token_configured: boolean;
+  has_gdrive_client_secret_configured?: boolean;
 }
 
 export interface UpdatePrintingBackupConfigRequest {
@@ -183,5 +185,7 @@ export interface UpdatePrintingBackupConfigRequest {
   backup_auto_interval_hours?: number | null;
   backup_gdrive_enabled?: boolean | null;
   backup_gdrive_folder_id?: string | null;
+  backup_gdrive_client_id?: string | null;
+  backup_gdrive_client_secret?: string | null;
   backup_gdrive_token?: string | null;
 }

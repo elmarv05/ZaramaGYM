@@ -1026,6 +1026,92 @@ async fn handle_lan_scan(
     }
 }
 
+// ============================================================================
+// RESPONDER mDNS RFC 6762 (UDP 5353 - Multicast 224.0.0.251)
+// ============================================================================
+
+/// Parsea una consulta mDNS (RFC 6762) y verifica si el primer QNAME coincide
+/// con `target_hostname` para registro tipo A (1) o ANY (255).
+pub fn parse_mdns_query_for_host(packet: &[u8], target_hostname: &str) -> Option<u16> {
+    if packet.len() < 12 {
+        return None;
+    }
+
+    let tx_id = u16::from_be_bytes([packet[0], packet[1]]);
+    let flags = u16::from_be_bytes([packet[2], packet[3]]);
+    let qdcount = u16::from_be_bytes([packet[4], packet[5]]);
+
+    // Ignorar respuestas (QR=1) o paquetes sin preguntas
+    if (flags & 0x8000) != 0 || qdcount == 0 {
+        return None;
+    }
+
+    let mut pos = 12usize;
+    let mut labels: Vec<String> = Vec::new();
+    loop {
+        let len = *packet.get(pos)? as usize;
+        pos += 1;
+        if len == 0 {
+            break;
+        }
+        if (len & 0xC0) != 0 || pos + len > packet.len() {
+            return None;
+        }
+        let label = std::str::from_utf8(&packet[pos..pos + len]).ok()?;
+        labels.push(label.to_string());
+        pos += len;
+    }
+
+    if labels.is_empty() || pos + 2 > packet.len() {
+        return None;
+    }
+
+    let qname = labels.join(".");
+    let target = target_hostname.trim().trim_end_matches('.');
+    if !qname.eq_ignore_ascii_case(target) {
+        return None;
+    }
+
+    let qtype = u16::from_be_bytes([packet[pos], packet[pos + 1]]);
+    if qtype == 1 || qtype == 255 {
+        Some(tx_id)
+    } else {
+        None
+    }
+}
+
+/// Construye un paquete de respuesta mDNS autoritativa con un registro A (RFC 6762).
+pub fn build_mdns_a_record_packet(tx_id: u16, hostname: &str, ip: Ipv4Addr) -> Vec<u8> {
+    let mut packet = Vec::with_capacity(64);
+
+    // Header DNS: ID, Flags (0x8400 = QR + AA), QDCOUNT=0, ANCOUNT=1, NSCOUNT=0, ARCOUNT=0
+    packet.extend_from_slice(&tx_id.to_be_bytes());
+    packet.extend_from_slice(&0x8400u16.to_be_bytes());
+    packet.extend_from_slice(&0u16.to_be_bytes());
+    packet.extend_from_slice(&1u16.to_be_bytes());
+    packet.extend_from_slice(&0u16.to_be_bytes());
+    packet.extend_from_slice(&0u16.to_be_bytes());
+
+    // NAME en etiquetas DNS (ej. \x07sistema\x05local\x00)
+    let clean_host = hostname.trim().trim_end_matches('.');
+    for label in clean_host.split('.').filter(|l| !l.is_empty()) {
+        let bytes = label.as_bytes();
+        let len = bytes.len().min(63);
+        packet.push(len as u8);
+        packet.extend_from_slice(&bytes[..len]);
+    }
+    packet.push(0x00);
+
+    // TYPE = 0x0001 (A), CLASS = 0x8001 (IN + cache-flush), TTL = 120s, RDLENGTH = 4, RDATA = IPv4
+    packet.extend_from_slice(&0x0001u16.to_be_bytes());
+    packet.extend_from_slice(&0x8001u16.to_be_bytes());
+    packet.extend_from_slice(&120u32.to_be_bytes());
+    packet.extend_from_slice(&4u16.to_be_bytes());
+    packet.extend_from_slice(&ip.octets());
+
+    packet
+}
+
 /// Arranca el listener TCP dual HTTPS (TLS rustls) + HTTP en el puerto configurado
 pub async fn start_lan_server(state: &AppState) -> Result<(), AppError> {
     if *state.lan_server_running.read().await {
@@ -1060,6 +1146,65 @@ pub async fn start_lan_server(state: &AppState) -> Result<(), AppError> {
         let mut run_guard = state.lan_server_running.write().await;
         *run_guard = true;
     }
+
+    // Responder mDNS RFC 6762 sobre UDP 5353 (multicast 224.0.0.251)
+    let mdns_hostname_cfg = sqlx::query(
+        "SELECT valor FROM configuracion_sistema WHERE clave = 'LAN_MDNS_HOSTNAME'",
+    )
+    .fetch_optional(&state.pool())
+    .await
+    .ok()
+    .flatten()
+    .and_then(|r| r.get::<Option<String>, _>("valor"))
+    .map(|s| s.trim().to_string())
+    .filter(|s| !s.is_empty())
+    .unwrap_or_else(|| "sistema.local".to_string());
+
+    let primary_ipv4: Ipv4Addr = detect_primary_ip()
+        .parse::<Ipv4Addr>()
+        .unwrap_or(Ipv4Addr::LOCALHOST);
+    let state_for_mdns = state.clone();
+
+    tokio::spawn(async move {
+        let socket = match tokio::net::UdpSocket::bind("0.0.0.0:5353").await {
+            Ok(s) => s,
+            Err(_) => match tokio::net::UdpSocket::bind("0.0.0.0:0").await {
+                Ok(s) => s,
+                Err(_) => return,
+            },
+        };
+
+        let multicast_ip = Ipv4Addr::new(224, 0, 0, 251);
+        let multicast_dest = SocketAddr::from((multicast_ip, 5353));
+        let _ = socket.join_multicast_v4(multicast_ip, Ipv4Addr::UNSPECIFIED);
+
+        let announcement = build_mdns_a_record_packet(0, &mdns_hostname_cfg, primary_ipv4);
+        let _ = socket.send_to(&announcement, multicast_dest).await;
+        let mut last_announce = tokio::time::Instant::now();
+        let mut buf = [0u8; 1500];
+
+        while *state_for_mdns.lan_server_running.read().await {
+            if let Ok(Ok((len, peer_addr))) = tokio::time::timeout(
+                std::time::Duration::from_secs(15),
+                socket.recv_from(&mut buf),
+            )
+            .await
+            {
+                if let Some(tx_id) = parse_mdns_query_for_host(&buf[..len], &mdns_hostname_cfg) {
+                    let resp = build_mdns_a_record_packet(tx_id, &mdns_hostname_cfg, primary_ipv4);
+                    let _ = socket.send_to(&resp, multicast_dest).await;
+                    if peer_addr.port() != 5353 {
+                        let _ = socket.send_to(&resp, peer_addr).await;
+                    }
+                }
+            }
+
+            if last_announce.elapsed() >= std::time::Duration::from_secs(30) {
+                let _ = socket.send_to(&announcement, multicast_dest).await;
+                last_announce = tokio::time::Instant::now();
+            }
+        }
+    });
 
     let router = create_lan_router(state.clone());
     let state_clone = state.clone();
@@ -1629,4 +1774,65 @@ pub async fn mobile_scan_qr(
     .await?;
 
     Ok(evaluation)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_mdns_a_record_packet, parse_mdns_query_for_host};
+    use std::net::Ipv4Addr;
+
+    #[test]
+    fn mdns_parse_and_build_a_record_roundtrip() {
+        // Consulta mDNS estándar para "Sistema.LOCAL" tipo A (0x0001) con tx_id = 0x1234
+        let mut query = Vec::new();
+        query.extend_from_slice(&0x1234u16.to_be_bytes()); // TX ID
+        query.extend_from_slice(&0x0000u16.to_be_bytes()); // Flags: standard query
+        query.extend_from_slice(&1u16.to_be_bytes()); // QDCOUNT = 1
+        query.extend_from_slice(&0u16.to_be_bytes()); // ANCOUNT = 0
+        query.extend_from_slice(&0u16.to_be_bytes()); // NSCOUNT = 0
+        query.extend_from_slice(&0u16.to_be_bytes()); // ARCOUNT = 0
+        query.push(7);
+        query.extend_from_slice(b"Sistema");
+        query.push(5);
+        query.extend_from_slice(b"LOCAL");
+        query.push(0);
+        query.extend_from_slice(&0x0001u16.to_be_bytes()); // QTYPE = A
+        query.extend_from_slice(&0x0001u16.to_be_bytes()); // QCLASS = IN
+
+        assert_eq!(
+            parse_mdns_query_for_host(&query, "sistema.local."),
+            Some(0x1234)
+        );
+        assert_eq!(
+            parse_mdns_query_for_host(&query, "otro.local"),
+            None
+        );
+
+        // Respuesta no debe ser aceptada como consulta
+        let ip = Ipv4Addr::new(192, 168, 1, 42);
+        let resp = build_mdns_a_record_packet(0x1234, "sistema.local", ip);
+        assert_eq!(parse_mdns_query_for_host(&resp, "sistema.local"), None);
+
+        // Validar cabecera y payload de respuesta autoritativa RFC 6762
+        assert_eq!(&resp[0..2], &0x1234u16.to_be_bytes());
+        assert_eq!(&resp[2..4], &0x8400u16.to_be_bytes());
+        assert_eq!(&resp[4..6], &0u16.to_be_bytes());
+        assert_eq!(&resp[6..8], &1u16.to_be_bytes());
+        let expected_qname = b"\x07sistema\x05local\x00";
+        assert_eq!(&resp[12..12 + expected_qname.len()], expected_qname);
+        let tail = &resp[12 + expected_qname.len()..];
+        assert_eq!(&tail[0..2], &0x0001u16.to_be_bytes()); // TYPE A
+        assert_eq!(&tail[2..4], &0x8001u16.to_be_bytes()); // CLASS IN + cache-flush
+        assert_eq!(&tail[4..8], &120u32.to_be_bytes()); // TTL 120s
+        assert_eq!(&tail[8..10], &4u16.to_be_bytes()); // RDLENGTH 4
+        assert_eq!(&tail[10..14], &[192, 168, 1, 42]); // RDATA IPv4
+
+        // Consulta tipo ANY (255) también debe coincidir
+        let qtype_offset = 12 + expected_qname.len();
+        query[qtype_offset..qtype_offset + 2].copy_from_slice(&255u16.to_be_bytes());
+        assert_eq!(
+            parse_mdns_query_for_host(&query, "sistema.local"),
+            Some(0x1234)
+        );
+    }
 }

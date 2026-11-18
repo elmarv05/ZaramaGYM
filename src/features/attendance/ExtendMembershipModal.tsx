@@ -4,7 +4,8 @@
 // Ubicación: src/features/attendance/ExtendMembershipModal.tsx
 // ============================================================================
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '../../components/primitives/Icon';
 import {
   calculateExtendedExpirationDate,
@@ -63,6 +64,15 @@ export const ExtendMembershipModal: React.FC<ExtendMembershipModalProps> = ({
       : (selectedMembership?.plan_nombre?.toUpperCase().includes('PASE') ||
          selectedMembership?.plan_nombre?.toUpperCase().includes('DIARIO'));
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isLoading) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isLoading, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,14 +114,14 @@ export const ExtendMembershipModal: React.FC<ExtendMembershipModalProps> = ({
     }
   };
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="extend-membership-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-contain zg-modal-backdrop"
     >
-      <div className="bg-surface border border-border rounded-2xl max-w-lg w-full p-6 shadow-xl flex flex-col gap-5">
+      <div className="bg-surface border border-border rounded-2xl max-w-lg w-full my-auto max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-3rem)] overflow-y-auto overscroll-contain p-6 shadow-xl flex flex-col gap-5 zg-modal-panel">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-xl bg-canvas-subtle text-accent-indigo border border-border flex items-center justify-center">
@@ -158,7 +168,7 @@ export const ExtendMembershipModal: React.FC<ExtendMembershipModalProps> = ({
                 setSelectedId(Number(e.target.value));
                 setError(null);
               }}
-              className="w-full px-3 py-2.5 rounded-xl border border-border bg-canvas text-xs font-semibold text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand"
+              className="w-full px-3 py-2.5 rounded-xl border border-border bg-canvas text-xs font-semibold text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
             >
               {memberships.length === 0 && (
                 <option value="">No hay membresías activas disponibles</option>
@@ -197,7 +207,7 @@ export const ExtendMembershipModal: React.FC<ExtendMembershipModalProps> = ({
                   setDiasOtorgados(Math.max(1, parseInt(e.target.value, 10) || 1));
                   setError(null);
                 }}
-                className="w-full px-3.5 py-2 rounded-xl border border-border bg-canvas text-sm font-black text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand"
+                className="w-full px-3.5 py-2 rounded-xl border border-border bg-canvas text-sm font-black text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </div>
 
@@ -226,7 +236,7 @@ export const ExtendMembershipModal: React.FC<ExtendMembershipModalProps> = ({
                 setMotivo(e.target.value);
                 setError(null);
               }}
-              className="w-full px-3 py-2 rounded-xl border border-border bg-canvas text-xs text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand"
+              className="w-full px-3 py-2 rounded-xl border border-border bg-canvas text-xs text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
             />
             <span className="text-[11px] text-txt-muted">
               Caracteres: {motivo.trim().length} / 5 requeridos
@@ -264,4 +274,10 @@ export const ExtendMembershipModal: React.FC<ExtendMembershipModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 };

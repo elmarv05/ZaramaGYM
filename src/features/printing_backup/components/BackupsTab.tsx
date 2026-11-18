@@ -21,6 +21,7 @@ import {
 } from '../../../components/primitives/Table';
 import { fileToBase64, formatBytes } from '../../../domain/printingBackup';
 import { normalizeAppError } from '../../../services/ipc/client';
+import { printingBackupIpc } from '../../../services/ipc/printingBackupIpc';
 import {
   BackupIntegrityReport,
   BackupRecord,
@@ -90,6 +91,7 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
   // Form State para Exportación Local
   const [exportPath, setExportPath] = useState('');
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isPickingFolder, setIsPickingFolder] = useState(false);
 
   // State para Modal Crítico de Restauración (Semáforo Rojo)
   const restoreFileInputId = useId();
@@ -113,10 +115,15 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
   const [gdriveFolderId, setGdriveFolderId] = useState(
     config?.backup_gdrive_folder_id || ''
   );
+  const [gdriveClientId, setGdriveClientId] = useState(
+    config?.backup_gdrive_client_id || ''
+  );
+  const [gdriveClientSecret, setGdriveClientSecret] = useState('');
   const [gdriveToken, setGdriveToken] = useState('');
   const [intervalHours, setIntervalHours] = useState(
     config?.backup_auto_interval_hours || 2
   );
+  const [isCloudGuideOpen, setIsCloudGuideOpen] = useState(false);
 
   // Modal para Reporte de Integridad
   const [selectedReportBackupId, setSelectedReportBackupId] = useState<
@@ -127,6 +134,7 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
     if (config) {
       setGdriveEnabled(config.backup_gdrive_enabled);
       setGdriveFolderId(config.backup_gdrive_folder_id);
+      setGdriveClientId(config.backup_gdrive_client_id || '');
       setIntervalHours(config.backup_auto_interval_hours);
     }
   }, [config]);
@@ -164,6 +172,22 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
     }
   };
 
+  const handlePickExportFolder = async () => {
+    setIsPickingFolder(true);
+    try {
+      const folder = await printingBackupIpc.pickExportFolder();
+      if (folder && folder.trim()) {
+        const cleanFolder = folder.trim().replace(/[\\/]+$/, '');
+        const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        setExportPath(`${cleanFolder}\\zaramagym_export_${today}.db`);
+      }
+    } catch {
+      // Ignorar si el usuario cancela o si el entorno de test no abre diálogo
+    } finally {
+      setIsPickingFolder(false);
+    }
+  };
+
   const handleExportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!exportPath.trim()) return;
@@ -188,6 +212,10 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
         backup_gdrive_enabled: gdriveEnabled,
         backup_gdrive_folder_id: gdriveFolderId,
         backup_auto_interval_hours: Number(intervalHours) || 2,
+        backup_gdrive_client_id: gdriveClientId.trim(),
+        backup_gdrive_client_secret: gdriveClientSecret.trim()
+          ? gdriveClientSecret.trim()
+          : null,
         backup_gdrive_token: gdriveToken.trim() ? gdriveToken.trim() : null,
       });
 
@@ -196,6 +224,7 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
         message: 'Configuración de respaldos en Google Drive guardada exitosamente.',
       });
       setGdriveToken('');
+      setGdriveClientSecret('');
     } catch {
       // Error manejado en hook
     }
@@ -429,14 +458,22 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
           onSubmit={handleSaveDriveConfig}
           className="lg:col-span-6 bg-surface p-5 rounded-xl border border-border shadow-sm flex flex-col gap-3"
         >
-          <div className="flex items-center justify-between border-b border-border pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
             <div className="flex items-center gap-2">
               <Icon name="cloud" className="w-5 h-5 text-brand" aria-hidden="true" />
               <h3 className="font-bold text-sm text-txt-primary">
                 Sincronización Cloud (Google Drive)
               </h3>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {config?.has_gdrive_client_secret_configured && (
+                <Badge variant="success" size="sm">
+                  <span className="inline-flex items-center gap-1">
+                    <Icon name="lock" className="w-3 h-3" aria-hidden="true" />
+                    Secret en Keyring
+                  </span>
+                </Badge>
+              )}
               {config?.has_gdrive_token_configured && (
                 <Badge variant="success" size="sm">
                   <span className="inline-flex items-center gap-1">
@@ -448,6 +485,15 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
               <Badge variant={gdriveEnabled ? 'success' : 'default'} size="sm">
                 {gdriveEnabled ? 'Cloud Activo' : 'Desactivado'}
               </Badge>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCloudGuideOpen(true)}
+                leftIcon={<Icon name="info" className="w-3.5 h-3.5" aria-hidden="true" />}
+              >
+                Guía Paso a Paso Cloud
+              </Button>
             </div>
           </div>
 
@@ -487,6 +533,29 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
               onChange={(e) => setIntervalHours(Number(e.target.value))}
               disabled={isActionLoading}
               placeholder="2"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Client ID OAuth (Google Cloud)"
+              value={gdriveClientId}
+              onChange={(e) => setGdriveClientId(e.target.value)}
+              disabled={!gdriveEnabled || isActionLoading}
+              placeholder="123456789-abc.apps.googleusercontent.com"
+            />
+
+            <Input
+              label="Client Secret OAuth (Keyring)"
+              type="password"
+              value={gdriveClientSecret}
+              onChange={(e) => setGdriveClientSecret(e.target.value)}
+              disabled={!gdriveEnabled || isActionLoading}
+              placeholder={
+                config?.has_gdrive_client_secret_configured
+                  ? '•••••••• (Secret protegido en OS Keyring)'
+                  : 'GOCSPX-...'
+              }
             />
           </div>
 
@@ -667,18 +736,36 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         title="Exportar Base de Datos a Ruta Local / USB"
-        description="Genera una copia limpia e independiente del archivo SQLite en el destino que especifiques."
+        description="Genera una copia limpia e independiente del archivo SQLite en la carpeta o memoria USB que elijas."
         size="md"
       >
         <form onSubmit={handleExportSubmit} className="flex flex-col gap-4">
-          <Input
-            label="Ruta de Destino (Directorio o Archivo)"
-            value={exportPath}
-            onChange={(e) => setExportPath(e.target.value)}
-            placeholder="Ej. D:\Respaldos_ZaramaGYM o C:\Backups"
-            required
-            hint="Si indicas una carpeta existente, se generará con nombre automático con timestamp."
-          />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Input
+                  label="Ruta de Destino (Carpeta o Archivo .db)"
+                  value={exportPath}
+                  onChange={(e) => setExportPath(e.target.value)}
+                  placeholder="Ej. D:\Respaldos_ZaramaGYM\zaramagym_export.db"
+                  required
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handlePickExportFolder}
+                isLoading={isPickingFolder}
+                disabled={isActionLoading}
+                leftIcon={<Icon name="directory" className="w-4 h-4" aria-hidden="true" />}
+              >
+                Examinar Carpeta...
+              </Button>
+            </div>
+            <p className="text-[11px] text-txt-muted">
+              Haz clic en <strong>Examinar Carpeta...</strong> para elegir visualmente una carpeta de tu PC o memoria USB, o escribe la ruta directamente.
+            </p>
+          </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-border">
             <Button
@@ -937,6 +1024,83 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal: Guía Paso a Paso Cloud (Google Drive OAuth & Keyring) */}
+      <Modal
+        isOpen={isCloudGuideOpen}
+        onClose={() => setIsCloudGuideOpen(false)}
+        title="Guía Paso a Paso: Google Drive Cloud y OAuth"
+        description="Configura tus respaldos automáticos en la nube con almacenamiento cifrado en Windows."
+        size="lg"
+        footer={
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => setIsCloudGuideOpen(false)}
+          >
+            Entendido
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-3 text-xs">
+          <div className="p-3 rounded-lg bg-canvas-subtle border border-border flex flex-col gap-1">
+            <div className="flex items-center gap-2 font-bold text-txt-primary">
+              <span className="w-5 h-5 rounded-full bg-brand text-brand-text flex items-center justify-center text-[11px] shrink-0">
+                1
+              </span>
+              <span>Obtener el Folder ID en Google Drive</span>
+            </div>
+            <p className="text-txt-secondary pl-7">
+              Abre <span className="font-mono">drive.google.com</span>, crea una carpeta llamada{' '}
+              <strong>Backups-ZaramaGYM</strong> y ábrela. Copia el código alfanumérico al final de la URL (después de{' '}
+              <span className="font-mono">/folders/</span>) y pégalo en <strong>ID de Carpeta Google Drive</strong>.
+            </p>
+          </div>
+
+          <div className="p-3 rounded-lg bg-canvas-subtle border border-border flex flex-col gap-1">
+            <div className="flex items-center gap-2 font-bold text-txt-primary">
+              <span className="w-5 h-5 rounded-full bg-brand text-brand-text flex items-center justify-center text-[11px] shrink-0">
+                2
+              </span>
+              <span>Generar Client ID y Client Secret en Google Cloud</span>
+            </div>
+            <p className="text-txt-secondary pl-7">
+              Ingresa a <span className="font-mono">console.cloud.google.com</span>, crea un proyecto, habilita la{' '}
+              <strong>Google Drive API</strong>, configura la pantalla de consentimiento OAuth y crea un{' '}
+              <strong>ID de cliente de OAuth</strong> (tipo Aplicación de escritorio o Web). Copia el{' '}
+              <strong>Client ID</strong> (<span className="font-mono">...apps.googleusercontent.com</span>) y el{' '}
+              <strong>Client Secret</strong> (<span className="font-mono">GOCSPX-...</span>).
+            </p>
+          </div>
+
+          <div className="p-3 rounded-lg bg-canvas-subtle border border-border flex flex-col gap-1">
+            <div className="flex items-center gap-2 font-bold text-txt-primary">
+              <span className="w-5 h-5 rounded-full bg-brand text-brand-text flex items-center justify-center text-[11px] shrink-0">
+                3
+              </span>
+              <span>Obtener el Token OAuth2</span>
+            </div>
+            <p className="text-txt-secondary pl-7">
+              Autoriza el permiso <span className="font-mono">https://www.googleapis.com/auth/drive.file</span> usando tus credenciales de cliente (por ejemplo desde Google OAuth 2.0 Playground) y pega el token obtenido en{' '}
+              <strong>Token de Acceso OAuth / API Key Google Drive</strong>.
+            </p>
+          </div>
+
+          <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 flex items-start gap-2.5">
+            <Icon name="lock" className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="flex flex-col gap-0.5">
+              <span className="font-bold">
+                Paso 4: Cifrado en el Administrador de Credenciales de Windows (keyring)
+              </span>
+              <p className="opacity-90">
+                Tanto el <strong>Client Secret</strong> como el <strong>Token OAuth</strong> nunca se almacenan en texto plano en la base de datos SQLite; ZaramaGYM los cifra y protege en el{' '}
+                <strong>Administrador de Credenciales de Windows (keyring)</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
       </Modal>
     </div>
   );

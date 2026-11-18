@@ -4,7 +4,8 @@
 // Ubicación: src/features/attendance/ManualCheckInModal.tsx
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '../../components/primitives/Icon';
 import { ClientListItem } from '../../types/entity';
 import { CheckInInput } from '../../types/attendance';
@@ -29,6 +30,15 @@ export const ManualCheckInModal: React.FC<ManualCheckInModalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [notas, setNotas] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isLoading) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isLoading, onClose]);
 
   if (!isOpen) return null;
 
@@ -82,14 +92,14 @@ export const ManualCheckInModal: React.FC<ManualCheckInModalProps> = ({
     }
   };
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="manual-checkin-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-contain zg-modal-backdrop"
     >
-      <div className="bg-surface border border-border rounded-2xl max-w-lg w-full p-6 shadow-xl flex flex-col gap-5">
+      <div className="bg-surface border border-border rounded-2xl max-w-lg w-full my-auto max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-3rem)] overflow-y-auto overscroll-contain p-6 shadow-xl flex flex-col gap-5 zg-modal-panel">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-canvas-subtle text-accent-indigo border border-border flex items-center justify-center">
@@ -139,7 +149,7 @@ export const ManualCheckInModal: React.FC<ManualCheckInModalProps> = ({
                 setDocumento(e.target.value);
                 setLocalError(null);
               }}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-canvas text-sm font-semibold text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-canvas text-sm font-semibold text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
 
@@ -158,7 +168,7 @@ export const ManualCheckInModal: React.FC<ManualCheckInModalProps> = ({
                   setSearchTerm(e.target.value);
                   setSelectedClientId(null);
                 }}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-canvas text-xs text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-canvas text-xs text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
               />
               {filteredClients.length > 0 && (
                 <ul className="max-h-36 overflow-y-auto border border-border rounded-lg bg-surface divide-y divide-border">
@@ -190,7 +200,7 @@ export const ManualCheckInModal: React.FC<ManualCheckInModalProps> = ({
               placeholder="Ej. Dejó su credencial en el auto"
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-canvas text-xs text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-canvas text-xs text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
 
@@ -225,4 +235,10 @@ export const ManualCheckInModal: React.FC<ManualCheckInModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 };

@@ -345,4 +345,62 @@ describe('Component: EntityDirectoryView & Modales Especializados (Slice 2)', ()
       expect.stringContaining('https://wa.me/51911223344')
     );
   });
+
+  it('permite abrir el perfil interactivo desde la Flash Card, editar datos inline y alternar entre Tarjetas y Tabla', async () => {
+    const user = userEvent.setup();
+    const handleUpdateClient = vi.fn().mockResolvedValue({
+      ...mockClients[0],
+      nombres: 'Roberto Carlos',
+    });
+
+    render(
+      <EntityDirectoryView
+        currentSession={mockSession}
+        clients={mockClients}
+        suppliers={mockSuppliers}
+        persons={mockPersons}
+        isLoading={false}
+        isActionLoading={false}
+        error={null}
+        onRefresh={vi.fn()}
+        onUpdateClient={handleUpdateClient}
+      />
+    );
+
+    // Por defecto está en vista Tarjetas (Flash Cards)
+    expect(screen.getByRole('button', { name: /^tarjetas$/i })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    // Abrir el perfil completo desde la Flash Card
+    await user.click(screen.getByRole('button', { name: /ver perfil de roberto mendoza/i }));
+
+    expect(
+      screen.getByRole('dialog', { name: /perfil de roberto mendoza/i })
+    ).toBeInTheDocument();
+
+    // Activar modo edición inline dentro del perfil
+    await user.click(screen.getByRole('button', { name: /editar perfil/i }));
+    const nombresInput = screen.getByLabelText(/^nombres/i);
+    await user.clear(nombresInput);
+    await user.type(nombresInput, 'Roberto Carlos');
+
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    await waitFor(() => {
+      expect(handleUpdateClient).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          nombres: 'Roberto Carlos',
+        })
+      );
+    });
+
+    // Alternar a vista Tabla
+    await user.click(screen.getByRole('button', { name: /^tabla$/i }));
+    expect(screen.getByRole('button', { name: /^tabla$/i })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  });
 });

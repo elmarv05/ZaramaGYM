@@ -727,7 +727,7 @@ export const App: React.FC = () => {
         <div
           aria-hidden="true"
           onClick={() => setIsMobileSidebarOpen(false)}
-          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-xs md:hidden zg-modal-backdrop"
+          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm md:hidden zg-modal-backdrop"
         />
       )}
 
@@ -1099,8 +1099,8 @@ export const App: React.FC = () => {
         </header>
 
         {/* 3. PANTALLA PRINCIPAL (MAIN CONTENT — SCROLL INDEPENDIENTE) */}
-        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain bg-canvas">
-          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 flex flex-col gap-5 min-w-0 min-h-full">
+        <main className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain bg-canvas">
+          <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 flex flex-col gap-5 min-w-0 min-h-full">
             {authError && !session.is_locked && (
             <Alert
               variant="warning"
@@ -1142,7 +1142,7 @@ export const App: React.FC = () => {
 
           {/* Vistas según Rol y Pestaña */}
           {!isRecepcionista ? (
-            <div key={activeTab} className="zg-view-enter flex-1 flex flex-col">
+            <div key={activeTab} className="zg-view-enter w-full min-w-0 flex-1 flex flex-col">
               {activeTab === 'home' && (
                 <HomeDashboardView
                   session={session}
@@ -1156,7 +1156,7 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'directory' && (
-                <section aria-labelledby="directorio-heading">
+                <section aria-labelledby="directorio-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="directorio-heading" className="text-lg font-bold text-txt-primary">
                       Directorio Segmentado (Clientes, Proveedores y Personas)
@@ -1197,7 +1197,7 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'users' && canAccessUsers && (
-                <section aria-labelledby="usuarios-heading">
+                <section aria-labelledby="usuarios-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="usuarios-heading" className="text-lg font-bold text-txt-primary">
                       {isSupervisor
@@ -1228,7 +1228,7 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'audit' && canAccessAudit && (
-                <section aria-labelledby="auditoria-heading">
+                <section aria-labelledby="auditoria-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="auditoria-heading" className="text-lg font-bold text-txt-primary">
                       Bitácora Universal de Auditoría
@@ -1291,7 +1291,7 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'catalog' && (
-                <section aria-labelledby="catalogo-heading">
+                <section aria-labelledby="catalogo-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="catalogo-heading" className="text-lg font-bold text-txt-primary">
                       Catálogo de Planes, Inventario de Productos y Mermas
@@ -1305,7 +1305,7 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'pos' && (
-                <section aria-labelledby="pos-heading">
+                <section aria-labelledby="pos-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="pos-heading" className="text-lg font-bold text-txt-primary">
                       Caja, Punto de Venta (POS) y Cuentas por Cobrar
@@ -1319,7 +1319,7 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'attendance' && (
-                <section aria-labelledby="attendance-heading">
+                <section aria-labelledby="attendance-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="attendance-heading" className="text-lg font-bold text-txt-primary">
                       Control de Asistencias, Semáforo Inteligente y Recuperación de Días
@@ -1341,7 +1341,7 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'lan' && (
-                <section aria-labelledby="lan-heading">
+                <section aria-labelledby="lan-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="lan-heading" className="text-lg font-bold text-txt-primary">
                       Servidor Wi-Fi Local, Certificado CA y Escáner Móvil (iOS / Android)
@@ -1355,13 +1355,13 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'finance' && (
-                <section aria-labelledby="finance-heading">
+                <section aria-labelledby="finance-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <FinanceView currentSession={session} initialTab={financeInitialTab} />
                 </section>
               )}
 
               {activeTab === 'printing_backup' && (
-                <section aria-labelledby="printing-backup-heading">
+                <section aria-labelledby="printing-backup-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <PrintingBackupView
                     currentSession={session}
                     initialTab={printingInitialTab}
@@ -1383,7 +1383,7 @@ export const App: React.FC = () => {
             </div>
           ) : (
             /* Rol RECEPCIONISTA */
-            <div key={activeTab} className="zg-view-enter flex-1 flex flex-col">
+            <div key={activeTab} className="zg-view-enter w-full min-w-0 flex-1 flex flex-col">
               {activeTab === 'home' ? (
                 <HomeDashboardView
                   session={session}
@@ -1395,7 +1395,7 @@ export const App: React.FC = () => {
                   }}
                 />
               ) : activeTab === 'pos' ? (
-                <section aria-labelledby="pos-heading-recep">
+                <section aria-labelledby="pos-heading-recep" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="pos-heading-recep" className="text-lg font-bold text-txt-primary">
                       Caja, Punto de Venta (POS) y Cuentas por Cobrar
@@ -1407,7 +1407,7 @@ export const App: React.FC = () => {
                   <PosView currentSession={session} initialTab={posInitialTab} />
                 </section>
               ) : activeTab === 'attendance' ? (
-                <section aria-labelledby="attendance-heading-recep">
+                <section aria-labelledby="attendance-heading-recep" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2
                       id="attendance-heading-recep"
@@ -1430,7 +1430,7 @@ export const App: React.FC = () => {
                   />
                 </section>
               ) : activeTab === 'lan' ? (
-                <section aria-labelledby="lan-heading-recep">
+                <section aria-labelledby="lan-heading-recep" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="lan-heading-recep" className="text-lg font-bold text-txt-primary">
                       Servidor Wi-Fi Local, Certificado CA y Escáner Móvil (iOS / Android)

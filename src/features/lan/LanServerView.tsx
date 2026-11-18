@@ -8,7 +8,9 @@ import React, { useEffect, useState } from 'react';
 import { ModuleSkeleton } from '../../components/primitives/Skeleton';
 import QRCode from 'qrcode';
 import { Badge } from '../../components/primitives/Badge';
+import { Button } from '../../components/primitives/Button';
 import { Icon } from '../../components/primitives/Icon';
+import { Modal } from '../../components/primitives/Modal';
 import {
   canManageLanDevices,
   formatScannerUrl,
@@ -25,6 +27,9 @@ export interface LanServerViewProps {
   currentSession: AuthSession;
   clients?: ClientListItem[];
 }
+
+const FIREWALL_POWERSHELL_CMD =
+  'New-NetFirewallRule -DisplayName "ZaramaGYM - Servidor Escaner Movil LAN (TCP 3443)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3443 -RemoteAddress LocalSubnet -Profile Private,Domain,Public -Enabled True';
 
 export const LanServerView: React.FC<LanServerViewProps> = ({
   currentSession,
@@ -58,6 +63,21 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
   const [selectedIp, setSelectedIp] = useState('');
   const [pairingProtocol, setPairingProtocol] = useState<'https' | 'http'>('https');
   const [overrideQrDataUrl, setOverrideQrDataUrl] = useState<string>('');
+  const [isFirewallGuideOpen, setIsFirewallGuideOpen] = useState(false);
+  const [copiedFirewallCmd, setCopiedFirewallCmd] = useState(false);
+
+  // Copiar comando PowerShell al portapapeles
+  const handleCopyFirewallCmd = async () => {
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(FIREWALL_POWERSHELL_CMD);
+      }
+      setCopiedFirewallCmd(true);
+      setTimeout(() => setCopiedFirewallCmd(false), 2000);
+    } catch {
+      // Ignorar si clipboard no está disponible
+    }
+  };
 
   // Copiar URL al portapapeles
   const handleCopyUrl = async (url: string) => {
@@ -234,6 +254,15 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
 
           {/* Botones de Acción Rápida de Servidor */}
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsFirewallGuideOpen(true)}
+              className="text-xs font-bold text-txt-primary bg-canvas-subtle hover:bg-surface-hover border border-border px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+            >
+              <Icon name="shield" className="w-4 h-4 text-brand" />
+              <span>Guía Firewall Windows (:3443)</span>
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -707,6 +736,73 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
         initialPairingCode={simulatorInitialCode}
         clients={clients}
       />
+
+      {/* ==================================================================== */}
+      {/* 5. MODAL DIDÁCTICO: GUÍA FIREWALL WINDOWS (:3443)                    */}
+      {/* ==================================================================== */}
+      <Modal
+        isOpen={isFirewallGuideOpen}
+        onClose={() => setIsFirewallGuideOpen(false)}
+        title="Guía Firewall Windows (:3443)"
+        description="Habilita el tráfico TCP entrante en tu red local para que los celulares puedan conectarse al escáner móvil."
+        size="lg"
+        footer={
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => setIsFirewallGuideOpen(false)}
+          >
+            Cerrar Guía
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-4 text-xs">
+          <div className="p-3.5 rounded-xl bg-canvas-subtle border border-border flex flex-col gap-1.5">
+            <div className="flex items-center gap-2 font-bold text-txt-primary">
+              <Icon name="terminal" className="w-4 h-4 text-brand" aria-hidden="true" />
+              <span>Opción 1 (Automática en 1 clic)</span>
+            </div>
+            <p className="text-txt-secondary leading-relaxed">
+              Ejecuta como Administrador el archivo{' '}
+              <code className="font-mono font-semibold text-txt-primary bg-surface px-1.5 py-0.5 rounded border border-border">
+                scripts/Instalar-Regla-Firewall-LAN.bat
+              </code>{' '}
+              incluido en la carpeta del proyecto para crear automáticamente la regla de entrada en el Firewall de Windows.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-canvas-subtle border border-border flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 font-bold text-txt-primary">
+                <Icon name="shield" className="w-4 h-4 text-brand" aria-hidden="true" />
+                <span>Opción 2 (Comando PowerShell como Administrador)</span>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleCopyFirewallCmd}
+                leftIcon={
+                  <Icon
+                    name={copiedFirewallCmd ? 'check' : 'terminal'}
+                    className="w-3.5 h-3.5"
+                    aria-hidden="true"
+                  />
+                }
+              >
+                {copiedFirewallCmd ? 'Comando Copiado' : 'Copiar Comando PowerShell'}
+              </Button>
+            </div>
+            <pre className="p-3 rounded-lg bg-surface border border-border font-mono text-[11px] text-txt-primary whitespace-pre-wrap break-all select-all">
+              {FIREWALL_POWERSHELL_CMD}
+            </pre>
+            <p className="text-[11px] text-txt-muted">
+              Abre PowerShell como Administrador, pega el comando anterior y presiona Enter. Esto habilita únicamente el puerto TCP 3443 para tu subred local.
+            </p>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -133,14 +133,22 @@ describe('Slice 9 Parte A: Design System, Primitivos y Fluidez Numérica', () =>
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it('Modal aplica clases zg-modal-backdrop y zg-modal-panel', () => {
-      const { baseElement } = render(
-        <Modal isOpen={true} title="Prueba Transición">
-          <p>Contenido</p>
-        </Modal>
+    it('Modal aplica clases zg-modal-backdrop y zg-modal-panel y se monta vía Portal en document.body', () => {
+      const { container, baseElement } = render(
+        <div style={{ transform: 'translateY(0)' }} data-testid="transformed-parent">
+          <Modal isOpen={true} title="Prueba Portal Viewport">
+            <p>Contenido visible sobre viewport</p>
+          </Modal>
+        </div>
       );
       expect(baseElement.querySelector('.zg-modal-backdrop')).not.toBeNull();
       expect(baseElement.querySelector('.zg-modal-panel')).not.toBeNull();
+
+      const transformedParent = container.querySelector('[data-testid="transformed-parent"]');
+      const dialog = screen.getByRole('dialog');
+      expect(transformedParent?.contains(dialog)).toBe(false);
+      expect(dialog.parentElement).toBe(document.body);
+      expect(baseElement.querySelector('.zg-modal-panel')?.className).toContain('my-auto');
     });
 
     it('ConfirmDialog renderiza estética Semáforo y ejecuta onConfirm y onClose', () => {

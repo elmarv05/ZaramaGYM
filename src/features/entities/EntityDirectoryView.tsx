@@ -54,9 +54,25 @@ import { ClientFormModal } from './ClientFormModal';
 import { SupplierFormModal } from './SupplierFormModal';
 import { PersonFormModal } from './PersonFormModal';
 import { CompanyFormModal } from './CompanyFormModal';
+import {
+  EntityFlashCard,
+  EntityFlashCardEmptyState,
+  EntityFlashCardGrid,
+  EntityFlashCardSkeletonGrid,
+} from './EntityFlashCard';
+import { EntityProfileModal, ProfileEntitySubject } from './EntityProfileModal';
 import { useEntities } from '../../hooks/useEntities';
 
 export type DirectorySubTab = 'clients' | 'suppliers' | 'persons' | 'companies';
+export type DirectoryViewMode = 'cards' | 'table';
+
+function getEntityInitials(firstName: string, lastName?: string | null): string {
+  const f = firstName.trim();
+  const l = (lastName || '').trim();
+  if (!f && !l) return 'ZG';
+  if (f && l) return `${f[0]}${l[0]}`.toUpperCase();
+  return f.slice(0, 2).toUpperCase();
+}
 
 export interface EntityDirectoryViewProps {
   currentSession: AuthSession;
@@ -160,6 +176,9 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
   }, [initialSubTab]);
   const [searchTerm, setSearchTerm] = useState('');
   const [soloActivos, setSoloActivos] = useState(false);
+  const [viewMode, setViewMode] = useState<DirectoryViewMode>('cards');
+  const [selectedProfileSubject, setSelectedProfileSubject] =
+    useState<ProfileEntitySubject | null>(null);
   const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(null);
   const [exportFeedback, setExportFeedback] = useState<{
     variant: 'success' | 'danger';
@@ -279,6 +298,27 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
     if (propCompanies !== undefined) return propCompanies;
     return hook.companies;
   }, [propCompanies, hook.companies]);
+
+  const activeProfileSubject = useMemo<ProfileEntitySubject | null>(() => {
+    if (!selectedProfileSubject) return null;
+    if (selectedProfileSubject.kind === 'client') {
+      const fresh = clientsList.find((c) => c.id === selectedProfileSubject.data.id);
+      return fresh ? { kind: 'client', data: fresh } : selectedProfileSubject;
+    }
+    if (selectedProfileSubject.kind === 'supplier') {
+      const fresh = suppliersList.find((s) => s.id === selectedProfileSubject.data.id);
+      return fresh ? { kind: 'supplier', data: fresh } : selectedProfileSubject;
+    }
+    if (selectedProfileSubject.kind === 'person') {
+      const fresh = personsList.find((p) => p.id === selectedProfileSubject.data.id);
+      return fresh ? { kind: 'person', data: fresh } : selectedProfileSubject;
+    }
+    if (selectedProfileSubject.kind === 'company') {
+      const fresh = companiesList.find((c) => c.id === selectedProfileSubject.data.id);
+      return fresh ? { kind: 'company', data: fresh } : selectedProfileSubject;
+    }
+    return selectedProfileSubject;
+  }, [selectedProfileSubject, clientsList, suppliersList, personsList, companiesList]);
 
   const isLoading = propIsLoading ?? hook.isLoading;
   const isActionLoading = propIsActionLoading ?? hook.isActionLoading;
@@ -571,6 +611,42 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
             <span>Solo activos</span>
           </label>
 
+          {/* Selector de Vista: Flash Cards (Tarjetas) vs Tabla */}
+          <div
+            role="group"
+            aria-label="Modo de visualización del directorio"
+            className="inline-flex items-center rounded-lg bg-canvas-subtle p-0.5 border border-border"
+          >
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              aria-pressed={viewMode === 'cards'}
+              title="Vista de tarjetas interactivas"
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                viewMode === 'cards'
+                  ? 'bg-surface text-txt-primary shadow-xs border border-border'
+                  : 'text-txt-muted hover:text-txt-primary'
+              }`}
+            >
+              <Icon name="dashboard" className="w-3.5 h-3.5" />
+              <span>Tarjetas</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              aria-pressed={viewMode === 'table'}
+              title="Vista de tabla clásica"
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                viewMode === 'table'
+                  ? 'bg-surface text-txt-primary shadow-xs border border-border'
+                  : 'text-txt-muted hover:text-txt-primary'
+              }`}
+            >
+              <Icon name="menu" className="w-3.5 h-3.5" />
+              <span>Tabla</span>
+            </button>
+          </div>
+
           {activeSubTab === 'clients' && (
             <div
               role="group"
@@ -637,145 +713,112 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
       )}
 
       {/* ==================================================================== */}
-      {/* SUB-VISTA 1: CLIENTES */}
+      {/* SUB-VISTA 1: CLIENTES (FLASH CARDS O TABLA) */}
       {/* ==================================================================== */}
-      {activeSubTab === 'clients' && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Documento</TableHead>
-              <TableHead>Socio / Cliente</TableHead>
-              <TableHead>Contacto de Emergencia</TableHead>
-              <TableHead>Notas Médicas</TableHead>
-              <TableHead>Peso Actual</TableHead>
-              <TableHead>Credencial QR</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {isLoading ? (
-              <TableLoadingSkeleton colSpan={8} rows={4} />
-            ) : filteredClients.length === 0 ? (
-              <TableEmptyState
-                colSpan={8}
-                title={searchTerm ? 'No se encontraron clientes' : 'No hay clientes registrados'}
-                description={
-                  searchTerm
-                    ? 'Prueba con otro término de búsqueda o limpia los filtros.'
-                    : 'Inscribe al primer cliente del gimnasio para emitir su credencial digital.'
-                }
-                action={
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => {
-                      setEditingClient(null);
-                      setIsClientModalOpen(true);
-                    }}
-                  >
-                    Inscribir Cliente
-                  </Button>
-                }
-              />
-            ) : (
-              filteredClients.map((client) => {
+      {activeSubTab === 'clients' &&
+        (viewMode === 'cards' ? (
+          isLoading ? (
+            <EntityFlashCardSkeletonGrid count={6} />
+          ) : filteredClients.length === 0 ? (
+            <EntityFlashCardEmptyState
+              icon="qr"
+              title={searchTerm ? 'No se encontraron clientes' : 'No hay clientes registrados'}
+              description={
+                searchTerm
+                  ? 'Prueba con otro término de búsqueda o limpia los filtros.'
+                  : 'Inscribe al primer cliente del gimnasio para emitir su credencial digital.'
+              }
+              action={
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setEditingClient(null);
+                    setIsClientModalOpen(true);
+                  }}
+                >
+                  Inscribir Cliente
+                </Button>
+              }
+            />
+          ) : (
+            <EntityFlashCardGrid>
+              {filteredClients.map((client) => {
                 const isCurrentPerson =
                   currentSession && client.persona_id === currentSession.persona_id;
+                const fullName = `${client.nombres} ${client.apellidos}`.trim();
 
                 return (
-                  <TableRow key={client.id}>
-                    <TableCell className="font-mono text-xs text-txt-secondary">
-                      {client.tipo_documento}: {client.numero_documento}
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-txt-primary">
-                          {client.nombres} {client.apellidos}
-                        </span>
-                        {client.telefono && (
-                          <span className="text-xs text-txt-muted">{client.telefono}</span>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    <TableCell>
-                      {(client as any).nombre_contacto_emergencia ||
-                      (client as any).numero_contacto_emergencia ? (
-                        <div className="flex flex-col text-xs">
-                          <span className="font-medium text-txt-primary">
-                            {(client as any).nombre_contacto_emergencia || 'Emergencia'}
+                  <EntityFlashCard
+                    key={client.id}
+                    entityTag="CLIENTE"
+                    entityTagVariant="success"
+                    secondaryBadges={
+                      client.notas_medicas
+                        ? [
+                            {
+                              label: 'Atención Médica',
+                              variant: 'warning',
+                              title: client.notas_medicas,
+                            },
+                          ]
+                        : []
+                    }
+                    isActive={client.estado_activo}
+                    avatarInitials={getEntityInitials(client.nombres, client.apellidos)}
+                    title={fullName}
+                    documentLabel={`${client.tipo_documento}: ${client.numero_documento}`}
+                    secondaryCodeChip={
+                      <span className="px-2 py-0.5 rounded bg-status-info-bg text-status-info border border-sky-300/70 font-mono text-[11px] font-semibold inline-flex items-center gap-1">
+                        <Icon name="qr" className="w-3 h-3" />
+                        <span>{client.codigo_qr_token}</span>
+                      </span>
+                    }
+                    phone={client.telefono}
+                    email={client.email}
+                    metrics={[
+                      {
+                        label: 'Peso Actual',
+                        value: <span>{formatKg(client.peso_actual_kg)}</span>,
+                        action: (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedWeightClient(client);
+                              setIsWeightModalOpen(true);
+                            }}
+                            className="text-[11px] font-semibold text-brand hover:underline"
+                          >
+                            Historial
+                          </button>
+                        ),
+                      },
+                      {
+                        label: 'Emergencia',
+                        value: (
+                          <span className="truncate">
+                            {client.nombre_contacto_emergencia || 'Sin registrar'}
                           </span>
-                          <span className="text-txt-muted font-mono">
-                            {(client as any).numero_contacto_emergencia || 'Sin número'}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-txt-muted">Sin registrar</span>
-                      )}
-                    </TableCell>
-
-                    <TableCell>
-                      {(client as any).notas_medicas ? (
-                        <Badge variant="warning" size="sm" title={(client as any).notas_medicas}>
-                          Atención Médica
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-txt-muted">Ninguna</span>
-                      )}
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-txt-primary text-xs">
-                          {formatKg(client.peso_actual_kg)}
-                        </span>
+                        ),
+                        subValue: client.numero_contacto_emergencia || undefined,
+                      },
+                    ]}
+                    quickActions={
+                      <>
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => {
-                            setSelectedWeightClient(client);
-                            setIsWeightModalOpen(true);
+                            setSelectedQrClient(client);
+                            setIsQrModalOpen(true);
                           }}
-                          className="text-[11px] px-2 py-0.5 text-brand hover:underline"
+                          title={`Abrir credencial QR (${client.codigo_qr_token})`}
+                          aria-label={`Ver credencial QR de ${client.nombres} (${client.codigo_qr_token})`}
+                          leftIcon={<Icon name="qr" className="w-3.5 h-3.5 text-brand" />}
                         >
-                          Historial
-                        </Button>
-                      </div>
-                    </TableCell>
-
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedQrClient(client);
-                          setIsQrModalOpen(true);
-                        }}
-                        title={`Abrir credencial QR (${client.codigo_qr_token})`}
-                        aria-label={`Ver credencial QR de ${client.nombres} (${client.codigo_qr_token})`}
-                        leftIcon={<Icon name="qr" className="w-4 h-4 text-brand shrink-0" />}
-                        className="border-brand/30 hover:border-brand hover:bg-brand/10 gap-2"
-                      >
-                        <span className="font-semibold text-xs text-txt-primary whitespace-nowrap">
                           Ver QR
-                        </span>
-                        <span className="font-mono text-[10px] text-txt-muted bg-canvas-subtle px-1.5 py-0.5 rounded border border-border">
-                          {client.codigo_qr_token}
-                        </span>
-                      </Button>
-                    </TableCell>
+                        </Button>
 
-                    <TableCell>
-                      <Badge variant={client.estado_activo ? 'success' : 'danger'} size="sm">
-                        {client.estado_activo ? 'Activo' : 'Inactivo'}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -802,116 +845,275 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                         >
                           {client.estado_activo ? 'Desactivar' : 'Activar'}
                         </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                      </>
+                    }
+                    onOpenProfile={() =>
+                      setSelectedProfileSubject({ kind: 'client', data: client })
+                    }
+                  />
                 );
-              })
-            )}
-          </TableBody>
-        </Table>
-      )}
+              })}
+            </EntityFlashCardGrid>
+          )
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Documento</TableHead>
+                <TableHead>Socio / Cliente</TableHead>
+                <TableHead>Contacto de Emergencia</TableHead>
+                <TableHead>Notas Médicas</TableHead>
+                <TableHead>Peso Actual</TableHead>
+                <TableHead>Credencial QR</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {isLoading ? (
+                <TableLoadingSkeleton colSpan={8} rows={4} />
+              ) : filteredClients.length === 0 ? (
+                <TableEmptyState
+                  colSpan={8}
+                  title={searchTerm ? 'No se encontraron clientes' : 'No hay clientes registrados'}
+                  description={
+                    searchTerm
+                      ? 'Prueba con otro término de búsqueda o limpia los filtros.'
+                      : 'Inscribe al primer cliente del gimnasio para emitir su credencial digital.'
+                  }
+                  action={
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        setEditingClient(null);
+                        setIsClientModalOpen(true);
+                      }}
+                    >
+                      Inscribir Cliente
+                    </Button>
+                  }
+                />
+              ) : (
+                filteredClients.map((client) => {
+                  const isCurrentPerson =
+                    currentSession && client.persona_id === currentSession.persona_id;
+
+                  return (
+                    <TableRow key={client.id}>
+                      <TableCell className="font-mono text-xs text-txt-secondary">
+                        {client.tipo_documento}: {client.numero_documento}
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-txt-primary">
+                            {client.nombres} {client.apellidos}
+                          </span>
+                          {client.telefono && (
+                            <span className="text-xs text-txt-muted">{client.telefono}</span>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        {(client as any).nombre_contacto_emergencia ||
+                        (client as any).numero_contacto_emergencia ? (
+                          <div className="flex flex-col text-xs">
+                            <span className="font-medium text-txt-primary">
+                              {(client as any).nombre_contacto_emergencia || 'Emergencia'}
+                            </span>
+                            <span className="text-txt-muted font-mono">
+                              {(client as any).numero_contacto_emergencia || 'Sin número'}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-txt-muted">Sin registrar</span>
+                        )}
+                      </TableCell>
+
+                      <TableCell>
+                        {(client as any).notas_medicas ? (
+                          <Badge variant="warning" size="sm" title={(client as any).notas_medicas}>
+                            Atención Médica
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-txt-muted">Ninguna</span>
+                        )}
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-txt-primary text-xs">
+                            {formatKg(client.peso_actual_kg)}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedWeightClient(client);
+                              setIsWeightModalOpen(true);
+                            }}
+                            className="text-[11px] px-2 py-0.5 text-brand hover:underline"
+                          >
+                            Historial
+                          </Button>
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedQrClient(client);
+                            setIsQrModalOpen(true);
+                          }}
+                          title={`Abrir credencial QR (${client.codigo_qr_token})`}
+                          aria-label={`Ver credencial QR de ${client.nombres} (${client.codigo_qr_token})`}
+                          leftIcon={<Icon name="qr" className="w-4 h-4 text-brand shrink-0" />}
+                          className="border-brand/30 hover:border-brand hover:bg-brand/10 gap-2"
+                        >
+                          <span className="font-semibold text-xs text-txt-primary whitespace-nowrap">
+                            Ver QR
+                          </span>
+                          <span className="font-mono text-[10px] text-txt-muted bg-canvas-subtle px-1.5 py-0.5 rounded border border-border">
+                            {client.codigo_qr_token}
+                          </span>
+                        </Button>
+                      </TableCell>
+
+                      <TableCell>
+                        <Badge variant={client.estado_activo ? 'success' : 'danger'} size="sm">
+                          {client.estado_activo ? 'Activo' : 'Inactivo'}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setSelectedProfileSubject({ kind: 'client', data: client })
+                            }
+                          >
+                            Ver perfil
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingClient(client);
+                              setIsClientModalOpen(true);
+                            }}
+                          >
+                            Editar
+                          </Button>
+
+                          <Button
+                            variant={client.estado_activo ? 'outline' : 'secondary'}
+                            size="sm"
+                            disabled={Boolean(isCurrentPerson) || isActionLoading}
+                            onClick={() =>
+                              handleToggleClientActive(client.id, client.estado_activo)
+                            }
+                            className={
+                              client.estado_activo
+                                ? 'text-status-danger border-red-300'
+                                : 'text-status-success border-emerald-300'
+                            }
+                          >
+                            {client.estado_activo ? 'Desactivar' : 'Activar'}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        ))}
 
       {/* ==================================================================== */}
       {/* SUB-VISTA 2: PROVEEDORES & EMPRESAS */}
       {/* ==================================================================== */}
-      {activeSubTab === 'suppliers' && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Documento / RUC</TableHead>
-              <TableHead>Nombre o Razón Social</TableHead>
-              <TableHead>Rubro / Categoría</TableHead>
-              <TableHead>Contacto de Referencia</TableHead>
-              <TableHead>Teléfono</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {isLoading ? (
-              <TableLoadingSkeleton colSpan={8} rows={4} />
-            ) : filteredSuppliers.length === 0 ? (
-              <TableEmptyState
-                colSpan={8}
-                title={searchTerm ? 'No se encontraron proveedores' : 'No hay proveedores registrados'}
-                description={
-                  searchTerm
-                    ? 'Intenta con otro término o limpia los filtros.'
-                    : 'Registra a empresas o personas naturales proveedoras del gimnasio.'
-                }
-                action={
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => {
-                      setEditingSupplier(null);
-                      setIsSupplierModalOpen(true);
-                    }}
-                  >
-                    Nuevo Proveedor
-                  </Button>
-                }
-              />
-            ) : (
-              filteredSuppliers.map((supplier) => {
+      {activeSubTab === 'suppliers' &&
+        (viewMode === 'cards' ? (
+          isLoading ? (
+            <EntityFlashCardSkeletonGrid count={6} />
+          ) : filteredSuppliers.length === 0 ? (
+            <EntityFlashCardEmptyState
+              icon="truck"
+              title={
+                searchTerm ? 'No se encontraron proveedores' : 'No hay proveedores registrados'
+              }
+              description={
+                searchTerm
+                  ? 'Intenta con otro término o limpia los filtros.'
+                  : 'Registra a empresas o personas naturales proveedoras del gimnasio.'
+              }
+              action={
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setEditingSupplier(null);
+                    setIsSupplierModalOpen(true);
+                  }}
+                >
+                  Nuevo Proveedor
+                </Button>
+              }
+            />
+          ) : (
+            <EntityFlashCardGrid>
+              {filteredSuppliers.map((supplier) => {
                 const isEmpresa = supplier.tipo_proveedor === 'EMPRESA';
                 return (
-                  <TableRow key={supplier.id}>
-                    <TableCell>
-                      <Badge variant={isEmpresa ? 'default' : 'info'} size="sm">
-                        <span className="inline-flex items-center gap-1">
-                          <Icon name={isEmpresa ? 'building' : 'user'} className="w-3 h-3" />
-                          <span>{isEmpresa ? 'EMPRESA' : 'NATURAL'}</span>
+                  <EntityFlashCard
+                    key={supplier.id}
+                    entityTag="PROVEEDOR"
+                    entityTagVariant="info"
+                    secondaryBadges={[
+                      {
+                        label: isEmpresa ? 'EMPRESA' : 'NATURAL',
+                        variant: isEmpresa ? 'default' : 'info',
+                        icon: isEmpresa ? 'building' : 'user',
+                      },
+                    ]}
+                    isActive={supplier.estado_activo}
+                    avatarIcon={isEmpresa ? 'building' : 'truck'}
+                    title={supplier.nombre_o_razon_social}
+                    subtitleTag={
+                      supplier.nombre_comercial ? (
+                        <span className="text-txt-muted">
+                          Comercial: {supplier.nombre_comercial}
                         </span>
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell className="font-mono text-xs text-txt-secondary">
-                      {supplier.tipo_documento}: {supplier.numero_documento}
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-txt-primary">
-                          {supplier.nombre_o_razon_social}
-                        </span>
-                        {supplier.nombre_comercial && (
-                          <span className="text-xs text-txt-muted">
-                            Comercial: {supplier.nombre_comercial}
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    <TableCell>
-                      <span className="text-xs font-medium text-txt-secondary">
-                        {supplier.rubro_o_categoria || '—'}
-                      </span>
-                    </TableCell>
-
-                    <TableCell>
-                      <span className="text-xs text-txt-muted">
-                        {supplier.contacto_referencia || '—'}
-                      </span>
-                    </TableCell>
-
-                    <TableCell>
-                      <span className="text-xs font-mono text-txt-secondary">
-                        {supplier.telefono || '—'}
-                      </span>
-                    </TableCell>
-
-                    <TableCell>
-                      <Badge variant={supplier.estado_activo ? 'success' : 'danger'} size="sm">
-                        {supplier.estado_activo ? 'Activo' : 'Inactivo'}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      ) : undefined
+                    }
+                    documentLabel={`${supplier.tipo_documento}: ${supplier.numero_documento}`}
+                    phone={supplier.telefono}
+                    email={supplier.email}
+                    metrics={[
+                      {
+                        label: 'Rubro / Categoría',
+                        value: (
+                          <span className="truncate">{supplier.rubro_o_categoria || '—'}</span>
+                        ),
+                      },
+                      {
+                        label: 'Contacto Ref.',
+                        value: (
+                          <span className="truncate">{supplier.contacto_referencia || '—'}</span>
+                        ),
+                      },
+                    ]}
+                    quickActions={
+                      <>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -938,127 +1140,258 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                         >
                           {supplier.estado_activo ? 'Desactivar' : 'Activar'}
                         </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                      </>
+                    }
+                    onOpenProfile={() =>
+                      setSelectedProfileSubject({ kind: 'supplier', data: supplier })
+                    }
+                  />
                 );
-              })
-            )}
-          </TableBody>
-        </Table>
-      )}
+              })}
+            </EntityFlashCardGrid>
+          )
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Documento / RUC</TableHead>
+                <TableHead>Nombre o Razón Social</TableHead>
+                <TableHead>Rubro / Categoría</TableHead>
+                <TableHead>Contacto de Referencia</TableHead>
+                <TableHead>Teléfono</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {isLoading ? (
+                <TableLoadingSkeleton colSpan={8} rows={4} />
+              ) : filteredSuppliers.length === 0 ? (
+                <TableEmptyState
+                  colSpan={8}
+                  title={
+                    searchTerm ? 'No se encontraron proveedores' : 'No hay proveedores registrados'
+                  }
+                  description={
+                    searchTerm
+                      ? 'Intenta con otro término o limpia los filtros.'
+                      : 'Registra a empresas o personas naturales proveedoras del gimnasio.'
+                  }
+                  action={
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        setEditingSupplier(null);
+                        setIsSupplierModalOpen(true);
+                      }}
+                    >
+                      Nuevo Proveedor
+                    </Button>
+                  }
+                />
+              ) : (
+                filteredSuppliers.map((supplier) => {
+                  const isEmpresa = supplier.tipo_proveedor === 'EMPRESA';
+                  return (
+                    <TableRow key={supplier.id}>
+                      <TableCell>
+                        <Badge variant={isEmpresa ? 'default' : 'info'} size="sm">
+                          <span className="inline-flex items-center gap-1">
+                            <Icon name={isEmpresa ? 'building' : 'user'} className="w-3 h-3" />
+                            <span>{isEmpresa ? 'EMPRESA' : 'NATURAL'}</span>
+                          </span>
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell className="font-mono text-xs text-txt-secondary">
+                        {supplier.tipo_documento}: {supplier.numero_documento}
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-txt-primary">
+                            {supplier.nombre_o_razon_social}
+                          </span>
+                          {supplier.nombre_comercial && (
+                            <span className="text-xs text-txt-muted">
+                              Comercial: {supplier.nombre_comercial}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        <span className="text-xs font-medium text-txt-secondary">
+                          {supplier.rubro_o_categoria || '—'}
+                        </span>
+                      </TableCell>
+
+                      <TableCell>
+                        <span className="text-xs text-txt-muted">
+                          {supplier.contacto_referencia || '—'}
+                        </span>
+                      </TableCell>
+
+                      <TableCell>
+                        <span className="text-xs font-mono text-txt-secondary">
+                          {supplier.telefono || '—'}
+                        </span>
+                      </TableCell>
+
+                      <TableCell>
+                        <Badge variant={supplier.estado_activo ? 'success' : 'danger'} size="sm">
+                          {supplier.estado_activo ? 'Activo' : 'Inactivo'}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setSelectedProfileSubject({ kind: 'supplier', data: supplier })
+                            }
+                          >
+                            Ver perfil
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingSupplier(supplier);
+                              setIsSupplierModalOpen(true);
+                            }}
+                          >
+                            Editar
+                          </Button>
+
+                          <Button
+                            variant={supplier.estado_activo ? 'outline' : 'secondary'}
+                            size="sm"
+                            disabled={isActionLoading}
+                            onClick={() =>
+                              handleToggleSupplierActive(supplier.id, supplier.estado_activo)
+                            }
+                            className={
+                              supplier.estado_activo
+                                ? 'text-status-danger border-red-300'
+                                : 'text-status-success border-emerald-300'
+                            }
+                          >
+                            {supplier.estado_activo ? 'Desactivar' : 'Activar'}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        ))}
 
       {/* ==================================================================== */}
       {/* SUB-VISTA 3: BASE MAESTRA DE PERSONAS */}
       {/* ==================================================================== */}
-      {activeSubTab === 'persons' && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Documento</TableHead>
-              <TableHead>Nombres y Apellidos</TableHead>
-              <TableHead>Teléfono / Email</TableHead>
-              <TableHead>Vínculos & Roles</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {isLoading ? (
-              <TableLoadingSkeleton colSpan={6} rows={4} />
-            ) : filteredPersons.length === 0 ? (
-              <TableEmptyState
-                colSpan={6}
-                title={searchTerm ? 'No se encontraron personas' : 'No hay personas registradas'}
-                description="Registra una nueva persona natural en el sistema."
-                action={
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => {
-                      setEditingPerson(null);
-                      setIsPersonModalOpen(true);
-                    }}
-                  >
-                    Registrar Persona
-                  </Button>
-                }
-              />
-            ) : (
-              filteredPersons.map((person) => {
+      {activeSubTab === 'persons' &&
+        (viewMode === 'cards' ? (
+          isLoading ? (
+            <EntityFlashCardSkeletonGrid count={6} />
+          ) : filteredPersons.length === 0 ? (
+            <EntityFlashCardEmptyState
+              icon="users"
+              title={searchTerm ? 'No se encontraron personas' : 'No hay personas registradas'}
+              description="Registra una nueva persona natural en el sistema."
+              action={
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setEditingPerson(null);
+                    setIsPersonModalOpen(true);
+                  }}
+                >
+                  Registrar Persona
+                </Button>
+              }
+            />
+          ) : (
+            <EntityFlashCardGrid>
+              {filteredPersons.map((person) => {
                 const isCurrentSessionPerson =
                   currentSession && person.id === currentSession.persona_id;
                 const isRootAdminPerson = person.id === 1;
-
                 const canToggle = !isCurrentSessionPerson && !isRootAdminPerson;
+                const fullName = `${person.nombres} ${person.apellidos}`.trim();
+
+                const roleBadges = [
+                  ...(person.es_cliente
+                    ? [{ label: 'Cliente', variant: 'success' as const }]
+                    : []),
+                  ...(person.es_proveedor
+                    ? [{ label: 'Proveedor', variant: 'info' as const }]
+                    : []),
+                  ...(person.rol_usuario
+                    ? [
+                        {
+                          label: `Usuario: ${person.rol_usuario}`,
+                          variant:
+                            person.rol_usuario === 'ADMINISTRADOR'
+                              ? ('default' as const)
+                              : person.rol_usuario === 'SUPERVISOR'
+                              ? ('warning' as const)
+                              : ('info' as const),
+                        },
+                      ]
+                    : []),
+                ];
 
                 return (
-                  <TableRow key={person.id}>
-                    <TableCell className="font-mono text-xs text-txt-secondary">
-                      {person.tipo_documento}: {person.numero_documento}
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-txt-primary">
-                          {person.nombres} {person.apellidos}
+                  <EntityFlashCard
+                    key={person.id}
+                    entityTag="PERSONA"
+                    entityTagVariant="default"
+                    secondaryBadges={roleBadges}
+                    isActive={person.estado_activo}
+                    avatarInitials={getEntityInitials(person.nombres, person.apellidos)}
+                    title={fullName}
+                    subtitleTag={
+                      isCurrentSessionPerson ? (
+                        <span className="text-[10px] text-sky-600 font-bold uppercase">
+                          (Persona de tu sesión activa)
                         </span>
-                        {isCurrentSessionPerson && (
-                          <span className="text-[10px] text-sky-600 font-bold uppercase">
-                            (Persona de tu sesión activa)
+                      ) : undefined
+                    }
+                    documentLabel={`${person.tipo_documento}: ${person.numero_documento}`}
+                    phone={person.telefono}
+                    email={person.email}
+                    metrics={[
+                      {
+                        label: 'Vínculos Activos',
+                        value: (
+                          <span className="truncate">
+                            {roleBadges.length > 0
+                              ? `${roleBadges.length} rol${roleBadges.length === 1 ? '' : 'es'}`
+                              : 'Sin rol asignado'}
                           </span>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex flex-col text-xs text-txt-muted">
-                        <span>{person.telefono || 'Sin teléfono'}</span>
-                        <span className="text-[11px] text-txt-secondary">{person.email || ''}</span>
-                      </div>
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {person.es_cliente && (
-                          <Badge variant="success" size="sm">
-                            Cliente
-                          </Badge>
-                        )}
-                        {person.es_proveedor && (
-                          <Badge variant="info" size="sm">
-                            Proveedor
-                          </Badge>
-                        )}
-                        {person.rol_usuario && (
-                          <Badge
-                            variant={
-                              person.rol_usuario === 'ADMINISTRADOR'
-                                ? 'default'
-                                : person.rol_usuario === 'SUPERVISOR'
-                                ? 'warning'
-                                : 'info'
-                            }
-                            size="sm"
-                          >
-                            Usuario: {person.rol_usuario}
-                          </Badge>
-                        )}
-                        {!person.es_cliente && !person.es_proveedor && !person.rol_usuario && (
-                          <span className="text-xs text-txt-muted font-normal">Sin rol asignado</span>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    <TableCell>
-                      <Badge variant={person.estado_activo ? 'success' : 'danger'} size="sm">
-                        {person.estado_activo ? 'Activo' : 'Inactivo'}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                        ),
+                      },
+                      {
+                        label: 'Registro',
+                        value: (
+                          <span className="font-mono text-[11px]">
+                            {person.created_at ? person.created_at.slice(0, 10) : '—'}
+                          </span>
+                        ),
+                      },
+                    ]}
+                    quickActions={
+                      <>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1094,93 +1427,249 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                         >
                           {person.estado_activo ? 'Desactivar' : 'Activar'}
                         </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                      </>
+                    }
+                    onOpenProfile={() =>
+                      setSelectedProfileSubject({ kind: 'person', data: person })
+                    }
+                  />
                 );
-              })
-            )}
-          </TableBody>
-        </Table>
-      )}
+              })}
+            </EntityFlashCardGrid>
+          )
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Documento</TableHead>
+                <TableHead>Nombres y Apellidos</TableHead>
+                <TableHead>Teléfono / Email</TableHead>
+                <TableHead>Vínculos & Roles</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {isLoading ? (
+                <TableLoadingSkeleton colSpan={6} rows={4} />
+              ) : filteredPersons.length === 0 ? (
+                <TableEmptyState
+                  colSpan={6}
+                  title={searchTerm ? 'No se encontraron personas' : 'No hay personas registradas'}
+                  description="Registra una nueva persona natural en el sistema."
+                  action={
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        setEditingPerson(null);
+                        setIsPersonModalOpen(true);
+                      }}
+                    >
+                      Registrar Persona
+                    </Button>
+                  }
+                />
+              ) : (
+                filteredPersons.map((person) => {
+                  const isCurrentSessionPerson =
+                    currentSession && person.id === currentSession.persona_id;
+                  const isRootAdminPerson = person.id === 1;
+
+                  const canToggle = !isCurrentSessionPerson && !isRootAdminPerson;
+
+                  return (
+                    <TableRow key={person.id}>
+                      <TableCell className="font-mono text-xs text-txt-secondary">
+                        {person.tipo_documento}: {person.numero_documento}
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-txt-primary">
+                            {person.nombres} {person.apellidos}
+                          </span>
+                          {isCurrentSessionPerson && (
+                            <span className="text-[10px] text-sky-600 font-bold uppercase">
+                              (Persona de tu sesión activa)
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex flex-col text-xs text-txt-muted">
+                          <span>{person.telefono || 'Sin teléfono'}</span>
+                          <span className="text-[11px] text-txt-secondary">{person.email || ''}</span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {person.es_cliente && (
+                            <Badge variant="success" size="sm">
+                              Cliente
+                            </Badge>
+                          )}
+                          {person.es_proveedor && (
+                            <Badge variant="info" size="sm">
+                              Proveedor
+                            </Badge>
+                          )}
+                          {person.rol_usuario && (
+                            <Badge
+                              variant={
+                                person.rol_usuario === 'ADMINISTRADOR'
+                                  ? 'default'
+                                  : person.rol_usuario === 'SUPERVISOR'
+                                  ? 'warning'
+                                  : 'info'
+                              }
+                              size="sm"
+                            >
+                              Usuario: {person.rol_usuario}
+                            </Badge>
+                          )}
+                          {!person.es_cliente && !person.es_proveedor && !person.rol_usuario && (
+                            <span className="text-xs text-txt-muted font-normal">
+                              Sin rol asignado
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        <Badge variant={person.estado_activo ? 'success' : 'danger'} size="sm">
+                          {person.estado_activo ? 'Activo' : 'Inactivo'}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setSelectedProfileSubject({ kind: 'person', data: person })
+                            }
+                          >
+                            Ver perfil
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingPerson(person);
+                              setIsPersonModalOpen(true);
+                            }}
+                          >
+                            Editar
+                          </Button>
+
+                          <Button
+                            variant={person.estado_activo ? 'outline' : 'secondary'}
+                            size="sm"
+                            disabled={!canToggle || isActionLoading}
+                            onClick={() =>
+                              handleTogglePersonActive(person.id, person.estado_activo)
+                            }
+                            title={
+                              isCurrentSessionPerson
+                                ? 'No puedes desactivar la persona de tu propia sesión'
+                                : isRootAdminPerson
+                                ? 'La persona del Administrador Root no puede ser desactivada'
+                                : person.estado_activo
+                                ? 'Desactivar persona'
+                                : 'Reactivar persona'
+                            }
+                            className={
+                              person.estado_activo
+                                ? 'text-status-danger border-red-300'
+                                : 'text-status-success border-emerald-300'
+                            }
+                          >
+                            {person.estado_activo ? 'Desactivar' : 'Activar'}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        ))}
 
       {/* SUB-VISTA 4: EMPRESAS JURÍDICAS (RUC 20) */}
-      {activeSubTab === 'companies' && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>RUC (20)</TableHead>
-              <TableHead>Razón Social (SUNAT)</TableHead>
-              <TableHead>Nombre Comercial</TableHead>
-              <TableHead>Teléfono / Email</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableLoadingSkeleton colSpan={6} rows={5} />
-            ) : filteredCompanies.length === 0 ? (
-              <TableEmptyState
-                colSpan={6}
-                title="No hay empresas RUC 20 registradas"
-                description={
-                  searchTerm
-                    ? 'No se encontraron empresas jurídicas que coincidan con la búsqueda.'
-                    : 'Registra empresas con RUC 20 para emitir compras y asociar facturación.'
-                }
-                action={
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => {
-                      setEditingCompany(null);
-                      setIsCompanyModalOpen(true);
-                    }}
-                    leftIcon={
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                      </svg>
-                    }
-                  >
-                    Registrar Empresa
-                  </Button>
-                }
-              />
-            ) : (
-              filteredCompanies.map((company) => (
-                <TableRow key={company.id}>
-                  <TableCell className="font-mono text-xs font-bold text-txt-primary">
-                    {company.ruc}
-                  </TableCell>
-
-                  <TableCell>
-                    <span className="font-semibold text-txt-primary block">
-                      {company.razon_social}
-                    </span>
-                  </TableCell>
-
-                  <TableCell>
-                    <span className="text-xs text-txt-secondary">
-                      {company.nombre_comercial || '--'}
-                    </span>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="flex flex-col text-xs text-txt-muted">
-                      <span>{company.telefono || 'Sin teléfono'}</span>
-                      <span className="text-[11px] text-txt-secondary">{company.email || ''}</span>
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <Badge variant={company.estado_activo ? 'success' : 'danger'} size="sm">
-                      {company.estado_activo ? 'Activo' : 'Inactivo'}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1.5">
+      {activeSubTab === 'companies' &&
+        (viewMode === 'cards' ? (
+          isLoading ? (
+            <EntityFlashCardSkeletonGrid count={6} />
+          ) : filteredCompanies.length === 0 ? (
+            <EntityFlashCardEmptyState
+              icon="building"
+              title="No hay empresas RUC 20 registradas"
+              description={
+                searchTerm
+                  ? 'No se encontraron empresas jurídicas que coincidan con la búsqueda.'
+                  : 'Registra empresas con RUC 20 para emitir compras y asociar facturación.'
+              }
+              action={
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setEditingCompany(null);
+                    setIsCompanyModalOpen(true);
+                  }}
+                  leftIcon={
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                  }
+                >
+                  Registrar Empresa
+                </Button>
+              }
+            />
+          ) : (
+            <EntityFlashCardGrid>
+              {filteredCompanies.map((company) => (
+                <EntityFlashCard
+                  key={company.id}
+                  entityTag="EMPRESA RUC 20"
+                  entityTagVariant="info"
+                  isActive={company.estado_activo}
+                  avatarIcon="building"
+                  title={company.razon_social}
+                  documentLabel={company.ruc}
+                  phone={company.telefono}
+                  email={company.email}
+                  metrics={[
+                    {
+                      label: 'Nombre Comercial',
+                      value: (
+                        <span className="truncate">{company.nombre_comercial || '--'}</span>
+                      ),
+                    },
+                    {
+                      label: 'Registro',
+                      value: (
+                        <span className="font-mono text-[11px]">
+                          {company.created_at ? company.created_at.slice(0, 10) : '—'}
+                        </span>
+                      ),
+                    },
+                  ]}
+                  quickActions={
+                    <>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1207,18 +1696,170 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                       >
                         {company.estado_activo ? 'Desactivar' : 'Activar'}
                       </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      )}
+                    </>
+                  }
+                  onOpenProfile={() =>
+                    setSelectedProfileSubject({ kind: 'company', data: company })
+                  }
+                />
+              ))}
+            </EntityFlashCardGrid>
+          )
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>RUC (20)</TableHead>
+                <TableHead>Razón Social (SUNAT)</TableHead>
+                <TableHead>Nombre Comercial</TableHead>
+                <TableHead>Teléfono / Email</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableLoadingSkeleton colSpan={6} rows={5} />
+              ) : filteredCompanies.length === 0 ? (
+                <TableEmptyState
+                  colSpan={6}
+                  title="No hay empresas RUC 20 registradas"
+                  description={
+                    searchTerm
+                      ? 'No se encontraron empresas jurídicas que coincidan con la búsqueda.'
+                      : 'Registra empresas con RUC 20 para emitir compras y asociar facturación.'
+                  }
+                  action={
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        setEditingCompany(null);
+                        setIsCompanyModalOpen(true);
+                      }}
+                      leftIcon={
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M12 4v16m8-8H4"
+                          />
+                        </svg>
+                      }
+                    >
+                      Registrar Empresa
+                    </Button>
+                  }
+                />
+              ) : (
+                filteredCompanies.map((company) => (
+                  <TableRow key={company.id}>
+                    <TableCell className="font-mono text-xs font-bold text-txt-primary">
+                      {company.ruc}
+                    </TableCell>
+
+                    <TableCell>
+                      <span className="font-semibold text-txt-primary block">
+                        {company.razon_social}
+                      </span>
+                    </TableCell>
+
+                    <TableCell>
+                      <span className="text-xs text-txt-secondary">
+                        {company.nombre_comercial || '--'}
+                      </span>
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="flex flex-col text-xs text-txt-muted">
+                        <span>{company.telefono || 'Sin teléfono'}</span>
+                        <span className="text-[11px] text-txt-secondary">{company.email || ''}</span>
+                      </div>
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge variant={company.estado_activo ? 'success' : 'danger'} size="sm">
+                        {company.estado_activo ? 'Activo' : 'Inactivo'}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setSelectedProfileSubject({ kind: 'company', data: company })
+                          }
+                        >
+                          Ver perfil
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingCompany(company);
+                            setIsCompanyModalOpen(true);
+                          }}
+                        >
+                          Editar
+                        </Button>
+
+                        <Button
+                          variant={company.estado_activo ? 'outline' : 'secondary'}
+                          size="sm"
+                          disabled={isActionLoading}
+                          onClick={() =>
+                            handleToggleCompanyActive(company.id, company.estado_activo)
+                          }
+                          className={
+                            company.estado_activo
+                              ? 'text-status-danger border-red-300'
+                              : 'text-status-success border-emerald-300'
+                          }
+                        >
+                          {company.estado_activo ? 'Desactivar' : 'Activar'}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        ))}
 
       {/* ==================================================================== */}
-      {/* MODALES FUNCIONALES */}
+      {/* MODALES FUNCIONALES Y PERFIL INTERACTIVO                             */}
       {/* ==================================================================== */}
+
+      <EntityProfileModal
+        isOpen={Boolean(activeProfileSubject)}
+        onClose={() => setSelectedProfileSubject(null)}
+        subject={activeProfileSubject}
+        currentSession={currentSession}
+        isActionLoading={isActionLoading}
+        onUpdateClient={handleUpdateClient}
+        onUpdatePerson={handleUpdatePerson}
+        onUpdateCompany={handleUpdateCompany}
+        onUpdateSupplier={handleUpdateSupplier}
+        onToggleActive={
+          activeProfileSubject?.kind === 'client'
+            ? handleToggleClientActive
+            : activeProfileSubject?.kind === 'supplier'
+            ? handleToggleSupplierActive
+            : activeProfileSubject?.kind === 'person'
+            ? handleTogglePersonActive
+            : activeProfileSubject?.kind === 'company'
+            ? handleToggleCompanyActive
+            : undefined
+        }
+        onRegenerateQr={handleRegenerateQr}
+        onRecordWeight={handleRecordWeight}
+        fetchWeightHistory={handleGetWeightHistory}
+      />
 
       {/* Modal Credencial QR */}
       <QrCredentialModal

@@ -469,8 +469,12 @@ pub struct PrintingBackupConfigDto {
     pub backup_auto_interval_hours: u32,
     pub backup_gdrive_enabled: bool,
     pub backup_gdrive_folder_id: String,
+    #[serde(default)]
+    pub backup_gdrive_client_id: String,
     pub has_smtp_password_configured: bool,
     pub has_gdrive_token_configured: bool,
+    #[serde(default)]
+    pub has_gdrive_client_secret_configured: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -495,4 +499,8 @@ pub struct UpdatePrintingBackupConfigRequest {
     pub backup_gdrive_enabled: Option<bool>,
     pub backup_gdrive_folder_id: Option<String>,
     pub backup_gdrive_token: Option<String>,
+    #[serde(default)]
+    pub backup_gdrive_client_id: Option<String>,
+    #[serde(default)]
+    pub backup_gdrive_client_secret: Option<String>,
 }

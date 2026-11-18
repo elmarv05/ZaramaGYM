@@ -264,4 +264,29 @@ describe('Component: UserManagementTable', () => {
     expect(screen.getByRole('button', { name: /1\. cuenta y permisos/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /2\. datos de la persona/i })).toBeInTheDocument();
   });
+
+  it('permite abrir el perfil interactivo de un usuario desde la Flash Card', async () => {
+    const user = userEvent.setup();
+    render(
+      <UserManagementTable
+        currentSession={mockAdminSession}
+        users={mockUsers}
+        isLoading={false}
+        isActionLoading={false}
+        error={null}
+        onRefresh={vi.fn()}
+        onCreateUser={vi.fn()}
+        onToggleActive={vi.fn()}
+      />
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /ver perfil de administrador principal/i })
+    );
+
+    expect(
+      screen.getByRole('dialog', { name: /perfil de administrador principal/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/cuenta y permisos de acceso/i)).toBeInTheDocument();
+  });
 });
