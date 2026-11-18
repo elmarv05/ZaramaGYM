@@ -1,0 +1,25 @@
+pub mod attendance;
+pub mod audit;
+pub mod catalog;
+pub mod client;
+pub mod dashboard;
+pub mod finance;
+pub mod lan;
+pub mod person;
+pub mod pos;
+pub mod printing_backup;
+pub mod supplier;
+pub mod user;
+
+pub use attendance::*;
+pub use audit::*;
+pub use catalog::*;
+pub use client::*;
+pub use dashboard::*;
+pub use finance::*;
+pub use lan::*;
+pub use person::*;
+pub use pos::*;
+pub use printing_backup::*;
+pub use supplier::*;
+pub use user::*;

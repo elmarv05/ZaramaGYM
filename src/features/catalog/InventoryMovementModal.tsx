@@ -1,0 +1,249 @@
+// ============================================================================
+// MODAL: REGISTRO DE MERMAS, AJUSTES Y CONSUMO PROPIO (SLICE 3)
+// Invarianza matemática de stock >= 0 y justificación obligatoria >= 5 caracteres.
+// Ubicación: src/features/catalog/InventoryMovementModal.tsx
+// ============================================================================
+
+import React, { useEffect, useState } from 'react';
+import { Alert } from '../../components/primitives/Alert';
+import { Button } from '../../components/primitives/Button';
+import { Icon } from '../../components/primitives/Icon';
+import { Input } from '../../components/primitives/Input';
+import { Modal } from '../../components/primitives/Modal';
+import { Select } from '../../components/primitives/Select';
+import { validateInventoryMovementForm } from '../../domain/catalog';
+import {
+  ProductListItem,
+  RecordInventoryMovementInput,
+} from '../../types/catalog';
+
+export interface InventoryMovementModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  products: ProductListItem[];
+  selectedProduct?: ProductListItem | null;
+  onSubmit: (input: RecordInventoryMovementInput) => Promise<boolean>;
+  isLoading?: boolean;
+}
+
+export const InventoryMovementModal: React.FC<InventoryMovementModalProps> = ({
+  isOpen,
+  onClose,
+  products,
+  selectedProduct,
+  onSubmit,
+  isLoading = false,
+}) => {
+  const [productId, setProductId] = useState<number>(0);
+  const [tipoMovimiento, setTipoMovimiento] = useState<
+    'MERMA_DANIO' | 'MERMA_VENCIMIENTO' | 'CONSUMO_PROPIO' | 'ENTRADA_AJUSTE'
+  >('MERMA_DANIO');
+  const [cantidad, setCantidad] = useState<number>(1);
+  const [justificacion, setJustificacion] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (selectedProduct) {
+      setProductId(selectedProduct.id);
+    } else if (products.length > 0 && productId === 0) {
+      setProductId(products[0].id);
+    }
+  }, [selectedProduct, products, isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCantidad(1);
+      setJustificacion('');
+      setErrors({});
+    }
+  }, [isOpen]);
+
+  const activeProduct =
+    products.find((p) => p.id === productId) || selectedProduct || null;
+
+  const currentStock = activeProduct ? activeProduct.stock_actual : 0;
+  const isSalida = ['MERMA_DANIO', 'MERMA_VENCIMIENTO', 'CONSUMO_PROPIO'].includes(
+    tipoMovimiento
+  );
+  const delta = isSalida ? -cantidad : +cantidad;
+  const resultingStock = currentStock + delta;
+  const isStockNegativo = isSalida && resultingStock < 0;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const formValues = {
+      producto_id: productId,
+      tipo_movimiento: tipoMovimiento,
+      cantidad: Number(cantidad),
+      costo_unitario_momento: activeProduct?.precio_compra_referencial,
+      motivo_justificacion: justificacion,
+    };
+
+    const validationErrors = validateInventoryMovementForm(formValues, currentStock);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    const success = await onSubmit({
+      producto_id: formValues.producto_id,
+      tipo_movimiento: formValues.tipo_movimiento,
+      cantidad: formValues.cantidad,
+      costo_unitario_momento: formValues.costo_unitario_momento,
+      motivo_justificacion: formValues.motivo_justificacion.trim(),
+    });
+
+    if (success) {
+      onClose();
+    }
+  };
+
+  const productOptions = products.map((p) => ({
+    value: String(p.id),
+    label: `${p.nombre} (SKU: ${p.codigo_sku} — Stock: ${p.stock_actual})`,
+  }));
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Registrar Movimiento en Kardex / Merma"
+      description="Asienta ajustes de inventario físico, pérdidas por daño/vencimiento o consumo interno."
+      size="md"
+    >
+      <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {selectedProduct ? (
+          <div className="bg-canvas-subtle p-3 rounded-lg border border-border flex flex-col gap-1">
+            <span className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">
+              Producto Seleccionado
+            </span>
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-txt-primary text-sm">
+                {selectedProduct.nombre}
+              </span>
+              <span className="font-mono text-xs text-txt-muted">
+                SKU: {selectedProduct.codigo_sku}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <Select
+            label="Producto a Ajustar"
+            value={String(productId)}
+            onChange={(e) => setProductId(parseInt(e.target.value, 10))}
+            options={productOptions}
+            error={errors.producto_id}
+            required
+          />
+        )}
+
+        <Select
+          label="Tipo de Movimiento"
+          value={tipoMovimiento}
+          onChange={(e) => setTipoMovimiento(e.target.value as any)}
+          options={[
+            { value: 'MERMA_DANIO', label: 'Merma por Daño o Rotura (-)' },
+            { value: 'MERMA_VENCIMIENTO', label: 'Merma por Vencimiento / Caducidad (-)' },
+            { value: 'CONSUMO_PROPIO', label: 'Consumo Propio / Cortesía (-)' },
+            { value: 'ENTRADA_AJUSTE', label: 'Entrada por Ajuste de Inventario (+)' },
+          ]}
+          required
+        />
+
+        <Input
+          label="Cantidad de Unidades"
+          type="number"
+          min="1"
+          value={cantidad}
+          onChange={(e) => setCantidad(parseInt(e.target.value, 10) || 0)}
+          error={errors.cantidad}
+          required
+          hint="Número entero positivo mayor a cero"
+        />
+
+        {/* Simulador visual de transición de stock */}
+        <div
+          className={`p-3 rounded-lg border flex items-center justify-between ${
+            isStockNegativo
+              ? 'bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-900'
+              : 'bg-canvas-subtle border-border'
+          }`}
+        >
+          <div className="flex flex-col">
+            <span className="text-xs text-txt-secondary">Transición en Kardex:</span>
+            <div className="flex items-center gap-2 text-sm font-semibold mt-0.5">
+              <span className="text-txt-primary">Stock Actual: {currentStock}</span>
+              <span className={isSalida ? 'text-status-danger font-bold' : 'text-status-success font-bold'}>
+                {isSalida ? `-${cantidad}` : `+${cantidad}`}
+              </span>
+              <Icon name="arrow-right" className="w-4 h-4 text-txt-muted" aria-hidden="true" />
+              <span
+                className={`font-bold ${
+                  isStockNegativo ? 'text-status-danger' : 'text-txt-primary'
+                }`}
+              >
+                Resultante: {resultingStock}
+              </span>
+            </div>
+          </div>
+          {isStockNegativo && (
+            <span className="text-xs font-bold text-status-danger uppercase tracking-wider bg-red-100 dark:bg-red-900/50 px-2 py-1 rounded">
+              Stock Negativo
+            </span>
+          )}
+        </div>
+
+        {isStockNegativo && (
+          <Alert variant="danger">
+            No se puede registrar una merma o salida que supere el stock actual en existencia.
+          </Alert>
+        )}
+
+        <div className="flex flex-col gap-1.5 text-left">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-txt-secondary uppercase tracking-wider select-none">
+              Motivo o Justificación Obligatoria <span className="text-status-danger">*</span>
+            </label>
+            <span
+              className={`text-[11px] font-mono ${
+                justificacion.trim().length >= 5 ? 'text-txt-muted' : 'text-status-danger font-bold'
+              }`}
+            >
+              {justificacion.trim().length}/5 mín.
+            </span>
+          </div>
+          <textarea
+            rows={2}
+            className={`w-full bg-surface border rounded-md text-sm text-txt-primary p-2.5 outline-none focus:ring-1 ${
+              errors.motivo_justificacion
+                ? 'border-status-danger focus:ring-status-danger'
+                : 'border-border focus:border-border-focus focus:ring-border-focus'
+            }`}
+            placeholder="Describe detalladamente la causa de la merma, rotura o consumo..."
+            value={justificacion}
+            onChange={(e) => setJustificacion(e.target.value)}
+            required
+          />
+          {errors.motivo_justificacion && (
+            <span className="text-xs text-status-danger">{errors.motivo_justificacion}</span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border mt-2">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            isLoading={isLoading}
+            disabled={isStockNegativo || isLoading}
+          >
+            Asentar Movimiento
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
