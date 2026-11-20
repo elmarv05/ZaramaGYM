@@ -10,7 +10,7 @@ export interface ValidationResult {
   errors: Record<string, string>;
 }
 
-export const VALID_ROLES: UserRole[] = ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'];
+export const VALID_ROLES: UserRole[] = ['ADMINISTRADOR', 'RECEPCIONISTA'];
 export const VALID_DOCUMENT_TYPES = ['DNI', 'RUC', 'CE', 'PASAPORTE', 'OTRO'] as const;
 export type DocumentType = (typeof VALID_DOCUMENT_TYPES)[number];
 
@@ -133,7 +133,7 @@ export function validateCreateUserInput(input: CreateUserInput): ValidationResul
 
   // Rol
   if (!input.rol || !VALID_ROLES.includes(input.rol)) {
-    errors.rol = 'Selecciona un rol válido (ADMINISTRADOR, SUPERVISOR o RECEPCIONISTA).';
+    errors.rol = 'Selecciona un rol válido (ADMINISTRADOR o RECEPCIONISTA).';
   }
 
   return {

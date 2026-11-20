@@ -4,7 +4,7 @@
 // Ubicación: src/features/finance/components/PurchaseFormModal.tsx
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert } from '../../../components/primitives/Alert';
 import { Badge } from '../../../components/primitives/Badge';
 import { Button } from '../../../components/primitives/Button';
@@ -16,6 +16,7 @@ import {
   calculatePurchaseItemsTotal,
   derivePaymentChannel,
   formatCurrency,
+  roundMoney,
   validateSupplierPurchaseInput,
 } from '../../../domain/finance';
 import { ProductListItem } from '../../../types/catalog';
@@ -26,6 +27,13 @@ import {
   PurchaseInvoiceType,
 } from '../../../types/finance';
 import { PaymentMethod } from '../../../types/pos';
+import {
+  formatDecimalOnBlur,
+  preventEnterKeySubmit,
+  sanitizeDecimalInput,
+  sanitizeIntegerInput,
+  selectIfZeroDefault,
+} from '../../../utils/formSafety';
 
 export interface PurchaseFormModalProps {
   isOpen: boolean;
@@ -64,8 +72,23 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
 
   // Ítem en construcción para añadir
   const [selectedProductId, setSelectedProductId] = useState<number>(products[0]?.id || 0);
-  const [itemQty, setItemQty] = useState<number>(1);
+  const [itemQtyStr, setItemQtyStr] = useState<string>('1');
   const [itemUnitCost, setItemUnitCost] = useState<string>('0.00');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setErrors([]);
+    if (proveedorId === 0 && suppliers.length > 0) {
+      setProveedorId(suppliers[0].id);
+    }
+    if (selectedProductId === 0 && products.length > 0) {
+      const first = products[0];
+      setSelectedProductId(first.id);
+      if (first.precio_compra_referencial) {
+        setItemUnitCost(first.precio_compra_referencial);
+      }
+    }
+  }, [isOpen, suppliers, products]);
 
   // Si cambia el producto seleccionado en el mini-formulario, inicializar con su precio referencial si existe
   const handleSelectProductChange = (prodId: number) => {
@@ -81,18 +104,20 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
       setErrors(['Seleccione un producto para añadir al detalle.']);
       return;
     }
-    if (itemQty <= 0) {
-      setErrors(['La cantidad del producto debe ser mayor a 0.']);
+    const parsedQty = parseInt(itemQtyStr, 10);
+    if (isNaN(parsedQty) || parsedQty <= 0) {
+      setErrors(['La cantidad del producto debe ser un entero mayor a 0.']);
       return;
     }
     const cost = parseFloat(itemUnitCost);
-    if (isNaN(cost) || cost < 0) {
+    if (!itemUnitCost.trim() || isNaN(cost) || cost < 0) {
       setErrors(['El costo unitario debe ser un valor numérico válido (mayor o igual a 0).']);
       return;
     }
 
+    const normalizedCost = roundMoney(cost).toFixed(2);
     const { itemsWithSubtotals } = calculatePurchaseItemsTotal([
-      { producto_id: selectedProductId, cantidad: itemQty, costo_unitario: itemUnitCost },
+      { producto_id: selectedProductId, cantidad: parsedQty, costo_unitario: normalizedCost },
     ]);
     const computed = itemsWithSubtotals[0];
 
@@ -108,7 +133,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
     ]);
 
     setErrors([]);
-    setItemQty(1);
+    setItemQtyStr('1');
   };
 
   const handleRemoveItem = (tempId: string) => {
@@ -167,7 +192,12 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
       description="Ingreso de mercadería al inventario. Afectará Kardex y actualizará el precio referencial."
       size="lg"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-xs">
+      <form
+        noValidate
+        onSubmit={handleSubmit}
+        onKeyDown={preventEnterKeySubmit}
+        className="flex flex-col gap-4 text-xs"
+      >
         {errors.length > 0 && (
           <Alert variant="danger" title="Errores en la compra" onClose={() => setErrors([])}>
             <ul className="list-disc pl-4 space-y-1">
@@ -188,6 +218,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
               value={proveedorId}
               onChange={(e) => setProveedorId(Number(e.target.value))}
               aria-label="Seleccionar Proveedor"
+              required
               className="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
             >
               <option value={0}>-- Selecciona un Proveedor --</option>
@@ -202,11 +233,14 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
           </div>
 
           <div>
-            <label className="font-bold text-txt-primary block mb-1">Tipo de Comprobante:</label>
+            <label className="font-bold text-txt-primary block mb-1">
+              Tipo de Comprobante: <span className="text-rose-500">*</span>
+            </label>
             <select
               value={tipoComprobante}
               onChange={(e) => setTipoComprobante(e.target.value as PurchaseInvoiceType)}
               aria-label="Tipo de Comprobante"
+              required
               className="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
             >
               {(Object.keys(PURCHASE_INVOICE_LABELS) as PurchaseInvoiceType[]).map((type) => (
@@ -228,7 +262,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
 
           <div>
             <label className="font-bold text-txt-primary block mb-1">
-              Método de Pago:
+              Método de Pago: <span className="text-rose-500">*</span>
               <Badge variant={canalCaja === 'FISICA' ? 'success' : 'info'} className="ml-2">
                 Canal {canalCaja}
               </Badge>
@@ -237,6 +271,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
               value={metodoPago}
               onChange={(e) => setMetodoPago(e.target.value as PaymentMethod)}
               aria-label="Método de Pago"
+              required
               className="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
             >
               <option value="EFECTIVO">EFECTIVO (Caja Física)</option>
@@ -277,32 +312,42 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
             </div>
 
             <div>
-              <label className="font-semibold text-txt-secondary block mb-1">Cantidad:</label>
+              <label className="font-semibold text-txt-secondary block mb-1">
+                Cantidad: <span className="text-rose-500">*</span>
+              </label>
               <input
-                type="number"
-                min={1}
-                value={itemQty}
-                onChange={(e) => setItemQty(parseInt(e.target.value, 10) || 1)}
+                type="text"
+                inputMode="numeric"
+                value={itemQtyStr}
+                onFocus={selectIfZeroDefault}
+                onChange={(e) => setItemQtyStr(sanitizeIntegerInput(e.target.value))}
+                onBlur={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  if (isNaN(n) || n < 1) {
+                    setItemQtyStr('1');
+                  } else {
+                    setItemQtyStr(String(n));
+                  }
+                }}
                 aria-label="Cantidad a comprar"
                 className="w-full px-2 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
               />
             </div>
 
             <div>
-              <label className="font-semibold text-txt-secondary block mb-1">Costo Unit. (S/):</label>
+              <label className="font-semibold text-txt-secondary block mb-1">
+                Costo Unit. (S/): <span className="text-rose-500">*</span>
+              </label>
               <input
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="0"
                 value={itemUnitCost}
-                onChange={(e) => setItemUnitCost(e.target.value)}
+                onFocus={selectIfZeroDefault}
+                onChange={(e) => setItemUnitCost(sanitizeDecimalInput(e.target.value))}
                 onBlur={(e) => {
-                  const v = parseFloat(e.target.value);
-                  if (!isNaN(v) && v >= 0) {
-                    setItemUnitCost(v.toFixed(2));
-                  }
+                  setItemUnitCost(formatDecimalOnBlur(e.target.value, { min: 0, fallback: '' }));
                 }}
+                placeholder="0.00"
                 aria-label="Costo Unitario"
                 className="w-full px-2 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
               />

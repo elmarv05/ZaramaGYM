@@ -137,7 +137,7 @@ describe('Slice 9 Parte B: Login Split-Screen, HomeDashboard y Shell 4 Component
       );
 
       expect(screen.getByText(/Bienvenido, Administrador Principal/i)).toBeInTheDocument();
-      expect(screen.getByText(/Centro de Comando Analítico ZaramaGYM/i)).toBeInTheDocument();
+      expect(screen.getByText(/Dashboard principal ZARAMA GYM/i)).toBeInTheDocument();
       expect(screen.getByText('42')).toBeInTheDocument();
       expect(screen.getByText(/Afluencia de Asistencias por Franja Horaria/i)).toBeInTheDocument();
 
@@ -183,7 +183,7 @@ describe('Slice 9 Parte B: Login Split-Screen, HomeDashboard y Shell 4 Component
       expect(screen.getByLabelText(/Navegación lateral ZaramaGYM/i)).toBeInTheDocument();
       expect(screen.getByRole('banner')).toBeInTheDocument();
       expect(screen.getByRole('main')).toBeInTheDocument();
-      expect(screen.getByText(/© 2026 ZaramaGYM v0\.1\.0/i)).toBeInTheDocument();
+      expect(screen.getByText(/© 2026 ZaramaGYM/i)).toBeInTheDocument();
 
       // Abrir buscador inteligente con Ctrl+K y buscar "deudores"
       fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
@@ -204,7 +204,7 @@ describe('Slice 9 Parte B: Login Split-Screen, HomeDashboard y Shell 4 Component
       // Navegar a Inicio desde el Sidebar
       await user.click(screen.getByRole('button', { name: /^Inicio$/i }));
       await waitFor(() => {
-        expect(screen.getByText(/Centro de Comando Analítico ZaramaGYM/i)).toBeInTheDocument();
+        expect(screen.getByText(/Dashboard principal ZARAMA GYM/i)).toBeInTheDocument();
         expect(screen.getByText(/Afluencia de Asistencias por Franja Horaria/i)).toBeInTheDocument();
       });
 

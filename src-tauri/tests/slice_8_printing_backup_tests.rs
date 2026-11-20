@@ -986,6 +986,21 @@ async fn test_cp_prn_12_secrets_keyring_and_gdrive_sync() {
         "Recepcionista no debe tener permiso para modificar series de comprobantes"
     );
 
+    let recep_fin_pdf = printing_backup_service::generate_financial_report_pdf(
+        &state.pool(),
+        &recep,
+        GenerateFinancialReportPdfRequest {
+            fecha_desde: "2026-01-01".into(),
+            fecha_hasta: "2026-12-31".into(),
+            canal_filtro: None,
+        },
+    )
+    .await;
+    assert!(
+        recep_fin_pdf.is_ok(),
+        "Recepcionista debe poder generar el reporte financiero PDF"
+    );
+
     // 5. Restaurar estado previo del llavero para no dejar residuos de pruebas
     match prev_smtp {
         Some(v) => printing_backup_service::KeyringStore::set_secret("SMTP_PASSWORD", &v).unwrap(),

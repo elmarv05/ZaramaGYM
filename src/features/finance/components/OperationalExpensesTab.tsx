@@ -1,6 +1,6 @@
 // ============================================================================
 // COMPONENTE: TAB DE GASTOS OPERATIVOS (ADMIN EXCLUSIVO / RBAC BLINDADO)
-// Control de egresos administrativos con política Zero-Delete y blindaje para Supervisores
+// Control de egresos administrativos con política Zero-Delete y blindaje para Recepcionistas
 // Ubicación: src/features/finance/components/OperationalExpensesTab.tsx
 // ============================================================================
 
@@ -64,7 +64,7 @@ export const OperationalExpensesTab: React.FC<OperationalExpensesTabProps> = ({
       : 'TODOS'
   );
 
-  // 1. BLINDAJE RBAC: Si el usuario es SUPERVISOR (o no admin)
+  // 1. BLINDAJE RBAC: Si el usuario no es ADMINISTRADOR
   if (!isAdmin) {
     return (
       <div className="p-8 bg-surface rounded-xl border border-amber-300 dark:border-amber-900/50 shadow-sm flex flex-col items-center justify-center text-center gap-3">
@@ -79,7 +79,7 @@ export const OperationalExpensesTab: React.FC<OperationalExpensesTabProps> = ({
           registro y auditoría de egresos operativos (alquiler, nóminas, servicios e impuestos) está reservada
           únicamente para el rol <strong>ADMINISTRADOR</strong>.
         </p>
-        <Badge variant="warning">Acceso Restringido a Supervisores y Recepcionistas</Badge>
+        <Badge variant="warning">Acceso Restringido a Recepcionistas</Badge>
       </div>
     );
   }

@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 import { Badge } from '../../../components/primitives/Badge';
 import { Button } from '../../../components/primitives/Button';
 import { Icon } from '../../../components/primitives/Icon';
-import { canCancelSupplierPurchase, formatCurrency } from '../../../domain/finance';
+import { canResolveStruckSales, formatCurrency } from '../../../domain/finance';
 import { StruckSaleFilter, StruckSaleTrayItemDto } from '../../../types/finance';
 import { ResolveStruckSaleInput } from '../../../types/pos';
 import { ResolveStruckTrayModal } from './ResolveStruckTrayModal';
@@ -34,7 +34,7 @@ export const StruckSalesTrayTab: React.FC<StruckSalesTrayTabProps> = ({
   onResolveStruckSale,
   userRole,
 }) => {
-  const isAdmin = canCancelSupplierPurchase(userRole); // Mismo privilegio admin
+  const canResolve = canResolveStruckSales(userRole);
   const [selectedTarget, setSelectedTarget] = useState<StruckSaleTrayItemDto | null>(null);
 
   const [estadoFilter, setEstadoFilter] = useState<string>(filter.estado_venta || 'TODAS');
@@ -187,7 +187,7 @@ export const StruckSalesTrayTab: React.FC<StruckSalesTrayTabProps> = ({
                         )}
                       </td>
                       <td className="p-3 text-right whitespace-nowrap">
-                        {isPendiente && isAdmin && (
+                        {isPendiente && canResolve && (
                           <Button
                             type="button"
                             variant="primary"
@@ -210,13 +210,15 @@ export const StruckSalesTrayTab: React.FC<StruckSalesTrayTabProps> = ({
       )}
 
       {/* Modal de Dictamen Paso 2 */}
-      <ResolveStruckTrayModal
-        isOpen={selectedTarget !== null}
-        item={selectedTarget}
-        onClose={() => setSelectedTarget(null)}
-        onSubmit={onResolveStruckSale}
-        isLoading={isActionLoading}
-      />
+      {canResolve && (
+        <ResolveStruckTrayModal
+          isOpen={selectedTarget !== null}
+          item={selectedTarget}
+          onClose={() => setSelectedTarget(null)}
+          onSubmit={onResolveStruckSale}
+          isLoading={isActionLoading}
+        />
+      )}
     </div>
   );
 };

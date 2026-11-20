@@ -32,23 +32,60 @@ export const PERSON_DOCUMENT_TYPES: PersonDocumentType[] = [
   'OTRO',
 ];
 
+export const ROLE_HIERARCHY: Record<UserRole, number> = {
+  RECEPCIONISTA: 1,
+  ADMINISTRADOR: 2,
+};
+
 /**
  * Determina si un operador puede modificar los datos personales vinculados a una persona,
- * respetando la jerarquía RBAC y la regla "Caso Juan Pérez".
+ * respetando la jerarquía RBAC (ADMINISTRADOR y RECEPCIONISTA) y la regla "Caso Juan Pérez".
  */
 export function canModifyLinkedPersonData(
-  operatorRole?: UserRole | null,
-  targetPersonUserRole?: UserRole | null
+  actorRole?: UserRole | null,
+  targetUserRole?: UserRole | null
 ): boolean {
-  if (!operatorRole) return false;
-  if (operatorRole === 'ADMINISTRADOR') return true;
-  if (operatorRole === 'SUPERVISOR') {
-    return targetPersonUserRole !== 'ADMINISTRADOR' && targetPersonUserRole !== 'SUPERVISOR';
-  }
-  if (operatorRole === 'RECEPCIONISTA') {
-    return !targetPersonUserRole;
+  if (!actorRole) return false;
+  if (actorRole === 'ADMINISTRADOR') return true;
+  if (actorRole === 'RECEPCIONISTA') {
+    return !targetUserRole;
   }
   return false;
+}
+
+/**
+ * Solo el ADMINISTRADOR puede activar/desactivar clientes en el directorio.
+ */
+export function canToggleClientActive(role?: UserRole | null): boolean {
+  return role === 'ADMINISTRADOR';
+}
+
+/**
+ * ADMINISTRADOR y RECEPCIONISTA pueden visualizar y crear Proveedores y Empresas RUC 20.
+ */
+export function canCreateSupplierOrCompany(role?: UserRole | null): boolean {
+  return role === 'ADMINISTRADOR' || role === 'RECEPCIONISTA';
+}
+
+/**
+ * Solo el ADMINISTRADOR puede modificar, activar o desactivar Proveedores y Empresas RUC 20.
+ */
+export function canEditOrDeactivateSupplierOrCompany(role?: UserRole | null): boolean {
+  return role === 'ADMINISTRADOR';
+}
+
+/**
+ * Solo el ADMINISTRADOR accede a la pestaña maestra de Personas.
+ */
+export function canAccessPersonsTab(role?: UserRole | null): boolean {
+  return role === 'ADMINISTRADOR';
+}
+
+/**
+ * Alias de compatibilidad: solo el ADMINISTRADOR accede a todas las pestañas y mutaciones administrativas del directorio.
+ */
+export function canAccessAdminDirectoryTabs(role?: UserRole | null): boolean {
+  return role === 'ADMINISTRADOR';
 }
 
 /**

@@ -7,6 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import { ModuleSkeleton } from '../../components/primitives/Skeleton';
 import QRCode from 'qrcode';
+import { Alert } from '../../components/primitives/Alert';
 import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
 import { Icon } from '../../components/primitives/Icon';
@@ -22,6 +23,7 @@ import { AuthSession } from '../../types/auth';
 import { ClientListItem } from '../../types/entity';
 import { DevicePairingStatus } from '../../types/lan';
 import { MobileScannerSimulatorModal } from './MobileScannerSimulatorModal';
+import { preventEnterKeySubmit } from '../../utils/formSafety';
 
 export interface LanServerViewProps {
   currentSession: AuthSession;
@@ -60,11 +62,17 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
   const [simulatorOpen, setSimulatorOpen] = useState(false);
   const [simulatorInitialCode, setSimulatorInitialCode] = useState('');
   const [revokeConfirmId, setRevokeConfirmId] = useState<number | null>(null);
-  const [selectedIp, setSelectedIp] = useState('');
+  const [selectedHost, setSelectedHost] = useState('');
   const [pairingProtocol, setPairingProtocol] = useState<'https' | 'http'>('https');
   const [overrideQrDataUrl, setOverrideQrDataUrl] = useState<string>('');
   const [isFirewallGuideOpen, setIsFirewallGuideOpen] = useState(false);
   const [copiedFirewallCmd, setCopiedFirewallCmd] = useState(false);
+  const [downloadedCert, setDownloadedCert] = useState(false);
+  const [lanToast, setLanToast] = useState<{
+    variant: 'success' | 'info';
+    title: string;
+    message: string;
+  } | null>(null);
 
   // Copiar comando PowerShell al portapapeles
   const handleCopyFirewallCmd = async () => {
@@ -73,6 +81,11 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
         await navigator.clipboard.writeText(FIREWALL_POWERSHELL_CMD);
       }
       setCopiedFirewallCmd(true);
+      setLanToast({
+        variant: 'success',
+        title: 'Comando PowerShell copiado',
+        message: 'Pégalo en una consola PowerShell como Administrador para habilitar el puerto TCP 3443.',
+      });
       setTimeout(() => setCopiedFirewallCmd(false), 2000);
     } catch {
       // Ignorar si clipboard no está disponible
@@ -86,6 +99,11 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
         await navigator.clipboard.writeText(url);
       }
       setCopiedUrl(true);
+      setLanToast({
+        variant: 'success',
+        title: 'Dirección URL copiada',
+        message: `Se copió ${url} al portapapeles.`,
+      });
       setTimeout(() => setCopiedUrl(false), 2000);
     } catch {
       // Ignorar si clipboard no está disponible
@@ -105,6 +123,13 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      setDownloadedCert(true);
+      setLanToast({
+        variant: 'success',
+        title: 'Certificado Raíz CA descargado',
+        message: 'El archivo zaramagym-root-ca.crt se guardó en tu carpeta de Descargas.',
+      });
+      setTimeout(() => setDownloadedCert(false), 3000);
     } catch {
       // Fallback
     }
@@ -138,6 +163,18 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
     }
   };
 
+  // Re-vincular en 1 clic: revoca la sesión anterior perdida y emite un nuevo código/QR
+  const handleReLinkDevice = async (id: number, deviceName: string) => {
+    if (!isManager) return;
+    try {
+      await revokeDevice(id);
+      await createPairing(deviceName);
+      setRevokeConfirmId(null);
+    } catch {
+      // Error manejado en el hook
+    }
+  };
+
   // Filtrado de dispositivos
   const filteredDevices = devices.filter((d) => {
     if (filter.estadoVinculacion && d.estadoVinculacion !== filter.estadoVinculacion) {
@@ -154,24 +191,28 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
   });
 
   const availableIps = serverStatus?.localIps?.length ? serverStatus.localIps : [];
-  const activeIp =
-    selectedIp && availableIps.includes(selectedIp)
-      ? selectedIp
-      : serverStatus?.primaryIp || '127.0.0.1';
+  const mdnsHost = (serverStatus?.mdnsHostname || 'zaramagym.local').trim();
+  const primaryIp = serverStatus?.primaryIp || '127.0.0.1';
+  const defaultTargetHost =
+    serverStatus?.mdnsActive && mdnsHost ? mdnsHost : primaryIp;
+  const activeTargetHost =
+    selectedHost && (selectedHost === mdnsHost || availableIps.includes(selectedHost))
+      ? selectedHost
+      : defaultTargetHost;
   const activePort = serverStatus?.port || 3443;
   const usesCustomNetworkTarget =
     Boolean(serverStatus) &&
-    (activeIp !== (serverStatus?.primaryIp || '127.0.0.1') || pairingProtocol !== 'https');
+    (activeTargetHost !== defaultTargetHost || pairingProtocol !== 'https');
 
   const mobileScannerDisplayUrl = serverStatus
     ? usesCustomNetworkTarget
-      ? `${pairingProtocol}://${activeIp}:${activePort}/scanner`
+      ? `${pairingProtocol}://${activeTargetHost}:${activePort}/scanner`
       : formatScannerUrl(serverStatus)
     : 'Servidor no iniciado';
 
   const effectivePairingUrl = activePairing
     ? usesCustomNetworkTarget
-      ? `${pairingProtocol}://${activeIp}:${activePort}/scanner?pair=${encodeURIComponent(activePairing.codigoVinculacion)}`
+      ? `${pairingProtocol}://${activeTargetHost}:${activePort}/scanner?pair=${encodeURIComponent(activePairing.codigoVinculacion)}`
       : activePairing.pairingUrl
     : '';
 
@@ -213,6 +254,16 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
 
   return (
     <div className="w-full flex flex-col gap-6">
+      {lanToast && (
+        <Alert
+          variant={lanToast.variant}
+          title={lanToast.title}
+          onClose={() => setLanToast(null)}
+        >
+          {lanToast.message}
+        </Alert>
+      )}
+
       {/* ==================================================================== */}
       {/* 1. BANNER DE ESTADO DEL SERVIDOR LAN (:3443 + mDNS)                 */}
       {/* ==================================================================== */}
@@ -297,7 +348,7 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
               )
             ) : (
               <span className="text-[11px] text-txt-muted bg-canvas-subtle px-2.5 py-1.5 rounded border border-border">
-                Solo Administrador/Supervisor pueden apagar o iniciar el servidor
+                Solo el Administrador puede apagar o iniciar el servidor
               </span>
             )}
           </div>
@@ -325,18 +376,23 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
           <div>
             <span className="text-[10px] uppercase font-bold text-txt-muted block">IP Primaria & Puerto</span>
             <span className="font-mono font-bold text-txt-primary">
-              {activeIp}:{activePort}
+              {primaryIp}:{activePort}
             </span>
-            {availableIps.length > 1 && (
+            {serverStatus && (
               <select
                 aria-label="Seleccionar adaptador de red LAN"
-                value={activeIp}
-                onChange={(e) => setSelectedIp(e.target.value)}
+                value={activeTargetHost}
+                onChange={(e) => setSelectedHost(e.target.value)}
                 className="mt-1.5 w-full bg-surface border border-border rounded px-2 py-1 text-[11px] font-mono text-txt-primary"
               >
+                {mdnsHost && (
+                  <option value={mdnsHost}>
+                    {mdnsHost} (mDNS Recomendado)
+                  </option>
+                )}
                 {availableIps.map((ip) => (
                   <option key={ip} value={ip}>
-                    {ip}{ip === serverStatus?.primaryIp ? ' (Principal)' : ''}
+                    {ip}{ip === serverStatus.primaryIp ? ' (IP Principal - Respaldo)' : ' (IP Respaldo)'}
                   </option>
                 ))}
               </select>
@@ -345,9 +401,15 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
 
           <div>
             <span className="text-[10px] uppercase font-bold text-txt-muted block">Host mDNS Local</span>
-            <span className="font-mono font-semibold text-txt-primary">
-              {serverStatus?.mdnsHostname || 'sistema.local'}:{activePort}
+            <span className="font-mono font-semibold text-txt-primary block">
+              {mdnsHost}:{activePort}
             </span>
+            {serverStatus?.mdnsActive && (
+              <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                <span>Activo (Conserva sesión en Hotspot)</span>
+              </span>
+            )}
           </div>
 
           <div className="sm:col-span-2 flex flex-col justify-center">
@@ -415,10 +477,18 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
             type="button"
             onClick={handleDownloadCaCert}
             disabled={!serverStatus?.caCertPem}
-            className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:underline flex items-center gap-1 shrink-0 disabled:opacity-50"
+            className={`text-xs font-semibold flex items-center gap-1 shrink-0 disabled:opacity-50 ${
+              downloadedCert
+                ? 'text-emerald-700 dark:text-emerald-300'
+                : 'text-indigo-700 dark:text-indigo-300 hover:underline'
+            }`}
           >
-            <Icon name="download" className="w-4 h-4" />
-            <span>Descargar Certificado zaramagym-root-ca.crt</span>
+            <Icon name={downloadedCert ? 'check' : 'download'} className="w-4 h-4" />
+            <span>
+              {downloadedCert
+                ? '¡Certificado Descargado!'
+                : 'Descargar Certificado zaramagym-root-ca.crt'}
+            </span>
           </button>
         </div>
 
@@ -446,7 +516,7 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
       </section>
 
       {/* ==================================================================== */}
-      {/* 2. PANEL DE VINCULACIÓN DE NUEVO DISPOSITIVO (SOLO ADMIN/SUPERVISOR) */}
+      {/* 2. PANEL DE VINCULACIÓN DE NUEVO DISPOSITIVO (SOLO ADMINISTRADOR) */}
       {/* ==================================================================== */}
       {isManager && (
         <section
@@ -463,9 +533,15 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
             </p>
           </div>
 
-          <form onSubmit={handleCreatePairingSubmit} className="flex flex-col sm:flex-row gap-3">
+          <form
+            noValidate
+            onSubmit={handleCreatePairingSubmit}
+            onKeyDown={preventEnterKeySubmit}
+            className="flex flex-col sm:flex-row gap-3"
+          >
             <input
               type="text"
+              required
               placeholder="Nombre del dispositivo (ej. iPhone Recepción Puerta 2)"
               value={newDeviceName}
               onChange={(e) => setNewDeviceName(e.target.value)}
@@ -685,7 +761,20 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
                             Simular
                           </button>
 
-                          {/* Botón de Revocación (Solo Admin/Supervisor) */}
+                          {/* Botón de Re-vinculación rápida cuando se perdió sesión en el móvil */}
+                          {isManager && dev.estadoVinculacion === 'VINCULADO' && (
+                            <button
+                              type="button"
+                              disabled={isActionLoading}
+                              onClick={() => handleReLinkDevice(dev.id, dev.nombreDispositivo)}
+                              className="text-[11px] font-semibold text-accent-sky hover:underline px-2 py-1"
+                              title="Revocar sesión previa y generar un nuevo código QR para este celular"
+                            >
+                              Re-vincular
+                            </button>
+                          )}
+
+                          {/* Botón de Revocación (Solo Administrador) */}
                           {isManager && !isRevoked && (
                             revokeConfirmId === dev.id ? (
                               <div className="flex items-center gap-1">

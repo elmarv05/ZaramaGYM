@@ -945,32 +945,32 @@ async fn test_cp_pos_09_strike_step2_admin_confirm_rbac_and_revert() {
     .await
     .unwrap();
 
-    // Crear Supervisor y Recepcionista
-    let _sup_user = auth_service::create_user(
+    // Crear Recepcionista
+    let _rec_user = auth_service::create_user(
         &state.pool(),
         &state,
         CreateUserInput {
             persona_id: None,
-            username: "sup_pos".into(),
+            username: "rec_pos".into(),
             password: "password123".into(),
             tipo_documento: "DNI".into(),
             numero_documento: "88990011".into(),
             nombres: "Sergio".into(),
-            apellidos: "Supervisor".into(),
+            apellidos: "Recepcionista".into(),
             telefono: None,
             email: None,
-            rol: UserRole::Supervisor,
+            rol: UserRole::Recepcionista,
             foto_perfil_data_url: None,
         },
     )
     .await
     .unwrap();
 
-    let sup_session = auth_service::login(
+    let rec_session = auth_service::login(
         &state.pool(),
         &state,
         LoginCredentials {
-            username: "sup_pos".into(),
+            username: "rec_pos".into(),
             password: "password123".into(),
         },
     )
@@ -1046,10 +1046,10 @@ async fn test_cp_pos_09_strike_step2_admin_confirm_rbac_and_revert() {
     .await
     .unwrap();
 
-    // CP-POS-09B: Restricción RBAC -> Supervisor intenta resolver tachado -> Forbidden
-    let sup_err = pos_service::resolve_struck_sale(
+    // CP-POS-09B: Restricción RBAC -> Recepcionista intenta resolver tachado -> Forbidden
+    let rec_err = pos_service::resolve_struck_sale(
         &state.pool(),
-        &sup_session,
+        &rec_session,
         sale.id,
         ResolveStruckSaleInput {
             accion: ResolveStruckAction::ConfirmarAnulacion,
@@ -1057,8 +1057,8 @@ async fn test_cp_pos_09_strike_step2_admin_confirm_rbac_and_revert() {
         },
     )
     .await
-    .expect_err("Supervisor no puede resolver tachados");
-    assert!(matches!(sup_err, AppError::Forbidden(_)));
+    .expect_err("Recepcionista no puede resolver tachados");
+    assert!(matches!(rec_err, AppError::Forbidden(_)));
 
     // CP-POS-09C: Reversión de tachado por el Administrador (con turno abierto)
     let reverted_sale = pos_service::resolve_struck_sale(
@@ -1224,13 +1224,13 @@ async fn test_cp_pos_11_juan_perez_case_visibility_in_pos() {
     .await
     .unwrap();
 
-    // 1. Crear al trabajador Juan Pérez con rol SUPERVISOR
+    // 1. Crear al trabajador Juan Pérez con rol ADMINISTRADOR
     let juan_user = auth_service::create_user(
         &state.pool(),
         &state,
         CreateUserInput {
             persona_id: None,
-            username: "juan_supervisor".into(),
+            username: "juan_admin".into(),
             password: "password123".into(),
             tipo_documento: "DNI".into(),
             numero_documento: "77889900".into(),
@@ -1238,7 +1238,7 @@ async fn test_cp_pos_11_juan_perez_case_visibility_in_pos() {
             apellidos: "Pérez".into(),
             telefono: Some("999111222".into()),
             email: Some("juan@gimnasio.com".into()),
-            rol: UserRole::Supervisor,
+            rol: UserRole::Administrador,
             foto_perfil_data_url: None,
         },
     )
@@ -1314,7 +1314,7 @@ async fn test_cp_pos_11_juan_perez_case_visibility_in_pos() {
 
     assert!(
         clients.iter().any(|c| c.id == juan_client.id),
-        "Juan Pérez (Supervisor) debe aparecer en el listado de clientes para la recepcionista"
+        "Juan Pérez (Administrador) debe aparecer en el listado de clientes para la recepcionista"
     );
 
     // 5. Recepcionista consulta detalle de Juan Pérez como cliente
@@ -1356,7 +1356,7 @@ async fn test_cp_pos_11_juan_perez_case_visibility_in_pos() {
                 monto: Decimal::new(1000, 2),
                 referencia_operacion: None,
             }],
-            notas: Some("Pase diario para supervisor que entrena".into()),
+            notas: Some("Pase diario para administrador que entrena".into()),
         },
     )
     .await

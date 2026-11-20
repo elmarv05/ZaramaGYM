@@ -16,6 +16,11 @@ import {
   ProductListItem,
   RecordInventoryMovementInput,
 } from '../../types/catalog';
+import {
+  preventEnterKeySubmit,
+  sanitizeIntegerInput,
+  selectIfZeroDefault,
+} from '../../utils/formSafety';
 
 export interface InventoryMovementModalProps {
   isOpen: boolean;
@@ -38,7 +43,7 @@ export const InventoryMovementModal: React.FC<InventoryMovementModalProps> = ({
   const [tipoMovimiento, setTipoMovimiento] = useState<
     'MERMA_DANIO' | 'MERMA_VENCIMIENTO' | 'CONSUMO_PROPIO' | 'ENTRADA_AJUSTE'
   >('MERMA_DANIO');
-  const [cantidad, setCantidad] = useState<number>(1);
+  const [cantidadStr, setCantidadStr] = useState<string>('1');
   const [justificacion, setJustificacion] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -52,7 +57,7 @@ export const InventoryMovementModal: React.FC<InventoryMovementModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setCantidad(1);
+      setCantidadStr('1');
       setJustificacion('');
       setErrors({});
     }
@@ -62,6 +67,8 @@ export const InventoryMovementModal: React.FC<InventoryMovementModalProps> = ({
     products.find((p) => p.id === productId) || selectedProduct || null;
 
   const currentStock = activeProduct ? activeProduct.stock_actual : 0;
+  const parsedCantidad = parseInt(cantidadStr, 10);
+  const cantidad = isNaN(parsedCantidad) ? 0 : parsedCantidad;
   const isSalida = ['MERMA_DANIO', 'MERMA_VENCIMIENTO', 'CONSUMO_PROPIO'].includes(
     tipoMovimiento
   );
@@ -112,7 +119,12 @@ export const InventoryMovementModal: React.FC<InventoryMovementModalProps> = ({
       description="Asienta ajustes de inventario físico, pérdidas por daño/vencimiento o consumo interno."
       size="md"
     >
-      <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form
+        noValidate
+        onSubmit={handleSubmit}
+        onKeyDown={preventEnterKeySubmit}
+        className="flex flex-col gap-4"
+      >
         {selectedProduct ? (
           <div className="bg-canvas-subtle p-3 rounded-lg border border-border flex flex-col gap-1">
             <span className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">
@@ -153,10 +165,11 @@ export const InventoryMovementModal: React.FC<InventoryMovementModalProps> = ({
 
         <Input
           label="Cantidad de Unidades"
-          type="number"
-          min="1"
-          value={cantidad}
-          onChange={(e) => setCantidad(parseInt(e.target.value, 10) || 0)}
+          type="text"
+          inputMode="numeric"
+          value={cantidadStr}
+          onFocus={selectIfZeroDefault}
+          onChange={(e) => setCantidadStr(sanitizeIntegerInput(e.target.value))}
           error={errors.cantidad}
           required
           hint="Número entero positivo mayor a cero"

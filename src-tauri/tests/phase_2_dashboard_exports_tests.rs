@@ -176,7 +176,6 @@ fn test_validate_external_url_allows_whatsapp_and_https_and_rejects_unsafe() {
 #[tokio::test]
 async fn test_home_dashboard_metrics_aggregations_and_rbac() {
     let (state, _tmp) = setup_test_env().await;
-    let supervisor = create_and_login_role(&state, "sup_dash", "22334455", UserRole::Supervisor).await;
     let recep =
         create_and_login_role(&state, "rec_dash", "33445566", UserRole::Recepcionista).await;
 
@@ -466,17 +465,7 @@ async fn test_home_dashboard_metrics_aggregations_and_rbac() {
     assert_eq!(metrics_admin.membresias_por_vencer[1].cliente_id, c_2d);
     assert_eq!(metrics_admin.membresias_por_vencer[1].dias_restantes, 2);
 
-    // 7. Consultar dashboard como SUPERVISOR (ve ingresos del mes)
-    let metrics_sup = dashboard_service::get_home_dashboard_metrics(&state.pool(), &supervisor)
-        .await
-        .expect("Dashboard supervisor debe ser exitoso");
-    assert!(metrics_sup.can_view_monthly_revenue);
-    assert_eq!(
-        metrics_sup.ingresos_mes_total,
-        Decimal::from_str("70.00").unwrap()
-    );
-
-    // 8. Consultar dashboard como RECEPCIONISTA (ingresos_mes_* ocultos en 0.00)
+    // 7. Consultar dashboard como RECEPCIONISTA (ingresos_mes_* ocultos en 0.00)
     let metrics_rec = dashboard_service::get_home_dashboard_metrics(&state.pool(), &recep)
         .await
         .expect("Dashboard recepcionista debe ser exitoso");
@@ -500,8 +489,6 @@ async fn test_exports_clients_debtors_and_sales_in_csv_xlsx_pdf_with_rbac_and_au
     let (state, _tmp) = setup_test_env().await;
     let recep =
         create_and_login_role(&state, "rec_exp", "55667788", UserRole::Recepcionista).await;
-    let supervisor =
-        create_and_login_role(&state, "sup_exp", "66778899", UserRole::Supervisor).await;
     let admin = login_admin(&state).await;
 
     // Cliente con tildes, ñ y coma para probar UTF-8 BOM + RFC 4180 + XML escaping
@@ -624,28 +611,10 @@ async fn test_exports_clients_debtors_and_sales_in_csv_xlsx_pdf_with_rbac_and_au
     assert!(String::from_utf8_lossy(&debtors_pdf_bytes)
         .contains("CARTERA DE CREDITOS Y DEUDORES PENDIENTES"));
 
-    // 3. Reporte de ventas: RBAC Forbidden para RECEPCIONISTA
-    let forbidden_res = dashboard_service::export_sales_cash_report(
-        &state.pool(),
-        &recep,
-        ExportSalesReportRequest {
-            fecha_desde: None,
-            fecha_hasta: None,
-            canal_filtro: None,
-            format: ExportFormat::Csv,
-        },
-    )
-    .await;
-    assert!(
-        matches!(forbidden_res, Err(AppError::Forbidden(_))),
-        "RECEPCIONISTA debe recibir Forbidden en export_sales_cash_report, obtenido: {:?}",
-        forbidden_res
-    );
-
-    // 4. Reporte de ventas permitido para SUPERVISOR y ADMINISTRADOR en CSV, XLSX, PDF y filtros
+    // 3. Reporte de ventas permitido para RECEPCIONISTA y ADMINISTRADOR en CSV, XLSX, PDF y filtros
     let sales_csv = dashboard_service::export_sales_cash_report(
         &state.pool(),
-        &supervisor,
+        &recep,
         ExportSalesReportRequest {
             fecha_desde: None,
             fecha_hasta: None,

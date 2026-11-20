@@ -20,6 +20,7 @@ import {
   TableRow,
 } from '../../../components/primitives/Table';
 import { RECEIPT_TYPE_LABELS } from '../../../domain/printingBackup';
+import { preventEnterKeySubmit } from '../../../utils/formSafety';
 import {
   ReceiptSeries,
   UpdateReceiptSeriesRequest,
@@ -210,7 +211,7 @@ export const ReceiptSeriesTab: React.FC<ReceiptSeriesTabProps> = ({
         } | Correlativo actual: ${editingSeries?.correlativo_actual || 0}`}
         size="md"
       >
-        <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
+        <form noValidate onSubmit={handleSaveEdit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4">
           <Input
             label="Descripción de la Serie"
             value={editDescripcion}

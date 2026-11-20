@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   calculateDayOverflowPreview,
+  canCreateOrEditProducts,
+  canCreatePlans,
+  canDeactivateProducts,
+  canEditOrDeactivatePlans,
   canMutateCatalog,
+  canMutatePlans,
+  canRecordInventoryMovement,
   formatPEN,
   formatProductCategory,
   getDaysInMonth,
@@ -224,11 +230,30 @@ describe('Dominio Catálogo: Algoritmo Day Overflow & Validaciones (Slice 3)', (
   });
 
   describe('RBAC y Helpers de Presentación', () => {
-    it('permite mutaciones a ADMINISTRADOR y SUPERVISOR, restringe a RECEPCIONISTA', () => {
+    it('aplica la matriz definitiva de permisos de catálogo para ADMINISTRADOR y RECEPCIONISTA', () => {
       expect(canMutateCatalog('ADMINISTRADOR')).toBe(true);
-      expect(canMutateCatalog('SUPERVISOR')).toBe(true);
       expect(canMutateCatalog('RECEPCIONISTA')).toBe(false);
       expect(canMutateCatalog(null)).toBe(false);
+
+      expect(canCreatePlans('ADMINISTRADOR')).toBe(true);
+      expect(canCreatePlans('RECEPCIONISTA')).toBe(true);
+      expect(canCreatePlans(null)).toBe(false);
+
+      expect(canEditOrDeactivatePlans('ADMINISTRADOR')).toBe(true);
+      expect(canEditOrDeactivatePlans('RECEPCIONISTA')).toBe(false);
+
+      expect(canMutatePlans('ADMINISTRADOR')).toBe(true);
+      expect(canMutatePlans('RECEPCIONISTA')).toBe(false);
+
+      expect(canCreateOrEditProducts('ADMINISTRADOR')).toBe(true);
+      expect(canCreateOrEditProducts('RECEPCIONISTA')).toBe(true);
+      expect(canCreateOrEditProducts(null)).toBe(false);
+
+      expect(canDeactivateProducts('ADMINISTRADOR')).toBe(true);
+      expect(canDeactivateProducts('RECEPCIONISTA')).toBe(false);
+
+      expect(canRecordInventoryMovement('ADMINISTRADOR')).toBe(true);
+      expect(canRecordInventoryMovement('RECEPCIONISTA')).toBe(false);
     });
 
     it('formatea montos a soles peruanos y categorías con emojis semánticos', () => {

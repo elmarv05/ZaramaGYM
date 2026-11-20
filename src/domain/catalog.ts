@@ -315,12 +315,55 @@ export function validateInventoryMovementForm(
 // ============================================================================
 
 /**
- * Solo ADMINISTRADOR y SUPERVISOR pueden dar de alta, editar o cambiar estado de planes/productos
- * y registrar mermas manuales. RECEPCIONISTA tiene modo sólo lectura y simulación.
+ * Solo ADMINISTRADOR puede crear, editar o desactivar planes de membresía.
+ */
+/**
+ * ADMINISTRADOR y RECEPCIONISTA pueden crear nuevos planes o tarifas de membresía.
+ */
+export function canCreatePlans(role?: string | null): boolean {
+  return role === 'ADMINISTRADOR' || role === 'RECEPCIONISTA';
+}
+
+/**
+ * Solo ADMINISTRADOR puede editar o desactivar/activar planes existentes.
+ */
+export function canEditOrDeactivatePlans(role?: string | null): boolean {
+  return role === 'ADMINISTRADOR';
+}
+
+/**
+ * Compatibilidad: alias de canEditOrDeactivatePlans (solo ADMINISTRADOR).
+ */
+export function canMutatePlans(role?: string | null): boolean {
+  return canEditOrDeactivatePlans(role);
+}
+
+/**
+ * ADMINISTRADOR y RECEPCIONISTA pueden registrar productos nuevos y modificar productos.
+ */
+export function canCreateOrEditProducts(role?: string | null): boolean {
+  return role === 'ADMINISTRADOR' || role === 'RECEPCIONISTA';
+}
+
+/**
+ * Solo ADMINISTRADOR puede desactivar o reactivar productos del inventario.
+ */
+export function canDeactivateProducts(role?: string | null): boolean {
+  return role === 'ADMINISTRADOR';
+}
+
+/**
+ * Solo ADMINISTRADOR puede registrar mermas o ajustes manuales en el Kardex.
+ */
+export function canRecordInventoryMovement(role?: string | null): boolean {
+  return role === 'ADMINISTRADOR';
+}
+
+/**
+ * Compatibilidad: solo ADMINISTRADOR posee mutación total del catálogo (planes, bajas y Kardex).
  */
 export function canMutateCatalog(rol?: string | null): boolean {
-  if (!rol) return false;
-  return rol === 'ADMINISTRADOR' || rol === 'SUPERVISOR';
+  return rol === 'ADMINISTRADOR';
 }
 
 // ============================================================================

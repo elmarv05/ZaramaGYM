@@ -3,7 +3,7 @@
 // Ubicación: src/features/entities/ClientWeightHistoryModal.tsx
 // ============================================================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ClientListItem,
   ClientDetail,
@@ -14,8 +14,18 @@ import { formatKg, formatWeightVariation, validateRecordWeightInput } from '../.
 import { Modal } from '../../components/primitives/Modal';
 import { Button } from '../../components/primitives/Button';
 import { Input } from '../../components/primitives/Input';
+import {
+  InteractiveLineChart,
+  LineChartDataPoint,
+} from '../../components/primitives/InteractiveLineChart';
 import { Badge } from '../../components/primitives/Badge';
 import { Alert } from '../../components/primitives/Alert';
+import {
+  formatDecimalOnBlur,
+  preventEnterKeySubmit,
+  sanitizeDecimalInput,
+  selectIfZeroDefault,
+} from '../../utils/formSafety';
 import {
   Table,
   TableHeader,
@@ -75,6 +85,25 @@ export const ClientWeightHistoryModal: React.FC<ClientWeightHistoryModalProps> =
       loadHistory();
     }
   }, [isOpen, client, loadHistory]);
+
+  const chartData: LineChartDataPoint[] = useMemo(() => {
+    if (!history || history.length === 0) return [];
+    return [...history].reverse().map((rec) => {
+      const datePart = rec.fecha_registro ? rec.fecha_registro.slice(0, 10) : '';
+      const shortDate = datePart.length >= 10 ? datePart.slice(5, 10) : datePart || `#${rec.id}`;
+      return {
+        id: rec.id,
+        label: shortDate,
+        fullLabel: rec.fecha_registro,
+        value: Number(rec.peso_kg),
+        delta:
+          rec.variacion_kg !== null && rec.variacion_kg !== undefined
+            ? Number(rec.variacion_kg)
+            : null,
+        note: rec.nota,
+      };
+    });
+  }, [history]);
 
   if (!client) return null;
 
@@ -165,7 +194,9 @@ export const ClientWeightHistoryModal: React.FC<ClientWeightHistoryModalProps> =
 
         {/* Formulario Rápido de Registro en Vivo */}
         <form
+          noValidate
           onSubmit={handleSubmitNewWeight}
+          onKeyDown={preventEnterKeySubmit}
           className="p-4 bg-surface rounded-xl border border-border shadow-xs flex flex-col gap-3"
         >
           <span className="text-sm font-bold text-txt-primary">
@@ -175,20 +206,17 @@ export const ClientWeightHistoryModal: React.FC<ClientWeightHistoryModalProps> =
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
               label="Peso (kg)"
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.01"
               placeholder="Ej: 75.50"
               value={nuevoPeso}
+              onFocus={selectIfZeroDefault}
               onChange={(e) => {
-                setNuevoPeso(e.target.value);
+                setNuevoPeso(sanitizeDecimalInput(e.target.value));
                 if (formError) setFormError(null);
               }}
               onBlur={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!isNaN(v) && v > 0) {
-                  setNuevoPeso(v.toFixed(2));
-                }
+                setNuevoPeso(formatDecimalOnBlur(e.target.value, { min: 1, max: 400 }));
               }}
               error={formError || undefined}
               disabled={isSubmitting}
@@ -223,6 +251,19 @@ export const ClientWeightHistoryModal: React.FC<ClientWeightHistoryModalProps> =
           <Alert variant="danger" title="Error" actionText="Reintentar" onAction={loadHistory}>
             {error}
           </Alert>
+        )}
+
+        {!isLoading && (
+          <InteractiveLineChart
+            data={chartData}
+            unit="kg"
+            decimals={2}
+            trendSemantic="neutral"
+            title="Evolución Lineal de Peso"
+            subtitle="Pasa el cursor o selecciona un punto para inspeccionar el control"
+            emptyTitle="Sin récords de peso previos"
+            emptyDescription="Registra el primer control de peso arriba para trazar la gráfica."
+          />
         )}
 
         {/* Tabla Cronológica de Historial */}

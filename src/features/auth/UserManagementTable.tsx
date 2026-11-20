@@ -1,6 +1,6 @@
 // ============================================================================
 // COMPONENTE: GESTIÓN DE USUARIOS DEL SISTEMA (USER MANAGEMENT TABLE)
-// Accesible para Administradores y Supervisores (Jerarquía de 3 roles con foto de perfil)
+// Accesible para Administradores (Sistema de 2 roles con foto de perfil)
 // Creación en 2 Fases (Nueva Persona vs Persona Existente) y Edición Dual con RBAC
 // Ubicación: src/features/auth/UserManagementTable.tsx
 // ============================================================================
@@ -28,6 +28,7 @@ import { Icon } from '../../components/primitives/Icon';
 import { Input } from '../../components/primitives/Input';
 import { Select } from '../../components/primitives/Select';
 import { Modal } from '../../components/primitives/Modal';
+import { preventEnterKeySubmit } from '../../utils/formSafety';
 import { Alert } from '../../components/primitives/Alert';
 import {
   Table,
@@ -129,20 +130,15 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
   const [editDireccion, setEditDireccion] = useState('');
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
-  const isSupervisor = currentSession.rol === 'SUPERVISOR';
   const isAdmin = currentSession.rol === 'ADMINISTRADOR';
 
-  // Opciones de Rol según jerarquía del usuario en sesión
+  // Opciones de Rol (Sistema consolidado a 2 roles)
   const availableRoles: { value: UserRole; label: string }[] = useMemo(() => {
-    if (isSupervisor) {
-      return [{ value: 'RECEPCIONISTA', label: 'RECEPCIONISTA (Operativo)' }];
-    }
     return [
       { value: 'RECEPCIONISTA', label: 'RECEPCIONISTA (Operativo)' },
-      { value: 'SUPERVISOR', label: 'SUPERVISOR (Intermedio)' },
       { value: 'ADMINISTRADOR', label: 'ADMINISTRADOR (Total)' },
     ];
-  }, [isSupervisor]);
+  }, []);
 
   // Filtrado local de usuarios
   const filteredUsers = useMemo(() => {
@@ -325,6 +321,25 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
     if (onClearError) onClearError();
     setEditErrors({});
 
+    const nextAccountErrors: Record<string, string> = {};
+    const cleanUsername = editUsername.trim();
+    if (!cleanUsername) {
+      nextAccountErrors.username = 'El nombre de usuario es obligatorio.';
+    } else if (cleanUsername.length < 3) {
+      nextAccountErrors.username = 'El nombre de usuario debe tener al menos 3 caracteres.';
+    } else if (!/^[a-zA-Z0-9_.-]+$/.test(cleanUsername)) {
+      nextAccountErrors.username =
+        'El usuario solo puede contener letras, números y los caracteres _ . -';
+    }
+    if (editNewPassword.trim() && editNewPassword.length < 6) {
+      nextAccountErrors.new_password = 'La nueva contraseña debe tener al menos 6 caracteres.';
+    }
+    if (Object.keys(nextAccountErrors).length > 0) {
+      setEditErrors(nextAccountErrors);
+      setEditTab('account');
+      return;
+    }
+
     let personaData: UpdatePersonInput | null = null;
 
     if (isPersonalUnlocked) {
@@ -495,7 +510,7 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
             </svg>
           }
         >
-          {isSupervisor ? 'Nuevo Recepcionista' : 'Nuevo Usuario'}
+          Nuevo Usuario
         </Button>
       </div>
 
@@ -537,20 +552,11 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
               const isCurrentUser = user.id === currentSession.user_id;
               const isRootAdmin = user.id === 1;
 
-              const canToggle =
-                !isCurrentUser &&
-                !isRootAdmin &&
-                (isAdmin || (isSupervisor && user.rol === 'RECEPCIONISTA'));
+              const canToggle = !isCurrentUser && !isRootAdmin && isAdmin;
 
-              const canEdit =
-                isCurrentUser ||
-                isAdmin ||
-                (isSupervisor && user.rol === 'RECEPCIONISTA');
+              const canEdit = isCurrentUser || isAdmin;
 
-              const canUploadPhoto =
-                isCurrentUser ||
-                isAdmin ||
-                (isSupervisor && user.rol === 'RECEPCIONISTA');
+              const canUploadPhoto = isCurrentUser || isAdmin;
 
               const fullName = `${user.nombres} ${user.apellidos}`.trim();
 
@@ -559,21 +565,12 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                   key={user.id}
                   entityTag="USUARIO"
                   entityTagVariant={
-                    user.rol === 'ADMINISTRADOR'
-                      ? 'default'
-                      : user.rol === 'SUPERVISOR'
-                      ? 'warning'
-                      : 'info'
+                    user.rol === 'ADMINISTRADOR' ? 'default' : 'info'
                   }
                   secondaryBadges={[
                     {
                       label: user.rol,
-                      variant:
-                        user.rol === 'ADMINISTRADOR'
-                          ? 'default'
-                          : user.rol === 'SUPERVISOR'
-                          ? 'warning'
-                          : 'info',
+                      variant: user.rol === 'ADMINISTRADOR' ? 'default' : 'info',
                     },
                   ]}
                   isActive={user.estado_activo}
@@ -694,20 +691,11 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                 const isCurrentUser = user.id === currentSession.user_id;
                 const isRootAdmin = user.id === 1;
 
-                const canToggle =
-                  !isCurrentUser &&
-                  !isRootAdmin &&
-                  (isAdmin || (isSupervisor && user.rol === 'RECEPCIONISTA'));
+                const canToggle = !isCurrentUser && !isRootAdmin && isAdmin;
 
-                const canEdit =
-                  isCurrentUser ||
-                  isAdmin ||
-                  (isSupervisor && user.rol === 'RECEPCIONISTA');
+                const canEdit = isCurrentUser || isAdmin;
 
-                const canUploadPhoto =
-                  isCurrentUser ||
-                  isAdmin ||
-                  (isSupervisor && user.rol === 'RECEPCIONISTA');
+                const canUploadPhoto = isCurrentUser || isAdmin;
 
                 return (
                   <TableRow
@@ -784,13 +772,7 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
 
                     <TableCell>
                       <Badge
-                        variant={
-                          user.rol === 'ADMINISTRADOR'
-                            ? 'default'
-                            : user.rol === 'SUPERVISOR'
-                            ? 'warning'
-                            : 'info'
-                        }
+                        variant={user.rol === 'ADMINISTRADOR' ? 'default' : 'info'}
                         size="sm"
                       >
                         {user.rol}
@@ -897,15 +879,16 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
       <Modal
         isOpen={isCreateModalOpen}
         onClose={handleCloseCreateModal}
-        title={isSupervisor ? 'Crear Nuevo Recepcionista' : 'Crear Nuevo Usuario del Sistema'}
-        description={
-          isSupervisor
-            ? 'Registra un operador con credenciales y rol de Recepcionista a tu cargo.'
-            : 'Registra un operador con credenciales y rol de sistema (Administrador, Supervisor o Recepcionista).'
-        }
+        title="Crear Nuevo Usuario del Sistema"
+        description="Registra un operador con credenciales y rol de sistema (Administrador o Recepcionista)."
         size="lg"
       >
-        <form onSubmit={handleCreateSubmit} className="flex flex-col gap-4">
+        <form
+          noValidate
+          onSubmit={handleCreateSubmit}
+          onKeyDown={preventEnterKeySubmit}
+          className="flex flex-col gap-4"
+        >
           {/* Fase 1: Modo Selección de Persona */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-txt-muted uppercase tracking-wider">
@@ -1181,7 +1164,7 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                     setFormData((prev) => ({ ...prev, rol: e.target.value as UserRole }))
                   }
                   error={formErrors.rol}
-                  disabled={isActionLoading || isSupervisor}
+                  disabled={isActionLoading}
                   required
                 />
               </div>
@@ -1220,7 +1203,12 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
           description="Actualiza credenciales, rol y opcionalmente los datos de la persona vinculada."
           size="lg"
         >
-          <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
+          <form
+            noValidate
+            onSubmit={handleEditSubmit}
+            onKeyDown={preventEnterKeySubmit}
+            className="flex flex-col gap-4"
+          >
             {/* Pestañas de Edición */}
             <div className="flex border-b border-border">
               <button
@@ -1281,7 +1269,11 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                   <Input
                     label="Nombre de Usuario"
                     value={editUsername}
-                    onChange={(e) => setEditUsername(e.target.value)}
+                    onChange={(e) => {
+                      setEditUsername(e.target.value);
+                      if (editErrors.username) setEditErrors((prev) => ({ ...prev, username: '' }));
+                    }}
+                    error={editErrors.username}
                     disabled={isActionLoading}
                     required
                   />
@@ -1291,7 +1283,13 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                     type="password"
                     placeholder="Opcional (mínimo 6 caracteres)"
                     value={editNewPassword}
-                    onChange={(e) => setEditNewPassword(e.target.value)}
+                    onChange={(e) => {
+                      setEditNewPassword(e.target.value);
+                      if (editErrors.new_password) {
+                        setEditErrors((prev) => ({ ...prev, new_password: '' }));
+                      }
+                    }}
+                    error={editErrors.new_password}
                     disabled={isActionLoading}
                   />
 
@@ -1301,7 +1299,7 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                       options={availableRoles}
                       value={editRol}
                       onChange={(e) => setEditRol(e.target.value as UserRole)}
-                      disabled={isActionLoading || isSupervisor}
+                      disabled={isActionLoading}
                       required
                     />
                   </div>

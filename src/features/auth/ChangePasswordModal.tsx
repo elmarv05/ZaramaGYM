@@ -10,6 +10,7 @@ import { Modal } from '../../components/primitives/Modal';
 import { Input } from '../../components/primitives/Input';
 import { Button } from '../../components/primitives/Button';
 import { Alert } from '../../components/primitives/Alert';
+import { preventEnterKeySubmit } from '../../utils/formSafety';
 
 export interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -97,7 +98,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        <form
+          noValidate
+          onSubmit={handleSubmit}
+          onKeyDown={preventEnterKeySubmit}
+          className="flex flex-col gap-3.5"
+        >
           <Input
             label="Contraseña Actual"
             type="password"

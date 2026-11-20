@@ -19,6 +19,7 @@ import {
   UpdatePrintingBackupConfigRequest,
 } from '../../../types/printingBackup';
 import { ThermalTicketPreview } from './ThermalTicketPreview';
+import { preventEnterKeySubmit, sanitizeIntegerInput } from '../../../utils/formSafety';
 
 export interface PrinterSmtpConfigTabProps {
   config: PrintingBackupConfigDto | null;
@@ -213,15 +214,17 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
       )}
 
       {!isAdmin && (
-        <Alert variant="info" title="Modo Visualización">
-          Como Supervisor tienes acceso de lectura para verificar los parámetros de impresión, encabezados y correo del gimnasio. Los cambios de configuración son exclusivos del Administrador.
+        <Alert variant="info" title="Modo Visualización" floating={false}>
+          Los cambios de configuración de impresión, encabezados y correo del gimnasio son exclusivos del Administrador.
         </Alert>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Formulario Principal de Configuración */}
         <form
+          noValidate
           onSubmit={handleSubmit}
+          onKeyDown={preventEnterKeySubmit}
           className="lg:col-span-7 flex flex-col gap-6"
         >
           {/* Barra de Acción Rápida Sticky Arriba */}
@@ -526,11 +529,16 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
               </div>
               <Input
                 label="Puerto"
-                type="number"
-                value={String(smtpPort)}
-                onChange={(e) => setSmtpPort(Number(e.target.value))}
+                type="text"
+                inputMode="numeric"
+                value={smtpPort === 0 ? '' : String(smtpPort)}
+                onChange={(e) => {
+                  const clean = sanitizeIntegerInput(e.target.value);
+                  setSmtpPort(clean ? Number(clean) : 0);
+                }}
                 disabled={!isAdmin || !smtpEnabled || isActionLoading}
                 placeholder="587"
+                required={smtpEnabled}
               />
             </div>
 
@@ -597,10 +605,10 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
             <div className="flex items-center gap-2">
               <div className="flex-1">
                 <input
-                  type="number"
-                  min="1"
+                  type="text"
+                  inputMode="numeric"
                   value={testVentaId}
-                  onChange={(e) => setTestVentaId(e.target.value)}
+                  onChange={(e) => setTestVentaId(sanitizeIntegerInput(e.target.value))}
                   placeholder="ID de Venta"
                   className="w-full px-3 py-1.5 text-xs rounded-md border border-border bg-canvas text-txt-primary focus:ring-1 focus:ring-brand outline-none"
                 />

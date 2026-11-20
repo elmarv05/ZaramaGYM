@@ -135,27 +135,6 @@ async fn test_plans_seed_crud_and_rbac_permissions() {
     .await
     .expect("Crear recepcionista falló");
 
-    // 3. Crear usuario SUPERVISOR (sup1)
-    let _sup_user = auth_service::create_user(
-        &state.pool(),
-        &state,
-        CreateUserInput {
-            persona_id: None,
-            username: "super1".into(),
-            password: "password123".into(),
-            tipo_documento: "DNI".into(),
-            numero_documento: "44444444".into(),
-            nombres: "Supervisor".into(),
-            apellidos: "Prueba".into(),
-            telefono: None,
-            email: None,
-            rol: UserRole::Supervisor,
-            foto_perfil_data_url: None,
-        },
-    )
-    .await
-    .expect("Crear supervisor falló");
-
     // Sesión de recepcionista
     let rec_session = auth_service::login(
         &state.pool(),
@@ -167,18 +146,6 @@ async fn test_plans_seed_crud_and_rbac_permissions() {
     )
     .await
     .expect("Login recep falló");
-
-    // Sesión de supervisor
-    let sup_session = auth_service::login(
-        &state.pool(),
-        &state,
-        LoginCredentials {
-            username: "super1".into(),
-            password: "password123".into(),
-        },
-    )
-    .await
-    .expect("Login sup falló");
 
     // 4. Verificar los 4 planes semilla de ZaramaGYM
     let planes = catalog_service::list_plans(&state.pool(), &rec_session, &PlanFilter::default())
@@ -210,30 +177,32 @@ async fn test_plans_seed_crud_and_rbac_permissions() {
     assert_eq!(p4.duracion_meses, 3);
     assert_eq!(p4.precio_base, Decimal::from_str("210.00").unwrap());
 
-    // 5. RBAC: RECEPCIONISTA NO puede crear planes
-    let err_rec_create = catalog_service::create_plan(
+    // 5. RBAC: RECEPCIONISTA SÍ puede crear planes nuevos, pero NO modificar ni desactivar
+    let plan_rec = catalog_service::create_plan(
         &state.pool(),
         &rec_session,
         CreatePlanInput {
-            codigo: "PLAN-TEST".into(),
-            nombre: "Plan Test".into(),
+            codigo: "PLAN-RECEP".into(),
+            nombre: "Plan Creado Por Recepcionista".into(),
             descripcion: None,
             tipo_plan: PlanType::Mensualidad,
             duracion_meses: 1,
-            precio_base: Decimal::from_str("100.00").unwrap(),
+            precio_base: Decimal::from_str("90.00").unwrap(),
             permite_recuperacion_dias: true,
         },
     )
-    .await;
-    match err_rec_create {
-        Err(AppError::Forbidden(_)) => (),
-        other => panic!("Esperaba AppError::Forbidden para recepcionista creando plan, obtuve: {:?}", other),
-    }
+    .await
+    .expect("Recepcionista debe poder crear planes nuevos");
+    assert_eq!(plan_rec.codigo, "PLAN-RECEP");
 
-    // 6. SUPERVISOR puede crear planes
+    let err_rec_toggle_plan =
+        catalog_service::toggle_plan_active(&state.pool(), &rec_session, plan_rec.id, false).await;
+    assert!(matches!(err_rec_toggle_plan, Err(AppError::Forbidden(_))));
+
+    // 6. ADMINISTRADOR puede crear planes
     let nuevo_plan = catalog_service::create_plan(
         &state.pool(),
-        &sup_session,
+        &admin_session,
         CreatePlanInput {
             codigo: "PLAN-6M".into(),
             nombre: "Membresía Semestral".into(),
@@ -245,15 +214,29 @@ async fn test_plans_seed_crud_and_rbac_permissions() {
         },
     )
     .await
-    .expect("Supervisor no pudo crear plan semestral");
+    .expect("Admin no pudo crear plan semestral");
     assert_eq!(nuevo_plan.codigo, "PLAN-6M");
     assert_eq!(nuevo_plan.duracion_meses, 6);
     assert_eq!(nuevo_plan.precio_base, Decimal::from_str("380.00").unwrap());
 
-    // 7. SUPERVISOR puede editar el plan
+    // 7. ADMINISTRADOR puede editar el plan (y RECEPCIONISTA recibe Forbidden)
+    let err_rec_update = catalog_service::update_plan(
+        &state.pool(),
+        &rec_session,
+        nuevo_plan.id,
+        UpdatePlanInput {
+            nombre: "Intento Recep".into(),
+            descripcion: None,
+            precio_base: Decimal::from_str("10.00").unwrap(),
+            permite_recuperacion_dias: false,
+        },
+    )
+    .await;
+    assert!(matches!(err_rec_update, Err(AppError::Forbidden(_))));
+
     let plan_actualizado = catalog_service::update_plan(
         &state.pool(),
-        &sup_session,
+        &admin_session,
         nuevo_plan.id,
         UpdatePlanInput {
             nombre: "Membresía Semestral PRO".into(),
@@ -263,9 +246,73 @@ async fn test_plans_seed_crud_and_rbac_permissions() {
         },
     )
     .await
-    .expect("Supervisor no pudo actualizar plan");
+    .expect("Admin no pudo actualizar plan");
     assert_eq!(plan_actualizado.nombre, "Membresía Semestral PRO");
     assert_eq!(plan_actualizado.precio_base, Decimal::from_str("395.00").unwrap());
+
+    // Desactivar plan_rec para mantener conteo de planes semilla + nuevo_plan
+    catalog_service::toggle_plan_active(&state.pool(), &admin_session, plan_rec.id, false)
+        .await
+        .unwrap();
+
+    // 7.1 RECEPCIONISTA sí puede crear y actualizar productos, pero NO desactivarlos ni registrar mermas
+    let prod_rec = catalog_service::create_product(
+        &state.pool(),
+        &rec_session,
+        CreateProductInput {
+            codigo_sku: "RECEP-AGUA".into(),
+            nombre: "Agua Recepcion".into(),
+            categoria: ProductCategory::Bebidas,
+            unidad_medida: Some("BOTELLA".into()),
+            precio_compra_referencial: Some(Decimal::from_str("1.00").unwrap()),
+            costo_unitario: None,
+            precio_venta: Decimal::from_str("2.50").unwrap(),
+            stock_inicial: Some(5),
+            stock_minimo: Some(2),
+            proveedor_preferido_id: None,
+        },
+    )
+    .await
+    .expect("Recepcionista debe poder registrar productos");
+
+    let prod_rec_upd = catalog_service::update_product(
+        &state.pool(),
+        &rec_session,
+        prod_rec.id,
+        UpdateProductInput {
+            codigo_sku: None,
+            nombre: "Agua Recepcion Editada".into(),
+            categoria: ProductCategory::Bebidas,
+            unidad_medida: Some("BOTELLA".into()),
+            precio_compra_referencial: Some(Decimal::from_str("1.10").unwrap()),
+            costo_unitario: None,
+            precio_venta: Decimal::from_str("3.00").unwrap(),
+            stock_minimo: 2,
+            proveedor_preferido_id: None,
+        },
+    )
+    .await
+    .expect("Recepcionista debe poder modificar productos");
+    assert_eq!(prod_rec_upd.nombre, "Agua Recepcion Editada");
+
+    let err_rec_toggle_prod =
+        catalog_service::toggle_product_active(&state.pool(), &rec_session, prod_rec.id, false)
+            .await;
+    assert!(matches!(err_rec_toggle_prod, Err(AppError::Forbidden(_))));
+
+    let err_rec_merma = catalog_service::record_inventory_movement(
+        &state.pool(),
+        &rec_session,
+        RecordInventoryMovementInput {
+            producto_id: prod_rec.id,
+            tipo_movimiento: InventoryMovementType::Merma,
+            cantidad: 1,
+            costo_unitario_momento: None,
+            motivo_justificacion: "Prueba recepcionista sin permiso".into(),
+        },
+    )
+    .await;
+    assert!(matches!(err_rec_merma, Err(AppError::Forbidden(_))));
 
     // 8. ADMINISTRADOR puede desactivar y activar plan
     catalog_service::toggle_plan_active(&state.pool(), &admin_session, nuevo_plan.id, false)

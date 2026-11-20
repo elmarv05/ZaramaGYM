@@ -21,14 +21,12 @@ fn parse_decimal(s: Option<String>) -> Decimal {
 // ============================================================================
 
 /// Registra una nueva compra a proveedor, afectando el stock y el Kardex de forma atómica.
-/// RBAC: Exclusivo SUPERVISOR o ADMINISTRADOR.
+/// RBAC: Habilitado para RECEPCIONISTA y ADMINISTRADOR.
 pub async fn create_supplier_purchase(
     pool: &SqlitePool,
     session: &AuthSession,
     input: CreateSupplierPurchaseDto,
 ) -> Result<SupplierPurchaseDetailDto, AppError> {
-    session.require_supervisor_or_admin()?;
-
     // 1. Validar vector de detalles no vacío
     if input.detalles.is_empty() {
         return Err(AppError::Validation(
@@ -268,14 +266,12 @@ pub async fn create_supplier_purchase(
 }
 
 /// Consulta el detalle completo de una compra a proveedor, resolviendo la entidad polimórfica.
-/// RBAC: Exclusivo SUPERVISOR o ADMINISTRADOR.
+/// RBAC: Habilitado para RECEPCIONISTA y ADMINISTRADOR.
 pub async fn get_supplier_purchase_detail(
     pool: &SqlitePool,
-    session: &AuthSession,
+    _session: &AuthSession,
     id: i64,
 ) -> Result<SupplierPurchaseDetailDto, AppError> {
-    session.require_supervisor_or_admin()?;
-
     let row = sqlx::query(
         r#"
         SELECT 
@@ -397,14 +393,12 @@ pub async fn get_supplier_purchase_detail(
 }
 
 /// Lista compras a proveedores con filtros opcionales.
-/// RBAC: Exclusivo SUPERVISOR o ADMINISTRADOR.
+/// RBAC: Habilitado para RECEPCIONISTA y ADMINISTRADOR.
 pub async fn list_supplier_purchases(
     pool: &SqlitePool,
-    session: &AuthSession,
+    _session: &AuthSession,
     filter: &SupplierPurchaseFilter,
 ) -> Result<Vec<SupplierPurchaseSummaryDto>, AppError> {
-    session.require_supervisor_or_admin()?;
-
     let mut qb: QueryBuilder<Sqlite> = QueryBuilder::new(
         r#"
         SELECT 
@@ -1097,15 +1091,13 @@ pub async fn list_operational_expenses(
 // 3. BANDEJA GLOBAL DE TACHADOS (PASO 2)
 // ============================================================================
 
-/// Consulta la bandeja de ventas tachadas y anuladas para auditoría centralizada.
-/// RBAC: Exclusivo SUPERVISOR o ADMINISTRADOR.
+/// Consulta la bandeja de ventas tachadas y anuladas para auditoría centralizada (solo visualización para recepcionista).
+/// RBAC: Habilitado para RECEPCIONISTA y ADMINISTRADOR.
 pub async fn list_struck_sales_tray(
     pool: &SqlitePool,
-    session: &AuthSession,
+    _session: &AuthSession,
     filter: &StruckSaleFilter,
 ) -> Result<Vec<StruckSaleTrayItemDto>, AppError> {
-    session.require_supervisor_or_admin()?;
-
     let mut qb: QueryBuilder<Sqlite> = QueryBuilder::new(
         r#"
         SELECT 
@@ -1204,14 +1196,12 @@ pub async fn list_struck_sales_tray(
 // ============================================================================
 
 /// Calcula el consolidado financiero (Física, Digital y Mixta) con desglose y métricas de control.
-/// RBAC: Exclusivo SUPERVISOR o ADMINISTRADOR.
+/// RBAC: Habilitado para RECEPCIONISTA y ADMINISTRADOR.
 pub async fn get_financial_dashboard_summary(
     pool: &SqlitePool,
-    session: &AuthSession,
+    _session: &AuthSession,
     filter: &FinancialReportFilter,
 ) -> Result<FinancialDashboardDto, AppError> {
-    session.require_supervisor_or_admin()?;
-
     let f_desde = filter
         .fecha_desde
         .as_deref()

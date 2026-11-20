@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { Icon } from '../../components/primitives/Icon';
 import { ClientListItem } from '../../types/entity';
 import { CheckInInput } from '../../types/attendance';
+import { preventEnterKeySubmit } from '../../utils/formSafety';
 
 export interface ManualCheckInModalProps {
   isOpen: boolean;
@@ -133,16 +134,17 @@ export const ManualCheckInModal: React.FC<ManualCheckInModalProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form noValidate onSubmit={handleSubmit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4">
           {/* Campo Directo de Documento */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="input-doc-manual" className="text-xs font-bold text-txt-secondary">
-              Número de Documento (DNI / CE) *
+              Número de Documento (DNI / CE) <span className="text-status-danger">*</span>
             </label>
             <input
               id="input-doc-manual"
               type="text"
               autoFocus
+              required
               placeholder="Ej. 45892134"
               value={documento}
               onChange={(e) => {

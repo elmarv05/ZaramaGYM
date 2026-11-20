@@ -12,7 +12,7 @@ use tauri::State;
 pub async fn get_lan_server_status(
     state: State<'_, AppState>,
 ) -> Result<LanServerStatusDto, AppError> {
-    state.require_unlocked_session().await?;
+    state.require_admin().await?;
     lan_service::get_lan_server_status(&state).await
 }
 
@@ -21,7 +21,7 @@ pub async fn toggle_lan_server(
     state: State<'_, AppState>,
     enable: bool,
 ) -> Result<LanServerStatusDto, AppError> {
-    let session = state.require_supervisor_or_admin().await?;
+    let session = state.require_admin().await?;
     lan_service::toggle_lan_server(&state, &session, enable).await
 }
 
@@ -30,7 +30,7 @@ pub async fn list_mobile_devices(
     state: State<'_, AppState>,
     filter: Option<MobileDeviceFilter>,
 ) -> Result<Vec<MobileDeviceDto>, AppError> {
-    state.require_unlocked_session().await?;
+    state.require_admin().await?;
     let f = filter.unwrap_or_default();
     lan_service::list_mobile_devices(&state.pool(), &f).await
 }
@@ -40,7 +40,7 @@ pub async fn create_mobile_device_pairing(
     state: State<'_, AppState>,
     input: CreateMobileDeviceInput,
 ) -> Result<MobileDevicePairingDto, AppError> {
-    let session = state.require_supervisor_or_admin().await?;
+    let session = state.require_admin().await?;
     lan_service::create_mobile_device_pairing(&state.pool(), &session, &state, input).await
 }
 
@@ -57,7 +57,7 @@ pub async fn revoke_mobile_device(
     state: State<'_, AppState>,
     device_id: i64,
 ) -> Result<(), AppError> {
-    let session = state.require_supervisor_or_admin().await?;
+    let session = state.require_admin().await?;
     lan_service::revoke_mobile_device(&state.pool(), &session, device_id).await
 }
 

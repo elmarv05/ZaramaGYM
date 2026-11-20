@@ -22,6 +22,13 @@ import {
   UpdateExpenseDto,
 } from '../../../types/finance';
 import { PaymentMethod } from '../../../types/pos';
+import {
+  formatDecimalOnBlur,
+  preventEnterKeySubmit,
+  roundMonetary,
+  sanitizeDecimalInput,
+  selectIfZeroDefault,
+} from '../../../utils/formSafety';
 
 export interface ExpenseFormModalProps {
   isOpen: boolean;
@@ -76,10 +83,11 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
     e.preventDefault();
     setErrors([]);
 
+    const parsedMonto = parseFloat(monto);
     const payload: CreateExpenseDto = {
       categoria,
       descripcion: descripcion.trim(),
-      monto: parseFloat(monto || '0').toFixed(2),
+      monto: monto.trim() && !isNaN(parsedMonto) ? roundMonetary(parsedMonto).toFixed(2) : '',
       metodo_pago: metodoPago,
       canal_caja: canalCaja,
       comprobante_referencia: comprobanteReferencia.trim() || null,
@@ -109,7 +117,12 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
       description="Egresos operacionales administrativos del gimnasio (exclusivo Administrador)."
       size="md"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5 text-xs">
+      <form
+        noValidate
+        onSubmit={handleSubmit}
+        onKeyDown={preventEnterKeySubmit}
+        className="flex flex-col gap-3.5 text-xs"
+      >
         {errors.length > 0 && (
           <Alert variant="danger" title="Error en el formulario" onClose={() => setErrors([])}>
             <ul className="list-disc pl-4 space-y-1">
@@ -128,6 +141,7 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
             value={categoria}
             onChange={(e) => setCategoria(e.target.value as ExpenseCategory)}
             aria-label="Categoría del Gasto"
+            required
             className="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
           >
             {(Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[]).map((cat) => (
@@ -147,6 +161,7 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
             onChange={(e) => setDescripcion(e.target.value)}
             placeholder="Ej. Recibo de luz mes de octubre / Compra de jabón y desinfectante..."
             aria-label="Descripción del gasto"
+            required
           />
         </div>
 
@@ -156,27 +171,24 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
               Monto (S/): <span className="text-rose-500">*</span>
             </label>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.01"
-              min="0.01"
               value={monto}
-              onChange={(e) => setMonto(e.target.value)}
+              onFocus={selectIfZeroDefault}
+              onChange={(e) => setMonto(sanitizeDecimalInput(e.target.value))}
               onBlur={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!isNaN(v) && v > 0) {
-                  setMonto(v.toFixed(2));
-                }
+                setMonto(formatDecimalOnBlur(e.target.value, { min: 0.01, fallback: '' }));
               }}
               placeholder="0.00"
               aria-label="Monto del gasto"
+              required
               className="w-full px-2.5 py-1.5 rounded-md border border-border bg-canvas text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
             />
           </div>
 
           <div>
             <label className="font-bold text-txt-primary block mb-1">
-              Método de Pago:
+              Método de Pago: <span className="text-rose-500">*</span>
               <Badge variant={canalCaja === 'FISICA' ? 'success' : 'info'} className="ml-1.5">
                 {canalCaja}
               </Badge>
@@ -185,6 +197,7 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
               value={metodoPago}
               onChange={(e) => setMetodoPago(e.target.value as PaymentMethod)}
               aria-label="Método de pago del gasto"
+              required
               className="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
             >
               <option value="EFECTIVO">EFECTIVO (Caja Física)</option>

@@ -5,9 +5,11 @@
 // ============================================================================
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { Alert } from './components/primitives/Alert';
 import { Badge } from './components/primitives/Badge';
 import { Button } from './components/primitives/Button';
+import { DeveloperContactModal } from './components/DeveloperContactModal';
 import { Icon, IconName } from './components/primitives/Icon';
 import { AppShellSkeleton } from './components/primitives/Skeleton';
 import { fileToDataUrl } from './domain/user';
@@ -16,10 +18,22 @@ import { useAuth } from './hooks/useAuth';
 import { useEntities } from './hooks/useEntities';
 import { useTheme } from './hooks/useTheme';
 import { useUsers } from './hooks/useUsers';
+import { authIpc } from './services/ipc/authIpc';
 import { userIpc } from './services/ipc/userIpc';
+import { CloseBlockedPayload, CrashRecoveryNotice } from './types/auth';
 import { AttendanceMainTab, AttendanceView } from './features/attendance/AttendanceView';
 import { AuditLogViewer } from './features/audit/AuditLogViewer';
+import {
+  CloseBlockedModal,
+  CrashRecoveryModal,
+} from './features/auth/CashIntegrityModals';
 import { ChangePasswordModal } from './features/auth/ChangePasswordModal';
+import { AppUpdateModal } from './features/updates/AppUpdateModal';
+import {
+  AvailableAppUpdate,
+  CURRENT_APP_VERSION,
+  checkForAppUpdate,
+} from './services/updater/appUpdater';
 import { LockModal } from './features/auth/LockModal';
 import { LoginForm } from './features/auth/LoginForm';
 import { UserManagementTable } from './features/auth/UserManagementTable';
@@ -53,7 +67,7 @@ interface NavItemConfig {
   label: string;
   icon: IconName;
   group: 'Operación' | 'Gestión y Catálogo' | 'Administración y Red';
-  roles: Array<'ADMINISTRADOR' | 'SUPERVISOR' | 'RECEPCIONISTA'>;
+  roles: Array<'ADMINISTRADOR' | 'RECEPCIONISTA'>;
 }
 
 interface SearchCommandItem {
@@ -63,7 +77,7 @@ interface SearchCommandItem {
   tab: NavigationTab;
   icon: IconName;
   keywords: string;
-  roles: Array<'ADMINISTRADOR' | 'SUPERVISOR' | 'RECEPCIONISTA'>;
+  roles: Array<'ADMINISTRADOR' | 'RECEPCIONISTA'>;
   onSelect: () => void;
 }
 
@@ -97,6 +111,15 @@ export const App: React.FC = () => {
     useState<AttendanceMainTab>('monitor');
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isDeveloperCardOpen, setIsDeveloperCardOpen] = useState(false);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [availableUpdate, setAvailableUpdate] = useState<AvailableAppUpdate | null>(null);
+
+  // Estados de Integridad de Caja: Bloqueo de cierre (X) y Crash Recovery
+  const [closeBlockedPayload, setCloseBlockedPayload] =
+    useState<CloseBlockedPayload | null>(null);
+  const [crashRecoveryNotice, setCrashRecoveryNotice] =
+    useState<CrashRecoveryNotice | null>(null);
 
   // Estados de Sidebar (colapsable en desktop y drawer en <=767px / media pantalla)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -118,15 +141,147 @@ export const App: React.FC = () => {
     setCurrentPhoto(session?.foto_perfil_data_url || null);
   }, [session?.foto_perfil_data_url, session?.user_id]);
 
-  // Jerarquía de 3 roles
+  // Escucha preventiva del evento Tauri cuando el usuario pulsa "X" con caja abierta
+  useEffect(() => {
+    let unlistenTauri: (() => void) | undefined;
+    let mounted = true;
+
+    const handleCustomEvent = (evt: Event) => {
+      const detail = (evt as CustomEvent<CloseBlockedPayload>).detail;
+      if (detail) {
+        setCloseBlockedPayload(detail);
+      }
+    };
+
+    window.addEventListener('zaramagym:close-blocked-open-shift', handleCustomEvent);
+
+    const hasTauriRuntime =
+      typeof window !== 'undefined' &&
+      Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
+
+    if (hasTauriRuntime) {
+      listen<CloseBlockedPayload>('app://close-blocked-open-shift', (event) => {
+        if (mounted && event.payload) {
+          setCloseBlockedPayload(event.payload);
+        }
+      })
+        .then((unlisten) => {
+          if (mounted) {
+            unlistenTauri = unlisten;
+          } else {
+            unlisten();
+          }
+        })
+        .catch(() => {
+          // Ignorar si no hay runtime Tauri activo
+        });
+    }
+
+    return () => {
+      mounted = false;
+      window.removeEventListener('zaramagym:close-blocked-open-shift', handleCustomEvent);
+      if (unlistenTauri) {
+        unlistenTauri();
+      }
+    };
+  }, []);
+
+  // Consulta al iniciar sesión si hubo un cierre forzado previo con turno de caja abierto
+  useEffect(() => {
+    if (!session || session.is_locked) return;
+    let cancelled = false;
+
+    authIpc
+      .getCrashRecoveryNotice()
+      .then((notice) => {
+        if (!cancelled && notice && notice.detected && notice.had_open_cash_shift) {
+          setCrashRecoveryNotice(notice);
+        }
+      })
+      .catch(() => {
+        // Ignorar si el comando no está mockeado en tests ajenos
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user_id, session?.is_locked]);
+
+  // Verificación silenciosa de actualizaciones OTA al iniciar sesión como Administrador
+  // (No molesta ni arroja errores cuando el gimnasio trabaja 100% offline)
+  useEffect(() => {
+    if (!session || session.is_locked || session.rol !== 'ADMINISTRADOR') return;
+    let cancelled = false;
+
+    checkForAppUpdate()
+      .then((update) => {
+        if (!cancelled && update) {
+          setAvailableUpdate(update);
+        }
+      })
+      .catch(() => {
+        // Operación offline silenciosa garantizada
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user_id, session?.is_locked, session?.rol]);
+
+  const handleAcknowledgeCrashRecovery = async () => {
+    setCrashRecoveryNotice(null);
+    try {
+      await authIpc.acknowledgeCrashRecoveryNotice();
+    } catch {
+      // Continuar limpiamente aunque falle IPC
+    }
+  };
+
+  const handleGoToPosFromCloseBlocked = () => {
+    setCloseBlockedPayload(null);
+    setPosInitialTab('pos');
+    setActiveTab('pos');
+  };
+
+  const handleGoToPosFromCrashRecovery = async () => {
+    await handleAcknowledgeCrashRecovery();
+    setPosInitialTab('pos');
+    setActiveTab('pos');
+  };
+
+  const handleGoToAuditFromCrashRecovery = async () => {
+    await handleAcknowledgeCrashRecovery();
+    setActiveTab('audit');
+  };
+
+  // Sistema de 2 roles (ADMINISTRADOR y RECEPCIONISTA)
   const isAdmin = session?.rol === 'ADMINISTRADOR';
-  const isSupervisor = session?.rol === 'SUPERVISOR';
   const isRecepcionista = session?.rol === 'RECEPCIONISTA';
 
-  const canAccessUsers = Boolean((isAdmin || isSupervisor) && !session?.is_locked);
-  const canAccessAudit = Boolean((isAdmin || isSupervisor) && !session?.is_locked);
+  const canAccessUsers = Boolean(isAdmin && !session?.is_locked);
+  const canAccessAudit = Boolean(isAdmin && !session?.is_locked);
 
-  // Hook de Usuarios (Admin y Supervisor)
+  // Ajustar pestaña inicial al cambiar de sesión según rol (sin parpadeo en primer render)
+  const lastSessionUserRef = useRef<number | null>(null);
+  const effectiveActiveTab: NavigationTab =
+    session && lastSessionUserRef.current !== session.user_id
+      ? session.rol === 'RECEPCIONISTA'
+        ? 'reception'
+        : 'directory'
+      : activeTab;
+
+  useEffect(() => {
+    if (!session) {
+      lastSessionUserRef.current = null;
+      return;
+    }
+    if (lastSessionUserRef.current !== session.user_id) {
+      lastSessionUserRef.current = session.user_id;
+      setActiveTab(session.rol === 'RECEPCIONISTA' ? 'reception' : 'directory');
+    }
+  }, [session?.user_id, session?.rol]);
+
+  // Hook de Usuarios (Exclusivo Admin)
   const {
     users,
     isLoading: isUsersLoading,
@@ -140,7 +295,7 @@ export const App: React.FC = () => {
     clearError: clearUsersError,
   } = useUsers(canAccessUsers);
 
-  // Hook de Auditoría (Admin y Supervisor)
+  // Hook de Auditoría (Exclusivo Admin)
   const {
     logs,
     filter: auditFilter,
@@ -162,87 +317,88 @@ export const App: React.FC = () => {
 
   // Definición de Navegación del Sidebar
   const navItems: NavItemConfig[] = useMemo(() => {
-    const usersLabel = isSupervisor ? 'Gestión de Recepcionistas' : 'Gestión de Usuarios';
     return [
       {
         id: 'home',
         label: 'Inicio',
         icon: 'home',
         group: 'Operación',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
       },
       {
         id: 'reception',
         label: 'Panel Operativo',
         icon: 'dashboard',
         group: 'Operación',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
       },
       {
         id: 'attendance',
         label: 'Asistencias y Semáforo',
         icon: 'qr',
         group: 'Operación',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
       },
       {
         id: 'pos',
         label: 'Caja y POS',
         icon: 'pos',
         group: 'Operación',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
       },
       {
         id: 'directory',
-        label: 'Directorio (Clientes / Proveedores / Personas)',
+        label: isRecepcionista
+          ? 'Directorio (Clientes / Proveedores / Empresas)'
+          : 'Directorio (Clientes / Proveedores / Personas)',
         icon: 'directory',
         group: 'Gestión y Catálogo',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
       },
       {
         id: 'catalog',
         label: 'Catálogo e Inventario',
         icon: 'catalog',
         group: 'Gestión y Catálogo',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
       },
       {
         id: 'finance',
         label: 'Compras, Gastos y Finanzas',
         icon: 'finance',
-        group: 'Gestión y Catálogo',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        group: 'Administración y Red',
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
       },
       {
         id: 'printing_backup',
         label: 'Impresión, PDFs y Backups',
         icon: 'printer',
         group: 'Administración y Red',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR'],
       },
       {
         id: 'users',
-        label: usersLabel,
+        label: 'Gestión de Usuarios',
         icon: 'users',
         group: 'Administración y Red',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR'],
       },
       {
         id: 'audit',
         label: 'Bitácora de Auditoría',
         icon: 'audit',
         group: 'Administración y Red',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR'],
       },
       {
         id: 'lan',
         label: 'Wi-Fi & Escáner Móvil',
         icon: 'wifi',
         group: 'Administración y Red',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR'],
       },
     ];
-  }, [isSupervisor]);
+  }, [isRecepcionista]);
 
   const visibleNavItems = useMemo(() => {
     if (!session) return [];
@@ -274,7 +430,7 @@ export const App: React.FC = () => {
         tab: 'home',
         icon: 'home',
         keywords: 'inicio home dashboard resumen atajos teclas rapidas',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => setActiveTab('home'),
       },
       {
@@ -284,7 +440,7 @@ export const App: React.FC = () => {
         tab: 'reception',
         icon: 'dashboard',
         keywords: 'panel operativo recepcion mostrador socios',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => setActiveTab('reception'),
       },
       {
@@ -294,7 +450,7 @@ export const App: React.FC = () => {
         tab: 'attendance',
         icon: 'qr',
         keywords: 'asistencias semaforo qr check in entrada acceso pases rojo',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setAttendanceInitialTab('monitor');
           setActiveTab('attendance');
@@ -307,7 +463,7 @@ export const App: React.FC = () => {
         tab: 'attendance',
         icon: 'clock',
         keywords: 'historial asistencias ingresos entradas reloj',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setAttendanceInitialTab('history');
           setActiveTab('attendance');
@@ -320,7 +476,7 @@ export const App: React.FC = () => {
         tab: 'attendance',
         icon: 'refresh',
         keywords: 'prorrogas recuperacion congelamiento dias membresia',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setAttendanceInitialTab('extensions');
           setActiveTab('attendance');
@@ -333,7 +489,7 @@ export const App: React.FC = () => {
         tab: 'pos',
         icon: 'pos',
         keywords: 'caja pos punto de venta carrito cobro efectivo yape plin arqueo turno',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setPosInitialTab('pos');
           setActiveTab('pos');
@@ -346,7 +502,7 @@ export const App: React.FC = () => {
         tab: 'pos',
         icon: 'receipt',
         keywords: 'ventas comprobantes tickets boletas historial tachado paso 1',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setPosInitialTab('ventas');
           setActiveTab('pos');
@@ -359,7 +515,7 @@ export const App: React.FC = () => {
         tab: 'pos',
         icon: 'credit-card',
         keywords: 'deudores creditos cuentas por cobrar amortizacion saldo pendiente',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setPosInitialTab('deudores');
           setActiveTab('pos');
@@ -372,7 +528,7 @@ export const App: React.FC = () => {
         tab: 'pos',
         icon: 'scissors',
         keywords: 'tachados anulacion bandeja admin resolver paso 2',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR'],
         onSelect: () => {
           setPosInitialTab('tachados_admin');
           setActiveTab('pos');
@@ -385,7 +541,7 @@ export const App: React.FC = () => {
         tab: 'directory',
         icon: 'users',
         keywords: 'directorio clientes socios qr peso salud',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setDirectoryInitialSubTab('clients');
           setActiveTab('directory');
@@ -398,7 +554,7 @@ export const App: React.FC = () => {
         tab: 'directory',
         icon: 'truck',
         keywords: 'directorio proveedores abastecimiento',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setDirectoryInitialSubTab('suppliers');
           setActiveTab('directory');
@@ -411,7 +567,7 @@ export const App: React.FC = () => {
         tab: 'directory',
         icon: 'user',
         keywords: 'directorio personas naturales dni carnet extranjeria',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR'],
         onSelect: () => {
           setDirectoryInitialSubTab('persons');
           setActiveTab('directory');
@@ -424,7 +580,7 @@ export const App: React.FC = () => {
         tab: 'directory',
         icon: 'building',
         keywords: 'empresas ruc 20 sunat razon social juridicas directorio',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setDirectoryInitialSubTab('companies');
           setActiveTab('directory');
@@ -437,7 +593,7 @@ export const App: React.FC = () => {
         tab: 'catalog',
         icon: 'sparkles',
         keywords: 'catalogo planes membresias day overflow simulador precios',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setCatalogInitialTab('planes');
           setActiveTab('catalog');
@@ -450,7 +606,7 @@ export const App: React.FC = () => {
         tab: 'catalog',
         icon: 'package',
         keywords: 'catalogo productos inventario stock sku bebidas suplementos',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setCatalogInitialTab('productos');
           setActiveTab('catalog');
@@ -463,7 +619,7 @@ export const App: React.FC = () => {
         tab: 'catalog',
         icon: 'catalog',
         keywords: 'kardex mermas ajustes inventario perdidas movimientos',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setCatalogInitialTab('kardex');
           setActiveTab('catalog');
@@ -476,7 +632,7 @@ export const App: React.FC = () => {
         tab: 'finance',
         icon: 'finance',
         keywords: 'finanzas dashboard ingresos egresos utilidad reporte pdf',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setFinanceInitialTab('dashboard');
           setActiveTab('finance');
@@ -489,7 +645,7 @@ export const App: React.FC = () => {
         tab: 'finance',
         icon: 'truck',
         keywords: 'finanzas compras facturas proveedores mercaderia',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
         onSelect: () => {
           setFinanceInitialTab('compras');
           setActiveTab('finance');
@@ -502,7 +658,7 @@ export const App: React.FC = () => {
         tab: 'finance',
         icon: 'cash',
         keywords: 'finanzas gastos operativos egresos servicios luz agua alquiler',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR'],
         onSelect: () => {
           setFinanceInitialTab('gastos');
           setActiveTab('finance');
@@ -515,7 +671,7 @@ export const App: React.FC = () => {
         tab: 'printing_backup',
         icon: 'printer',
         keywords: 'impresion impresora termica 58mm 80mm ticket smtp correo',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR'],
         onSelect: () => {
           setPrintingInitialTab('printer');
           setActiveTab('printing_backup');
@@ -528,7 +684,7 @@ export const App: React.FC = () => {
         tab: 'printing_backup',
         icon: 'receipt',
         keywords: 'impresion series correlativos boleta factura ticket',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR'],
         onSelect: () => {
           setPrintingInitialTab('series');
           setActiveTab('printing_backup');
@@ -541,7 +697,7 @@ export const App: React.FC = () => {
         tab: 'printing_backup',
         icon: 'database',
         keywords: 'respaldos backup sqlite base de datos exportar gdrive sha256',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR'],
         onSelect: () => {
           setPrintingInitialTab('backups');
           setActiveTab('printing_backup');
@@ -549,12 +705,12 @@ export const App: React.FC = () => {
       },
       {
         id: 'cmd-users',
-        title: isSupervisor ? 'Gestión de Recepcionistas' : 'Gestión de Usuarios',
+        title: 'Gestión de Usuarios',
         subtitle: 'Cuentas, roles RBAC y credenciales de operadores',
         tab: 'users',
         icon: 'users',
-        keywords: 'usuarios recepcionistas supervisores administradores roles cuentas',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        keywords: 'usuarios recepcionistas administradores roles cuentas',
+        roles: ['ADMINISTRADOR'],
         onSelect: () => setActiveTab('users'),
       },
       {
@@ -564,7 +720,7 @@ export const App: React.FC = () => {
         tab: 'audit',
         icon: 'audit',
         keywords: 'auditoria bitacora logs eventos seguridad',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR'],
+        roles: ['ADMINISTRADOR'],
         onSelect: () => setActiveTab('audit'),
       },
       {
@@ -574,13 +730,13 @@ export const App: React.FC = () => {
         tab: 'lan',
         icon: 'wifi',
         keywords: 'wifi lan servidor local escaner movil https certificado qr',
-        roles: ['ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA'],
+        roles: ['ADMINISTRADOR'],
         onSelect: () => setActiveTab('lan'),
       },
     ];
 
     return allCommands.filter((cmd) => cmd.roles.includes(session.rol));
-  }, [session, isSupervisor]);
+  }, [session]);
 
   const searchResults = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -618,7 +774,8 @@ export const App: React.FC = () => {
 
       if (e.key === 'F2') {
         e.preventDefault();
-        setActiveTab(session.rol === 'RECEPCIONISTA' ? 'reception' : 'directory');
+        setDirectoryInitialSubTab('clients');
+        setActiveTab('directory');
         return;
       }
 
@@ -707,6 +864,11 @@ export const App: React.FC = () => {
           error={authError}
           onClearError={clearAuthError}
         />
+        <CloseBlockedModal
+          payload={closeBlockedPayload}
+          hasUnlockedSession={false}
+          onDismiss={() => setCloseBlockedPayload(null)}
+        />
       </main>
     );
   }
@@ -754,10 +916,10 @@ export const App: React.FC = () => {
               {!isSidebarCollapsed && (
                 <div className="min-w-0">
                   <div className="text-sm font-black tracking-tight text-txt-primary truncate">
-                    ZaramaGYM
+                    Zarama GYM
                   </div>
                   <div className="text-[10px] text-txt-muted font-medium truncate">
-                    Kinetic Ledger OS
+                    Sistema Integral
                   </div>
                 </div>
               )}
@@ -827,9 +989,7 @@ export const App: React.FC = () => {
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Badge
-                      variant={
-                        isAdmin ? 'default' : isSupervisor ? 'warning' : 'info'
-                      }
+                      variant={isAdmin ? 'default' : 'info'}
                       size="sm"
                     >
                       {session.rol}
@@ -838,14 +998,6 @@ export const App: React.FC = () => {
                       @{session.username}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsChangePasswordOpen(true)}
-                    disabled={isAuthActionLoading}
-                    className="text-[11px] font-semibold text-brand hover:underline text-left mt-0.5 w-fit disabled:opacity-50"
-                  >
-                    Cambiar Clave
-                  </button>
                 </div>
               )}
             </div>
@@ -864,11 +1016,7 @@ export const App: React.FC = () => {
                   </div>
                 )}
                 {items.map((item) => {
-                  const isActive =
-                    activeTab === item.id ||
-                    (isRecepcionista &&
-                      item.id === 'reception' &&
-                      activeTab === 'directory');
+                  const isActive = effectiveActiveTab === item.id;
 
                   return (
                     <button
@@ -902,64 +1050,21 @@ export const App: React.FC = () => {
             ))}
           </nav>
 
-        {/* Pie del Sidebar: Tema, Bloquear Turno y Cerrar Sesión */}
+        {/* Pie del Sidebar: Cerrar Sesión */}
         <div className="p-3 border-t border-border flex flex-col gap-2 shrink-0 bg-canvas-subtle/40">
-          <button
+          <Button
             type="button"
-            onClick={toggleTheme}
-            aria-label={theme === 'dark' ? 'Cambiar a modo Claro' : 'Cambiar a modo Oscuro'}
-            title={theme === 'dark' ? 'Modo Oscuro activo (cambiar a Claro)' : 'Modo Claro activo (cambiar a Oscuro)'}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold bg-surface border border-border hover:bg-surface-hover text-txt-primary transition-colors ${
-              isSidebarCollapsed ? 'justify-center px-2' : 'justify-between'
-            }`}
+            variant="ghost"
+            size="sm"
+            onClick={logout}
+            disabled={isAuthActionLoading}
+            aria-label="Cerrar Sesión"
+            title="Cerrar Sesión"
+            className="w-full px-2.5 text-status-danger hover:bg-status-danger-bg hover:text-status-danger border border-status-danger/20"
+            leftIcon={<Icon name="logout" className="w-3.5 h-3.5" />}
           >
-            <span className="inline-flex items-center gap-2 min-w-0">
-              <Icon
-                name={theme === 'dark' ? 'moon' : 'sun'}
-                className="w-4 h-4 text-brand shrink-0"
-              />
-              {!isSidebarCollapsed && (
-                <span className="truncate">
-                  {theme === 'dark' ? 'Modo Oscuro' : 'Modo Claro'}
-                </span>
-              )}
-            </span>
-            {!isSidebarCollapsed && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-canvas-subtle text-txt-muted">
-                {theme === 'dark' ? 'Oscuro' : 'Claro'}
-              </span>
-            )}
-          </button>
-
-          <div className={`grid gap-2 ${isSidebarCollapsed ? 'grid-cols-1' : 'grid-cols-2'}`}>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={lockSession}
-              disabled={isAuthActionLoading}
-              aria-label="Bloquear Turno"
-              title="Bloquear Turno"
-              className="px-2.5"
-              leftIcon={<Icon name="lock" className="w-3.5 h-3.5 text-txt-muted" />}
-            >
-              {!isSidebarCollapsed ? 'Bloquear Turno' : ''}
-            </Button>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={logout}
-              disabled={isAuthActionLoading}
-              aria-label="Cerrar Sesión"
-              title="Cerrar Sesión"
-              className="px-2.5 text-status-danger hover:bg-status-danger-bg hover:text-status-danger border border-status-danger/20"
-              leftIcon={<Icon name="logout" className="w-3.5 h-3.5" />}
-            >
-              {!isSidebarCollapsed ? 'Cerrar Sesión' : ''}
-            </Button>
-          </div>
+            {!isSidebarCollapsed ? 'Cerrar Sesión' : ''}
+          </Button>
         </div>
       </aside>
 
@@ -1084,12 +1189,44 @@ export const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Indicador de Estación Activa + Emblema */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-status-success-bg text-status-success text-[11px] font-semibold border border-status-success/20">
-              <span className="w-2 h-2 rounded-full bg-status-success animate-pulse" aria-hidden="true" />
-              Estación Activa
-            </span>
+          {/* Selector de Modo + Bloqueo Rápido + Indicador de Estación Activa + Emblema */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-pressed={theme === 'dark'}
+              aria-label={theme === 'dark' ? 'Cambiar a modo Claro' : 'Cambiar a modo Oscuro'}
+              title={
+                theme === 'dark'
+                  ? 'Modo Oscuro activo (clic para cambiar a Claro)'
+                  : 'Modo Claro activo (clic para cambiar a Oscuro)'
+              }
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-canvas-subtle hover:bg-surface-hover border border-border text-txt-primary transition-colors"
+            >
+              <Icon
+                name={theme === 'dark' ? 'moon' : 'sun'}
+                className="w-3.5 h-3.5 text-brand shrink-0"
+              />
+              <span className="hidden md:inline">
+                {theme === 'dark' ? 'Modo Oscuro' : 'Modo Claro'}
+              </span>
+            </button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={lockSession}
+              disabled={isAuthActionLoading}
+              aria-label="Proteger Estación"
+              title="Proteger Estación / Bloquear Turno"
+              className="px-2.5 sm:px-3"
+              leftIcon={<Icon name="lock" className="w-3.5 h-3.5 text-txt-muted" />}
+            >
+              <span className="hidden sm:inline">Bloquear</span>
+            </Button>
+
+            
             <img
               src="/zaramagym-logo.png"
               alt="ZaramaGYM"
@@ -1120,7 +1257,7 @@ export const App: React.FC = () => {
                       clearAuthError();
                     }}
                   >
-                    Ir a Caja / POS para cerrar turno
+                    Ir a Caja para cerrar turno
                   </Button>
                   <Button
                     type="button"
@@ -1142,8 +1279,8 @@ export const App: React.FC = () => {
 
           {/* Vistas según Rol y Pestaña */}
           {!isRecepcionista ? (
-            <div key={activeTab} className="zg-view-enter w-full min-w-0 flex-1 flex flex-col">
-              {activeTab === 'home' && (
+            <div key={effectiveActiveTab} className="zg-view-enter w-full min-w-0 flex-1 flex flex-col">
+              {effectiveActiveTab === 'home' && (
                 <HomeDashboardView
                   session={session}
                   clientsCount={entitiesHook.clients.length}
@@ -1155,14 +1292,14 @@ export const App: React.FC = () => {
                 />
               )}
 
-              {activeTab === 'directory' && (
+              {effectiveActiveTab === 'directory' && (
                 <section aria-labelledby="directorio-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="directorio-heading" className="text-lg font-bold text-txt-primary">
-                      Directorio Segmentado (Clientes, Proveedores y Personas)
+                      Directorio Segmentado: Clientes, Proveedores, Personas y Empresas.
                     </h2>
                     <p className="text-xs text-txt-muted">
-                      Gestión de socios con credencial QR y control de peso, empresas jurídicas RUC 20 y directorio de personas.
+                      Gestión de socios con credencial QR y control de peso, empresas jurídicas y directorio de personas.
                     </p>
                   </div>
                   <EntityDirectoryView
@@ -1196,18 +1333,14 @@ export const App: React.FC = () => {
                 </section>
               )}
 
-              {activeTab === 'users' && canAccessUsers && (
+              {effectiveActiveTab === 'users' && canAccessUsers && (
                 <section aria-labelledby="usuarios-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="usuarios-heading" className="text-lg font-bold text-txt-primary">
-                      {isSupervisor
-                        ? 'Gestión de Recepcionistas a Cargo'
-                        : 'Usuarios del Sistema y Permisos Jerárquicos'}
+                      Usuarios del Sistema y Permisos
                     </h2>
                     <p className="text-xs text-txt-muted">
-                      {isSupervisor
-                        ? 'Administra únicamente operadores con rol Recepcionista y sus fotos de perfil.'
-                        : 'Administra operadores, supervisores y credenciales del gimnasio.'}
+                      Administra administradores, recepcionistas y credenciales del gimnasio.
                     </p>
                   </div>
                   <UserManagementTable
@@ -1227,7 +1360,7 @@ export const App: React.FC = () => {
                 </section>
               )}
 
-              {activeTab === 'audit' && canAccessAudit && (
+              {effectiveActiveTab === 'audit' && canAccessAudit && (
                 <section aria-labelledby="auditoria-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="auditoria-heading" className="text-lg font-bold text-txt-primary">
@@ -1252,7 +1385,7 @@ export const App: React.FC = () => {
                 </section>
               )}
 
-              {activeTab === 'reception' && (
+              {effectiveActiveTab === 'reception' && (
                 <ReceptionDashboard
                   session={session}
                   onLockSession={lockSession}
@@ -1290,39 +1423,39 @@ export const App: React.FC = () => {
                 />
               )}
 
-              {activeTab === 'catalog' && (
+              {effectiveActiveTab === 'catalog' && (
                 <section aria-labelledby="catalogo-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="catalogo-heading" className="text-lg font-bold text-txt-primary">
-                      Catálogo de Planes, Inventario de Productos y Mermas
+                      Catálogo de Planes, Inventario de Productos y Kardex
                     </h2>
                     <p className="text-xs text-txt-muted">
-                      Gestión de planes con compensación Day Overflow, inventario de productos y bitácora de mermas.
+                      Gestión de planes, inventario de productos y bitácora de mermas.
                     </p>
                   </div>
                   <CatalogView currentSession={session} initialTab={catalogInitialTab} />
                 </section>
               )}
 
-              {activeTab === 'pos' && (
+              {effectiveActiveTab === 'pos' && (
                 <section aria-labelledby="pos-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="pos-heading" className="text-lg font-bold text-txt-primary">
                       Caja, Punto de Venta (POS) y Cuentas por Cobrar
                     </h2>
                     <p className="text-xs text-txt-muted">
-                      Apertura/cierre de turnos de caja física y digital, registro de ventas multidominio y resolución de tachados.
+                      Apertura/Cierre de turnos de caja física y digital, registro de ventas multidominio y auditoría de tachados.
                     </p>
                   </div>
                   <PosView currentSession={session} initialTab={posInitialTab} />
                 </section>
               )}
 
-              {activeTab === 'attendance' && (
+              {effectiveActiveTab === 'attendance' && (
                 <section aria-labelledby="attendance-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="attendance-heading" className="text-lg font-bold text-txt-primary">
-                      Control de Asistencias, Semáforo Inteligente y Recuperación de Días
+                      Control de Asistencias dinámico y Recuperación de Días
                     </h2>
                     <p className="text-xs text-txt-muted">
                       Escáner QR en mostrador, evaluación automática de vigencia y crédito, destrabe en rojo y prórrogas.
@@ -1340,7 +1473,7 @@ export const App: React.FC = () => {
                 </section>
               )}
 
-              {activeTab === 'lan' && (
+              {effectiveActiveTab === 'lan' && (
                 <section aria-labelledby="lan-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="lan-heading" className="text-lg font-bold text-txt-primary">
@@ -1354,13 +1487,13 @@ export const App: React.FC = () => {
                 </section>
               )}
 
-              {activeTab === 'finance' && (
+              {effectiveActiveTab === 'finance' && (
                 <section aria-labelledby="finance-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <FinanceView currentSession={session} initialTab={financeInitialTab} />
                 </section>
               )}
 
-              {activeTab === 'printing_backup' && (
+              {effectiveActiveTab === 'printing_backup' && (
                 <section aria-labelledby="printing-backup-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <PrintingBackupView
                     currentSession={session}
@@ -1383,8 +1516,8 @@ export const App: React.FC = () => {
             </div>
           ) : (
             /* Rol RECEPCIONISTA */
-            <div key={activeTab} className="zg-view-enter w-full min-w-0 flex-1 flex flex-col">
-              {activeTab === 'home' ? (
+            <div key={effectiveActiveTab} className="zg-view-enter w-full min-w-0 flex-1 flex flex-col">
+              {effectiveActiveTab === 'home' ? (
                 <HomeDashboardView
                   session={session}
                   clientsCount={entitiesHook.clients.length}
@@ -1394,7 +1527,55 @@ export const App: React.FC = () => {
                     searchInputRef.current?.focus();
                   }}
                 />
-              ) : activeTab === 'pos' ? (
+              ) : effectiveActiveTab === 'directory' ? (
+                <section aria-labelledby="directorio-recep-heading" className="w-full min-w-0 flex-1 flex flex-col">
+                  <div className="mb-4">
+                    <h2 id="directorio-recep-heading" className="text-lg font-bold text-txt-primary">
+                      Directorio de Clientes, Proveedores &amp; Empresas
+                    </h2>
+                    <p className="text-xs text-txt-muted">
+                      Inscripción y edición de clientes con QR, y registro/consulta de proveedores y empresas RUC 20.
+                    </p>
+                  </div>
+                  <EntityDirectoryView
+                    currentSession={session}
+                    initialSubTab={directoryInitialSubTab}
+                    clients={entitiesHook.clients}
+                    suppliers={entitiesHook.suppliers}
+                    persons={entitiesHook.persons}
+                    companies={entitiesHook.companies}
+                    isLoading={entitiesHook.isLoading}
+                    isActionLoading={entitiesHook.isActionLoading}
+                    error={entitiesHook.error}
+                    onRefresh={entitiesHook.refreshAll}
+                    onCreateClient={entitiesHook.createClient}
+                    onUpdateClient={entitiesHook.updateClient}
+                    onToggleClientActive={entitiesHook.toggleClientActive}
+                    onRegenerateClientQr={entitiesHook.regenerateClientQr}
+                    onRecordClientWeight={entitiesHook.recordClientWeight}
+                    onGetClientWeightHistory={entitiesHook.getClientWeightHistory}
+                    onCreateSupplier={entitiesHook.createSupplier}
+                    onCreateCompany={entitiesHook.createCompany}
+                    onClearError={entitiesHook.clearError}
+                  />
+                </section>
+              ) : effectiveActiveTab === 'finance' ? (
+                <section aria-labelledby="finance-heading-recep" className="w-full min-w-0 flex-1 flex flex-col">
+                  <FinanceView currentSession={session} initialTab={financeInitialTab} />
+                </section>
+              ) : effectiveActiveTab === 'catalog' ? (
+                <section aria-labelledby="catalogo-recep-heading" className="w-full min-w-0 flex-1 flex flex-col">
+                  <div className="mb-4">
+                    <h2 id="catalogo-recep-heading" className="text-lg font-bold text-txt-primary">
+                      Catálogo de Planes e Inventario de Productos
+                    </h2>
+                    <p className="text-xs text-txt-muted">
+                      Consulta de planes con simulador Day Overflow, registro/edición de productos y consulta de Kardex.
+                    </p>
+                  </div>
+                  <CatalogView currentSession={session} initialTab={catalogInitialTab} />
+                </section>
+              ) : effectiveActiveTab === 'pos' ? (
                 <section aria-labelledby="pos-heading-recep" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="pos-heading-recep" className="text-lg font-bold text-txt-primary">
@@ -1406,14 +1587,14 @@ export const App: React.FC = () => {
                   </div>
                   <PosView currentSession={session} initialTab={posInitialTab} />
                 </section>
-              ) : activeTab === 'attendance' ? (
+              ) : effectiveActiveTab === 'attendance' ? (
                 <section aria-labelledby="attendance-heading-recep" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2
                       id="attendance-heading-recep"
                       className="text-lg font-bold text-txt-primary"
                     >
-                      Control de Asistencias, Semáforo Inteligente y Recuperación de Días
+                      Control de Asistencias dinámico y Recuperación de Días
                     </h2>
                     <p className="text-xs text-txt-muted">
                       Escáner QR en mostrador, evaluación automática de vigencia y crédito, destrabe en rojo y prórrogas.
@@ -1429,18 +1610,6 @@ export const App: React.FC = () => {
                     }}
                   />
                 </section>
-              ) : activeTab === 'lan' ? (
-                <section aria-labelledby="lan-heading-recep" className="w-full min-w-0 flex-1 flex flex-col">
-                  <div className="mb-4">
-                    <h2 id="lan-heading-recep" className="text-lg font-bold text-txt-primary">
-                      Servidor Wi-Fi Local, Certificado CA y Escáner Móvil (iOS / Android)
-                    </h2>
-                    <p className="text-xs text-txt-muted">
-                      Visualización de estado LAN, smartphones conectados y simulador móvil de semáforo.
-                    </p>
-                  </div>
-                  <LanServerView currentSession={session} clients={entitiesHook.clients} />
-                </section>
               ) : (
                 <ReceptionDashboard
                   session={session}
@@ -1450,7 +1619,6 @@ export const App: React.FC = () => {
                     setActiveTab('pos');
                   }}
                   onNavigateToAttendance={() => setActiveTab('attendance')}
-                  onNavigateToLan={() => setActiveTab('lan')}
                   entitiesProps={{
                     clients: entitiesHook.clients,
                     suppliers: entitiesHook.suppliers,
@@ -1467,11 +1635,7 @@ export const App: React.FC = () => {
                     onRecordClientWeight: entitiesHook.recordClientWeight,
                     onGetClientWeightHistory: entitiesHook.getClientWeightHistory,
                     onCreateSupplier: entitiesHook.createSupplier,
-                    onUpdateSupplier: entitiesHook.updateSupplier,
-                    onToggleSupplierActive: entitiesHook.toggleSupplierActive,
-                    onCreatePerson: entitiesHook.createPerson,
-                    onUpdatePerson: entitiesHook.updatePerson,
-                    onTogglePersonActive: entitiesHook.togglePersonActive,
+                    onCreateCompany: entitiesHook.createCompany,
                     onClearError: entitiesHook.clearError,
                   }}
                 />
@@ -1485,7 +1649,39 @@ export const App: React.FC = () => {
         <footer className="min-h-[42px] border-t border-border bg-surface px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-txt-muted shrink-0">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-status-success" aria-hidden="true" />
-            <span>© 2026 ZaramaGYM v0.1.0 • Sistema Local-First</span>
+            <span>
+              © 2026 ZaramaGYM • Pucallpa - Perú •  {' '}
+              <button
+                type="button"
+                onClick={() => setIsDeveloperCardOpen(true)}
+                title="Ver información de contacto de Max Rios"
+                className="font-semibold text-txt-secondary hover:text-brand underline decoration-border-strong underline-offset-2 hover:decoration-brand transition-colors rounded-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
+              >
+                Contacto: Max Rios
+              </button>
+              {isAdmin && (
+                <>
+                  {' '}•{' '}
+                  <button
+                    type="button"
+                    onClick={() => setIsUpdateModalOpen(true)}
+                    title="Verificar e instalar actualizaciones remotas de ZaramaGYM"
+                    className={`inline-flex items-center gap-1 font-semibold rounded-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus ${
+                      availableUpdate
+                        ? 'text-status-success hover:underline'
+                        : 'text-txt-secondary hover:text-brand underline decoration-border-strong underline-offset-2 hover:decoration-brand'
+                    }`}
+                  >
+                    <Icon name={availableUpdate ? 'download' : 'refresh'} className="w-3 h-3" />
+                    <span>
+                      {availableUpdate
+                        ? `Actualizar a v${availableUpdate.version}`
+                        : `v${CURRENT_APP_VERSION} • Actualizaciones`}
+                    </span>
+                  </button>
+                </>
+              )}
+            </span>
           </div>
 
           <div className="hidden sm:flex items-center gap-2 flex-wrap">
@@ -1527,6 +1723,43 @@ export const App: React.FC = () => {
         error={authError}
         onClearError={clearAuthError}
       />
+
+      {/* Modal Tarjeta de Presentación del Desarrollador */}
+      <DeveloperContactModal
+        isOpen={isDeveloperCardOpen}
+        onClose={() => setIsDeveloperCardOpen(false)}
+      />
+
+      {/* Modal Preventivo: Bloqueo de cierre de ventana (X) con caja abierta */}
+      <CloseBlockedModal
+        payload={closeBlockedPayload}
+        hasUnlockedSession={Boolean(session && !session.is_locked)}
+        onDismiss={() => setCloseBlockedPayload(null)}
+        onGoToPos={handleGoToPosFromCloseBlocked}
+      />
+
+      {/* Modal Crash Recovery: Cierre forzado / apagado brusco con turno abierto */}
+      <CrashRecoveryModal
+        notice={crashRecoveryNotice}
+        canAccessAudit={canAccessAudit}
+        onAcknowledgeAndContinue={handleAcknowledgeCrashRecovery}
+        onGoToPos={handleGoToPosFromCrashRecovery}
+        onGoToAudit={handleGoToAuditFromCrashRecovery}
+      />
+
+      {/* Modal de Actualización Remota OTA (Solo Administrador) */}
+      {isAdmin && (
+        <AppUpdateModal
+          isOpen={isUpdateModalOpen}
+          onClose={() => setIsUpdateModalOpen(false)}
+          initialUpdate={availableUpdate}
+          onUpdateFound={(upd) => setAvailableUpdate(upd)}
+          onGoToPos={() => {
+            setPosInitialTab('pos');
+            setActiveTab('pos');
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -1011,6 +1011,45 @@ async fn test_tc_s5_12_system_config_lifecycle_and_rbac() {
 
     // Verificación de guardarraíl RBAC: recepcionista no puede modificar la configuración
     assert_eq!(recep_session.rol, UserRole::Recepcionista);
+    let rec_cfg_err = attendance_service::update_system_config(
+        &state.pool(),
+        &recep_session,
+        UpdateSystemConfigInput {
+            dias_alerta_amarillo: Some(3),
+            minutos_antirebote_qr: None,
+            precio_pase_diario_credito_default: None,
+        },
+    )
+    .await
+    .expect_err("Recepcionista no debe poder modificar configuración del sistema");
+    assert!(matches!(rec_cfg_err, AppError::Forbidden(_)));
+
+    // Recepcionista SÍ puede otorgar prórrogas / días gratis
+    let cli_ext = create_test_client(&state.pool(), &admin_session, "65432198", "Luis", "Prorroga").await;
+    let res_memb = sqlx::query(
+        r#"
+        INSERT INTO membresias_clientes (
+            cliente_id, plan_id, venta_id, fecha_inicio, fecha_vencimiento,
+            precio_pactado, estado, registrado_por_usuario_id
+        ) VALUES (?, 2, NULL, '2026-10-20 08:00:00', '2026-11-20 23:59:59', '80.00', 'ACTIVA', 1);
+        "#,
+    )
+    .bind(cli_ext.id)
+    .execute(&state.pool())
+    .await
+    .unwrap();
+    let rec_ext = attendance_service::extend_membership_days(
+        &state.pool(),
+        &recep_session,
+        ExtendMembershipInput {
+            membresia_id: res_memb.last_insert_rowid(),
+            dias_otorgados: 2,
+            motivo_justificacion: "Prórroga autorizada en recepción".into(),
+        },
+    )
+    .await
+    .expect("Recepcionista debe poder otorgar días gratis/prórrogas");
+    assert_eq!(rec_ext.dias_otorgados, 2);
 
     // 5. Validaciones de entrada en la función de actualización
     let val_err = attendance_service::update_system_config(

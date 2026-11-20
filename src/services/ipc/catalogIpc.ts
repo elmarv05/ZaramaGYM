@@ -34,14 +34,14 @@ export const catalogIpc = {
   },
 
   /**
-   * Da de alta un nuevo plan en el catálogo (Requiere SUPERVISOR o ADMINISTRADOR)
+   * Da de alta un nuevo plan en el catálogo (Requiere ADMINISTRADOR)
    */
   async createPlan(input: CreatePlanInput): Promise<PlanListItem> {
     return safeInvoke<PlanListItem>('create_plan', { input });
   },
 
   /**
-   * Actualiza datos y precios de un plan (Requiere SUPERVISOR o ADMINISTRADOR)
+   * Actualiza datos y precios de un plan (Requiere ADMINISTRADOR)
    */
   async updatePlan(planId: number, input: UpdatePlanInput): Promise<PlanListItem> {
     return safeInvoke<PlanListItem>('update_plan', {
@@ -52,7 +52,7 @@ export const catalogIpc = {
   },
 
   /**
-   * Alterna el estado activo/inactivo de un plan (Requiere SUPERVISOR o ADMINISTRADOR)
+   * Alterna el estado activo/inactivo de un plan (Requiere ADMINISTRADOR)
    */
   async togglePlanActive(planId: number, activo?: boolean): Promise<void> {
     return safeInvoke<void>('toggle_plan_active', {

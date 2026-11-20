@@ -10,6 +10,11 @@ import { Button } from '../../../components/primitives/Button';
 import { Icon, IconName } from '../../../components/primitives/Icon';
 import { formatMoney, PaymentSplitResult } from '../../../domain/pos';
 import { PaymentMethod, PosPaymentInput } from '../../../types/pos';
+import {
+  formatDecimalOnBlur,
+  sanitizeDecimalInput,
+  selectIfZeroDefault,
+} from '../../../utils/formSafety';
 
 export interface PaymentSplitterProps {
   totalVenta: number;
@@ -167,18 +172,18 @@ export const PaymentSplitter: React.FC<PaymentSplitterProps> = ({
                 <div className="relative">
                   <span className="absolute left-2.5 top-2 text-txt-muted text-xs font-bold">S/</span>
                   <input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
-                    step="0.01"
-                    min="0"
                     disabled={disabled}
                     value={pago ? pago.monto : ''}
-                    onChange={(e) => handleMontoChange(m.id, e.target.value)}
+                    onFocus={selectIfZeroDefault}
+                    onChange={(e) => handleMontoChange(m.id, sanitizeDecimalInput(e.target.value))}
                     onBlur={(e) => {
-                      const v = parseFloat(e.target.value);
+                      const formatted = formatDecimalOnBlur(e.target.value, { min: 0 });
+                      const v = parseFloat(formatted);
                       if (!isNaN(v) && v > 0) {
-                        handleMontoChange(m.id, v.toFixed(2));
-                      } else if (!e.target.value.trim() || v <= 0) {
+                        handleMontoChange(m.id, formatted);
+                      } else {
                         onRemovePayment(m.id);
                       }
                     }}

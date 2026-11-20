@@ -129,6 +129,20 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
         .await
         .map_err(|e| AppError::Internal(format!("Error ejecutando migración 008: {}", e)))?;
 
+    // 10. Normalización idempotente de roles a 2 niveles (SUPERVISOR -> RECEPCIONISTA)
+    sqlx::query("UPDATE usuarios_sistema SET rol_principal = 'RECEPCIONISTA' WHERE rol_principal = 'SUPERVISOR';")
+        .execute(pool)
+        .await
+        .map_err(|e| AppError::Internal(format!("Error normalizando roles a 2 niveles: {}", e)))?;
+
+    // 11. Migración idempotente de hostname mDNS por defecto (sistema.local -> zaramagym.local)
+    sqlx::query(
+        "UPDATE configuracion_sistema SET valor = 'zaramagym.local', updated_at = datetime('now', 'localtime') WHERE clave = 'LAN_MDNS_HOSTNAME' AND valor = 'sistema.local';",
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Error actualizando LAN_MDNS_HOSTNAME a zaramagym.local: {}", e)))?;
+
     Ok(())
 }
 

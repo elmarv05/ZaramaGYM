@@ -6,11 +6,13 @@ pub mod services;
 pub mod state;
 
 use state::AppState;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // En desarrollo o producción desktop, resolver la ruta del archivo SQLite
             let app_handle = app.handle();
@@ -33,6 +35,9 @@ pub fn run() {
                     .expect("Fallo crítico al inicializar base de datos SQLite");
                 let state = AppState::new_with_db_path(pool.clone(), db_path);
 
+                // Detectar cierre forzado previo (Crash Recovery) y activar bandera + heartbeat
+                let _ = services::lifecycle_service::detect_and_mark_startup(&pool, &state).await;
+
                 // Auto-arranque del servidor LAN si está habilitado por configuración
                 let lan_enabled_row = sqlx::query(
                     "SELECT valor FROM configuracion_sistema WHERE clave = 'LAN_SERVER_ENABLED'",
@@ -51,10 +56,29 @@ pub fn run() {
                 }
 
                 app.manage(state.clone());
+                services::lifecycle_service::start_runtime_heartbeat_task(state.clone());
                 services::printing_backup_service::start_auto_backup_scheduler(state);
             });
 
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let app_handle = window.app_handle().clone();
+                if let Some(state_ref) = app_handle.try_state::<AppState>() {
+                    let state = state_ref.inner().clone();
+                    let close_check = tauri::async_runtime::block_on(async {
+                        services::lifecycle_service::handle_window_close_requested(&state).await
+                    });
+
+                    if let Ok(Some(blocked_payload)) = close_check {
+                        // Existe un turno de caja ABIERTO -> bloquear cierre y notificar al Frontend
+                        api.prevent_close();
+                        let _ = window.set_focus();
+                        let _ = app_handle.emit("app://close-blocked-open-shift", &blocked_payload);
+                    }
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             // Slice 1: Auth & Auditoría
@@ -70,6 +94,10 @@ pub fn run() {
             commands::update_user_photo,
             commands::toggle_user_active,
             commands::get_audit_logs,
+            commands::get_crash_recovery_notice,
+            commands::acknowledge_crash_recovery_notice,
+            commands::prepare_safe_app_update,
+            commands::restore_runtime_after_failed_update,
             // Slice 2: Directorio de Personas
             commands::list_persons,
             commands::get_person,

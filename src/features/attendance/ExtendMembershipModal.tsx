@@ -13,6 +13,11 @@ import {
 } from '../../domain/attendance';
 import { ExtendMembershipInput } from '../../types/attendance';
 import { ClientMembershipDto } from '../../types/pos';
+import {
+  preventEnterKeySubmit,
+  sanitizeIntegerInput,
+  selectIfZeroDefault,
+} from '../../utils/formSafety';
 
 export interface ExtendMembershipModalProps {
   isOpen: boolean;
@@ -34,9 +39,12 @@ export const ExtendMembershipModal: React.FC<ExtendMembershipModalProps> = ({
   const [selectedId, setSelectedId] = useState<number | null>(
     preselectedMembershipId || (memberships.length > 0 ? memberships[0].id : null)
   );
-  const [diasOtorgados, setDiasOtorgados] = useState<number>(3);
+  const [diasOtorgadosStr, setDiasOtorgadosStr] = useState<string>('3');
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  const parsedDias = parseInt(diasOtorgadosStr, 10);
+  const diasOtorgados = isNaN(parsedDias) ? 0 : parsedDias;
 
   React.useEffect(() => {
     if (selectedId === null && memberships.length > 0) {
@@ -155,14 +163,15 @@ export const ExtendMembershipModal: React.FC<ExtendMembershipModalProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form noValidate onSubmit={handleSubmit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4">
           {/* Selector de Membresía */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="select-membresia-ext" className="text-xs font-bold text-txt-secondary">
-              Membresía del Socio *
+              Membresía del Socio <span className="text-status-danger">*</span>
             </label>
             <select
               id="select-membresia-ext"
+              required
               value={selectedId ?? ''}
               onChange={(e) => {
                 setSelectedId(Number(e.target.value));
@@ -195,17 +204,25 @@ export const ExtendMembershipModal: React.FC<ExtendMembershipModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="input-dias-ext" className="text-xs font-bold text-txt-secondary">
-                Días Calendario a Otorgar (+N) *
+                Días Calendario a Otorgar (+N) <span className="text-status-danger">*</span>
               </label>
               <input
                 id="input-dias-ext"
-                type="number"
-                min="1"
-                max="90"
-                value={diasOtorgados}
+                type="text"
+                inputMode="numeric"
+                required
+                value={diasOtorgadosStr}
+                onFocus={selectIfZeroDefault}
                 onChange={(e) => {
-                  setDiasOtorgados(Math.max(1, parseInt(e.target.value, 10) || 1));
+                  setDiasOtorgadosStr(sanitizeIntegerInput(e.target.value));
                   setError(null);
+                }}
+                onBlur={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  if (!e.target.value.trim()) return;
+                  if (!isNaN(n)) {
+                    setDiasOtorgadosStr(String(Math.min(90, Math.max(1, n))));
+                  }
                 }}
                 className="w-full px-3.5 py-2 rounded-xl border border-border bg-canvas text-sm font-black text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
               />
@@ -225,11 +242,12 @@ export const ExtendMembershipModal: React.FC<ExtendMembershipModalProps> = ({
           {/* Motivo Justificación (Mínimo 5 caracteres) */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="input-motivo-ext" className="text-xs font-bold text-txt-secondary">
-              Motivo o Justificación Obligatoria (Mínimo 5 caracteres) *
+              Motivo o Justificación Obligatoria (Mínimo 5 caracteres) <span className="text-status-danger">*</span>
             </label>
             <textarea
               id="input-motivo-ext"
               rows={3}
+              required
               placeholder="Ej. Descanso médico presentado por el socio o suspensión por viaje justificado..."
               value={motivo}
               onChange={(e) => {

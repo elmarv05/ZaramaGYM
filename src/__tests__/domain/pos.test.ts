@@ -233,16 +233,14 @@ describe('Dominio POS: Tachado en 2 Pasos y Permisos RBAC', () => {
     expect(validateStrikeSaleInput('Error en cobro de plan', 'ABIERTO', 'COMPLETADA').isValid).toBe(true);
   });
 
-  it('canStrikeSale permite a cualquier rol operativo tachar en turno abierto', () => {
+  it('canStrikeSale permite a ADMINISTRADOR y RECEPCIONISTA tachar en turno abierto', () => {
     expect(canStrikeSale('RECEPCIONISTA')).toBe(true);
-    expect(canStrikeSale('SUPERVISOR')).toBe(true);
     expect(canStrikeSale('ADMINISTRADOR')).toBe(true);
     expect(canStrikeSale(null)).toBe(false);
   });
 
   it('canResolveStruckSale restringe el Paso 2 exclusivamente al ADMINISTRADOR', () => {
     expect(canResolveStruckSale('ADMINISTRADOR')).toBe(true);
-    expect(canResolveStruckSale('SUPERVISOR')).toBe(false);
     expect(canResolveStruckSale('RECEPCIONISTA')).toBe(false);
     expect(canResolveStruckSale(null)).toBe(false);
   });

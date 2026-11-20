@@ -13,12 +13,13 @@ import {
   SaleState,
   CashShiftState,
 } from '../types/pos';
+import { roundMonetary } from '../utils/formSafety';
 
 /**
  * Redondea un número a 2 decimales con precisión monetaria
  */
 export function roundMoney(amount: number): number {
-  return Math.round((amount + Number.EPSILON) * 100) / 100;
+  return roundMonetary(amount);
 }
 
 /**
@@ -275,11 +276,11 @@ export function validateStrikeSaleInput(
 }
 
 /**
- * Control RBAC: Cualquier operador puede tachar en el turno abierto
+ * Control RBAC: ADMINISTRADOR y RECEPCIONISTA pueden tachar errores en su turno abierto (Paso 1)
  */
 export function canStrikeSale(role?: UserRole | string | null): boolean {
   if (!role) return false;
-  return role === 'ADMINISTRADOR' || role === 'SUPERVISOR' || role === 'RECEPCIONISTA';
+  return role === 'ADMINISTRADOR' || role === 'RECEPCIONISTA';
 }
 
 /**

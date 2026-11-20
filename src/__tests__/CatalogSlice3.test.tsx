@@ -30,17 +30,6 @@ const adminSession: AuthSession = {
   login_at: '2026-11-13 08:00:00',
 };
 
-const supervisorSession: AuthSession = {
-  user_id: 2,
-  persona_id: 2,
-  username: 'supervisor1',
-  nombre_completo: 'Carlos Supervisor',
-  rol: 'SUPERVISOR',
-  foto_perfil_data_url: null,
-  is_locked: false,
-  login_at: '2026-11-13 08:15:00',
-};
-
 const recepcionistaSession: AuthSession = {
   user_id: 3,
   persona_id: 3,
@@ -177,8 +166,8 @@ const mockMovements: InventoryMovementItem[] = [
     stock_resultante: 8,
     costo_unitario_momento: '1.20',
     motivo_justificacion: 'Botella dañada durante manipulación en mostrador',
-    registrado_por_usuario_id: 2,
-    registrado_por_username: 'supervisor1',
+    registrado_por_usuario_id: 1,
+    registrado_por_username: 'admin',
     created_at: '2026-11-13 09:15:00',
   },
 ];
@@ -426,7 +415,7 @@ describe('Suite Frontend: Slice 3 - Catálogo, Day Overflow e Inventario', () =>
   });
 
   describe('4. Renderizado de CatalogView, Pestañas y RBAC', () => {
-    it('muestra el banner informativo y oculta botones de alta/edición para RECEPCIONISTA', async () => {
+    it('muestra el banner operativo y aplica la matriz de permisos de RECEPCIONISTA (crea planes y edita productos, sin editar/bajar planes ni Kardex)', async () => {
       const user = userEvent.setup();
       render(
         <CatalogView
@@ -439,11 +428,13 @@ describe('Suite Frontend: Slice 3 - Catálogo, Day Overflow e Inventario', () =>
 
       // Banner informativo presente
       expect(
-        screen.getByText(/Modo Consulta de Precios y Simulador:/i)
+        screen.getByText(/Modo Operativo de Recepción:/i)
       ).toBeInTheDocument();
 
-      // Botón "Nuevo Plan" ausente para recepcionista
-      expect(screen.queryByRole('button', { name: /nuevo plan/i })).not.toBeInTheDocument();
+      // RECEPCIONISTA SÍ puede crear planes ("Nuevo Plan"), pero NO editar ni desactivar planes existentes
+      expect(screen.getByRole('button', { name: /nuevo plan/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^editar$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^desactivar$/i })).not.toBeInTheDocument();
 
       // Cambiar a pestaña de Inventario de Productos
       const tabProductos = screen.getByRole('tab', { name: /inventario de productos/i });
@@ -455,13 +446,23 @@ describe('Suite Frontend: Slice 3 - Catálogo, Day Overflow e Inventario', () =>
       expect(screen.getByText('Stock Bajo')).toBeInTheDocument();
       expect(screen.getByText('Sin Stock')).toBeInTheDocument();
 
-      // Botones mutativos ausentes para recepcionista
-      expect(screen.queryByRole('button', { name: /nuevo producto/i })).not.toBeInTheDocument();
+      // RECEPCIONISTA SÍ puede crear y editar productos
+      expect(screen.getByRole('button', { name: /nuevo producto/i })).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /^editar$/i }).length).toBeGreaterThanOrEqual(1);
+
+      // Botones exclusivos de ADMINISTRADOR ausentes para recepcionista
       expect(screen.queryByRole('button', { name: /merma \/ ajuste/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /desactivar/i })).not.toBeInTheDocument();
+
+      // Cambiar a Kardex y verificar que no puede registrar mermas/ajustes
+      const tabKardex = screen.getByRole('tab', { name: /kardex y mermas/i });
+      await user.click(tabKardex);
+      expect(
+        screen.queryByRole('button', { name: /registrar merma \/ ajuste/i })
+      ).not.toBeInTheDocument();
     });
 
-    it('habilita todas las opciones operativas para SUPERVISOR y ADMINISTRADOR', async () => {
+    it('habilita todas las opciones operativas para ADMINISTRADOR', async () => {
       const user = userEvent.setup();
       render(
         <CatalogView
@@ -474,7 +475,7 @@ describe('Suite Frontend: Slice 3 - Catálogo, Day Overflow e Inventario', () =>
 
       // Banner informativo ausente para administrador
       expect(
-        screen.queryByText(/Modo Consulta de Precios y Simulador:/i)
+        screen.queryByText(/Modo Operativo de Recepción:/i)
       ).not.toBeInTheDocument();
 
       // Botón "Nuevo Plan" disponible
@@ -494,7 +495,7 @@ describe('Suite Frontend: Slice 3 - Catálogo, Day Overflow e Inventario', () =>
       const user = userEvent.setup();
       render(
         <CatalogView
-          currentSession={supervisorSession}
+          currentSession={adminSession}
           plans={mockPlans}
           products={mockProducts}
           movements={mockMovements}
@@ -555,9 +556,9 @@ describe('Suite Frontend: Slice 3 - Catálogo, Day Overflow e Inventario', () =>
         />
       );
 
-      // Clic en pestaña "Catálogo & Stock (Simulador Day Overflow)"
+      // Clic en pestaña "Catálogo & Stock"
       const tabCatalogo = screen.getByRole('button', {
-        name: /catálogo & stock \(simulador day overflow\)/i,
+        name: /catálogo & stock/i,
       });
       await user.click(tabCatalogo);
 
@@ -568,7 +569,7 @@ describe('Suite Frontend: Slice 3 - Catálogo, Day Overflow e Inventario', () =>
       expect(
         screen.getByRole('heading', { name: /simulador canónico de vencimientos/i })
       ).toBeInTheDocument();
-      expect(screen.getByText(/Modo Consulta de Precios y Simulador:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Modo Operativo de Recepción:/i)).toBeInTheDocument();
     });
   });
 });

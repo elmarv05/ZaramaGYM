@@ -10,6 +10,7 @@ import {
   calculatePaymentSplit,
   CartTotals,
   PaymentSplitResult,
+  roundMoney,
   validatePosSaleInput,
 } from '../domain/pos';
 import { catalogIpc } from '../services/ipc/catalogIpc';
@@ -320,7 +321,7 @@ export function usePos(options: UsePosOptions = { autoFetch: true }): UsePosResu
           updated[existingIdx] = {
             ...curr,
             cantidad: newQty,
-            subtotal: (newQty * pu).toFixed(2),
+            subtotal: roundMoney(newQty * pu).toFixed(2),
           };
           return updated;
         }
@@ -341,7 +342,7 @@ export function usePos(options: UsePosOptions = { autoFetch: true }): UsePosResu
       updated[index] = {
         ...item,
         cantidad: quantity,
-        subtotal: (quantity * pu).toFixed(2),
+        subtotal: roundMoney(quantity * pu).toFixed(2),
       };
       return updated;
     });
@@ -394,14 +395,17 @@ export function usePos(options: UsePosOptions = { autoFetch: true }): UsePosResu
         })
         .map((p) => ({
           metodo_pago: p.metodo_pago,
-          monto: parseFloat(p.monto).toFixed(2),
+          monto: roundMoney(parseFloat(p.monto)).toFixed(2),
           referencia_operacion: p.referencia_operacion?.trim() || undefined,
         }));
 
       const saleInput: CreatePosSaleInput = {
         cliente_id: selectedClient ? selectedClient.id : null,
         items: cartItems,
-        descuento: parseFloat(descuento) > 0 ? parseFloat(descuento).toFixed(2) : undefined,
+        descuento:
+          parseFloat(descuento) > 0
+            ? roundMoney(parseFloat(descuento)).toFixed(2)
+            : undefined,
         pagos: normalizedPagos,
         notas: notas?.trim() || undefined,
       };

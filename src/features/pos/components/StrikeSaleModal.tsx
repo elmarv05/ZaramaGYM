@@ -11,6 +11,7 @@ import { Icon } from '../../../components/primitives/Icon';
 import { Modal } from '../../../components/primitives/Modal';
 import { validateStrikeSaleInput } from '../../../domain/pos';
 import { CashShiftState, SaleListItemDto, StrikeSaleInput } from '../../../types/pos';
+import { preventEnterKeySubmit } from '../../../utils/formSafety';
 
 export interface StrikeSaleModalProps {
   isOpen: boolean;
@@ -59,7 +60,7 @@ export const StrikeSaleModal: React.FC<StrikeSaleModalProps> = ({
       description="Procedimiento operativo de reversión para ventas emitidas por error en el turno activo."
       size="md"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form noValidate onSubmit={handleSubmit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4">
         {errorMsg && (
           <Alert variant="danger" title="Validación" onClose={() => setErrorMsg(null)}>
             {errorMsg}

@@ -7,5 +7,6 @@ pub mod dashboard_service;
 pub mod entity_service;
 pub mod finance_service;
 pub mod lan_service;
+pub mod lifecycle_service;
 pub mod pos_service;
 pub mod printing_backup_service;

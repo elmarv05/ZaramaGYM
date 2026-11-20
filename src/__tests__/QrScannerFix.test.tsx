@@ -43,15 +43,15 @@ describe('Reparación QR & Red LAN Multi-NIC', () => {
     expect(normalizeQrTokenClient('QR-LEGACY-01')).toBe('QR-LEGACY-01');
   });
 
-  it('2. LanServerView permite cambiar entre múltiples IPs locales y alternar HTTPS/HTTP actualizando la URL y QR', async () => {
+  it('2. LanServerView usa mDNS (zaramagym.local) por defecto y permite cambiar a IPs de respaldo y HTTP actualizando URL y QR', async () => {
     const multiNicStatus: LanServerStatusDto = {
       isRunning: true,
       port: 3443,
       localIps: ['192.168.100.6', '192.168.100.9'],
       primaryIp: '192.168.100.6',
-      httpsUrl: 'https://192.168.100.6:3443/scanner',
-      httpUrl: 'http://192.168.100.6:3443/scanner',
-      mdnsHostname: 'sistema.local',
+      httpsUrl: 'https://zaramagym.local:3443/scanner',
+      httpUrl: 'http://zaramagym.local:3443/scanner',
+      mdnsHostname: 'zaramagym.local',
       mdnsActive: true,
       caCertPem: '-----BEGIN CERTIFICATE-----\nTEST\n-----END CERTIFICATE-----',
       caCertFingerprintSha256: 'AA:BB:CC:DD',
@@ -64,7 +64,7 @@ describe('Reparación QR & Red LAN Multi-NIC', () => {
       deviceId: 50,
       nombreDispositivo: 'Android Recepción',
       codigoVinculacion: 'V7HAJ7',
-      pairingUrl: 'https://192.168.100.6:3443/scanner?code=V7HAJ7',
+      pairingUrl: 'https://zaramagym.local:3443/scanner?pair=V7HAJ7',
       qrDataUrl: 'data:image/svg+xml;base64,PHN2Zy8+',
       expiresInMinutes: 60,
     };
@@ -79,18 +79,19 @@ describe('Reparación QR & Red LAN Multi-NIC', () => {
     render(<LanServerView currentSession={adminSession} clients={[]} />);
 
     const ipSelect = await screen.findByLabelText(/Seleccionar adaptador de red LAN/i);
-    expect(ipSelect).toHaveValue('192.168.100.6');
-    expect(screen.getByText('https://192.168.100.6:3443/scanner')).toBeInTheDocument();
+    expect(ipSelect).toHaveValue('zaramagym.local');
+    expect(screen.getByText('https://zaramagym.local:3443/scanner')).toBeInTheDocument();
 
-    // Generar código de vinculación
+    // Generar código de vinculación -> usa mDNS por defecto
     fireEvent.change(screen.getByPlaceholderText(/Nombre del dispositivo/i), {
       target: { value: 'Android Recepción' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Generar Código de Enlace/i }));
 
     expect(await screen.findByText('V7HAJ7')).toBeInTheDocument();
+    expect(screen.getByText('https://zaramagym.local:3443/scanner?pair=V7HAJ7')).toBeInTheDocument();
 
-    // Cambiar IP a Ethernet (192.168.100.9)
+    // Cambiar a IP de respaldo Ethernet (192.168.100.9)
     fireEvent.change(ipSelect, { target: { value: '192.168.100.9' } });
     expect(screen.getByText('https://192.168.100.9:3443/scanner')).toBeInTheDocument();
     expect(screen.getByText('https://192.168.100.9:3443/scanner?pair=V7HAJ7')).toBeInTheDocument();

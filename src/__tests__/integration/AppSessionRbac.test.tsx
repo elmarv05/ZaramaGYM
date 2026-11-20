@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../../App';
 import { invoke } from '@tauri-apps/api/core';
@@ -18,17 +18,6 @@ const adminSession: AuthSession = {
   login_at: '2026-11-11 10:00:00',
 };
 
-const supervisorSession: AuthSession = {
-  user_id: 2,
-  persona_id: 2,
-  username: 'super1',
-  nombre_completo: 'Supervisor Central',
-  rol: 'SUPERVISOR',
-  foto_perfil_data_url: null,
-  is_locked: false,
-  login_at: '2026-11-11 10:30:00',
-};
-
 const recepcionistaSession: AuthSession = {
   user_id: 3,
   persona_id: 3,
@@ -40,7 +29,7 @@ const recepcionistaSession: AuthSession = {
   login_at: '2026-11-11 11:00:00',
 };
 
-describe('Integration: App Session & RBAC (3 Roles)', () => {
+describe('Integration: App Session & RBAC (2 Roles)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -95,42 +84,14 @@ describe('Integration: App Session & RBAC (3 Roles)', () => {
     ).toBeInTheDocument();
   });
 
-  it('para rol SUPERVISOR muestra Gestión de Recepcionistas y Auditoría', async () => {
-    mockedInvoke.mockImplementation(async (cmd) => {
-      if (cmd === 'get_current_session') return supervisorSession;
-      if (cmd === 'list_users') return [];
-      if (cmd === 'get_audit_logs') return [];
-      if (cmd === 'list_clients') return [];
-      if (cmd === 'list_suppliers') return [];
-      if (cmd === 'list_persons') return [];
-      if (cmd === 'list_companies') return [];
-      return [];
-    });
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Supervisor Central')).toBeInTheDocument();
-    });
-
-    expect(screen.getAllByText('SUPERVISOR').length).toBeGreaterThanOrEqual(1);
-
-    // Debe mostrar Gestión de Recepcionistas en vez de Gestión de Usuarios
-    expect(
-      screen.getByRole('button', { name: /gestión de recepcionistas/i })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /bitácora de auditoría/i })
-    ).toBeInTheDocument();
-  });
-
-  it('para rol RECEPCIONISTA oculta las pestañas administrativas y muestra el dashboard operativo', async () => {
+  it('para rol RECEPCIONISTA muestra sus 7 módulos habilitados, oculta los 4 exclusivos de Admin y silencia Forbidden en Personas', async () => {
     mockedInvoke.mockImplementation(async (cmd) => {
       if (cmd === 'get_current_session') return recepcionistaSession;
       if (cmd === 'list_clients') return [];
-      if (cmd === 'list_suppliers') return [];
-      if (cmd === 'list_persons') return [];
-      if (cmd === 'list_companies') return [];
+      if (cmd === 'list_suppliers' || cmd === 'list_companies') return [];
+      if (cmd === 'list_persons') {
+        throw { code: 'Forbidden', message: 'Solo ADMINISTRADOR' };
+      }
       return [];
     });
 
@@ -142,15 +103,33 @@ describe('Integration: App Session & RBAC (3 Roles)', () => {
 
     expect(screen.getAllByText('RECEPCIONISTA').length).toBeGreaterThanOrEqual(1);
 
-    // Módulos administrativos ausentes por RBAC
+    // 7 módulos habilitados para RECEPCIONISTA en Sidebar
+    const sidebar = within(screen.getByLabelText(/navegación lateral zaramagym/i));
+    expect(sidebar.getByRole('button', { name: /^Inicio$/i })).toBeInTheDocument();
+    expect(sidebar.getByRole('button', { name: /panel operativo/i })).toBeInTheDocument();
+    expect(sidebar.getByRole('button', { name: /asistencias y semáforo/i })).toBeInTheDocument();
+    expect(sidebar.getByRole('button', { name: /caja y pos/i })).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /gestión de usuarios/i })
-    ).not.toBeInTheDocument();
+      sidebar.getByRole('button', { name: /directorio \(clientes \/ proveedores \/ empresas\)/i })
+    ).toBeInTheDocument();
+    expect(sidebar.getByRole('button', { name: /catálogo e inventario/i })).toBeInTheDocument();
+    expect(sidebar.getByRole('button', { name: /compras, gastos y finanzas/i })).toBeInTheDocument();
+
+    // 4 módulos exclusivos de ADMINISTRADOR ausentes por RBAC
+    expect(sidebar.queryByRole('button', { name: /impresión, pdfs y backups/i })).not.toBeInTheDocument();
+    expect(sidebar.queryByRole('button', { name: /gestión de usuarios/i })).not.toBeInTheDocument();
+    expect(sidebar.queryByRole('button', { name: /bitácora de auditoría/i })).not.toBeInTheDocument();
+    expect(sidebar.queryByRole('button', { name: /wi-fi & escáner móvil/i })).not.toBeInTheDocument();
+
+    // No debe mostrarse alerta roja de Forbidden al cargar entidades
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    // Botón unificado de bloqueo en Header (no duplicado en Sidebar ni Panel Operativo)
     expect(
-      screen.queryByRole('button', { name: /gestión de recepcionistas/i })
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: /proteger estación/i })
+    ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /bitácora de auditoría/i })
+      screen.queryByRole('button', { name: /bloquear turno/i })
     ).not.toBeInTheDocument();
 
     // Dashboard operativo presente
@@ -246,7 +225,7 @@ describe('Integration: App Session & RBAC (3 Roles)', () => {
     });
 
     expect(
-      screen.getByRole('button', { name: /Ir a Caja \/ POS para cerrar turno/i })
+      screen.getByRole('button', { name: /Ir a Caja(?: \/ POS)? para cerrar turno/i })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Solo Bloquear Estación/i })
@@ -254,13 +233,49 @@ describe('Integration: App Session & RBAC (3 Roles)', () => {
 
     // Probar botón de navegación rápida a Caja / POS
     await user.click(
-      screen.getByRole('button', { name: /Ir a Caja \/ POS para cerrar turno/i })
+      screen.getByRole('button', { name: /Ir a Caja(?: \/ POS)? para cerrar turno/i })
     );
 
     await waitFor(() => {
       expect(
-        screen.getByText(/Caja, Punto de Venta \(POS\) y Cuentas por Cobrar/i)
+        screen.getByText(/Caja, Punto de Venta(?:\s*\(POS\))? y Cuentas por Cobrar/i)
       ).toBeInTheDocument();
     });
+  });
+
+  it('abre el modal Información de Contacto al hacer clic en Max Rios en el footer', async () => {
+    mockedInvoke.mockImplementation(async (cmd) => {
+      if (cmd === 'get_current_session') return adminSession;
+      return [];
+    });
+
+    const user = userEvent.setup();
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /max rios/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /max rios/i }));
+
+    const dialog = screen.getByRole('dialog', { name: /información de contacto/i });
+    expect(dialog).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/consultor y desarrollador freelance/i)
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(/ingeniería de sistemas/i)).toBeInTheDocument();
+    expect(within(dialog).getByText('+51 967 231 461')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/pucallpa/i)).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /copiar/i })).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/código qr de contacto directo/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/enlace verificado de whatsapp/i)).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('img', { name: /código qr de whatsapp de max rios/i })
+    ).toHaveAttribute('src', '/max-rios-whatsapp-qr.png');
+
+    await user.click(screen.getByRole('button', { name: /^cerrar$/i }));
+    expect(
+      screen.queryByRole('dialog', { name: /información de contacto/i })
+    ).not.toBeInTheDocument();
   });
 });

@@ -2,10 +2,10 @@
 
 use crate::errors::AppError;
 use crate::models::{
-    AuditFilter, AuditLogItem, AuthSession, CreateUserInput, LoginCredentials,
-    UpdateUserInput, UpdateUserPhotoInput, UserListItem,
+    AuditFilter, AuditLogItem, AuthSession, CrashRecoveryNotice, CreateUserInput, LoginCredentials,
+    SafeUpdatePreparationDto, UpdateUserInput, UpdateUserPhotoInput, UserListItem,
 };
-use crate::services::{audit_service, auth_service};
+use crate::services::{audit_service, auth_service, lifecycle_service};
 use crate::state::AppState;
 use tauri::State;
 
@@ -98,8 +98,44 @@ pub async fn get_audit_logs(
     filter: Option<AuditFilter>,
     state: State<'_, AppState>,
 ) -> Result<Vec<AuditLogItem>, AppError> {
-    // Guard: Administrador o Supervisor, sesión no bloqueada
-    state.require_supervisor_or_admin().await?;
+    // Guard: Exclusivo de Administrador, sesión no bloqueada
+    state.require_admin().await?;
     let f = filter.unwrap_or_default();
     audit_service::get_audit_logs(&state.pool(), &f).await
+}
+
+#[tauri::command]
+pub async fn get_crash_recovery_notice(
+    state: State<'_, AppState>,
+) -> Result<Option<CrashRecoveryNotice>, AppError> {
+    Ok(state.get_crash_recovery_notice().await)
+}
+
+#[tauri::command]
+pub async fn acknowledge_crash_recovery_notice(
+    state: State<'_, AppState>,
+) -> Result<(), AppError> {
+    state.clear_crash_recovery_notice().await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn prepare_safe_app_update(
+    target_version: Option<String>,
+    targetVersion: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<SafeUpdatePreparationDto, AppError> {
+    let session = state.require_admin().await?;
+    let version = target_version
+        .or(targetVersion)
+        .unwrap_or_else(|| "nueva".to_string());
+    lifecycle_service::prepare_safe_app_update(&state, &session, &version, None).await
+}
+
+#[tauri::command]
+pub async fn restore_runtime_after_failed_update(
+    state: State<'_, AppState>,
+) -> Result<(), AppError> {
+    let session = state.require_admin().await?;
+    lifecycle_service::restore_runtime_after_failed_update(&state, &session).await
 }

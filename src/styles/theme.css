@@ -157,6 +157,17 @@ body,
   }
 }
 
+@keyframes zgToastSlideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(28px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .zg-view-enter {
   animation: zgViewFadeIn 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -169,10 +180,58 @@ body,
   animation: zgModalPanelIn 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.zg-toast-enter {
+  animation: zgToastSlideInRight 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Tarjetas interactivas de módulos operativos (accesibles, compositor-friendly) */
+.zg-module-card {
+  position: relative;
+  transition:
+    border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .zg-module-card {
+    transition:
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .zg-module-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .zg-module-card:active {
+    transform: translateY(0);
+  }
+}
+
+.zg-module-card:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  .zg-module-card {
+    border: 2px solid CanvasText;
+  }
+  .zg-module-card:hover,
+  .zg-module-card:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .zg-view-enter,
   .zg-modal-backdrop,
-  .zg-modal-panel {
+  .zg-modal-panel,
+  .zg-toast-enter {
     transform: none !important;
     transition-duration: 0.01ms !important;
     animation: none !important;

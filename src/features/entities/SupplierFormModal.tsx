@@ -30,6 +30,7 @@ import { Button } from '../../components/primitives/Button';
 import { Icon } from '../../components/primitives/Icon';
 import { Input } from '../../components/primitives/Input';
 import { Select } from '../../components/primitives/Select';
+import { preventEnterKeySubmit } from '../../utils/formSafety';
 
 export interface SupplierFormModalProps {
   isOpen: boolean;
@@ -151,7 +152,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
   const canUnlockLinkedData = useMemo(() => {
     if (!isEditing || !editingSupplier) return true;
     if (editingSupplier.tipo_proveedor === 'EMPRESA') {
-      return true; // Administrador o Supervisor pueden editar datos comerciales de empresa
+      return true; // Administrador puede editar datos comerciales de empresa
     }
     return canModifyLinkedPersonData(currentSession?.rol, editingSupplier.persona_rol_usuario);
   }, [isEditing, editingSupplier, currentSession]);
@@ -352,7 +353,12 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
       description="Vincula una Empresa Jurídica RUC 20 o una Persona Natural proveedora."
       size="lg"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form
+        noValidate
+        onSubmit={handleSubmit}
+        onKeyDown={preventEnterKeySubmit}
+        className="flex flex-col gap-4"
+      >
         {/* Selector de Tipo (Solo en Creación) */}
         {!isEditing ? (
           <div className="flex flex-col gap-3">

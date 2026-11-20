@@ -14,6 +14,7 @@ import { validateCompanyForm } from '../../domain/entity';
 import { Modal } from '../../components/primitives/Modal';
 import { Button } from '../../components/primitives/Button';
 import { Input } from '../../components/primitives/Input';
+import { preventEnterKeySubmit } from '../../utils/formSafety';
 
 export interface CompanyFormModalProps {
   isOpen: boolean;
@@ -113,7 +114,12 @@ export const CompanyFormModal: React.FC<CompanyFormModalProps> = ({
       description="Entidad corporativa con personería jurídica SUNAT para compras y servicios."
       size="lg"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form
+        noValidate
+        onSubmit={handleSubmit}
+        onKeyDown={preventEnterKeySubmit}
+        className="flex flex-col gap-4"
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="RUC de Empresa (11 dígitos, inicia con 20)"

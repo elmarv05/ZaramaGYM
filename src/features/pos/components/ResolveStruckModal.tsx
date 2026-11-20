@@ -9,6 +9,7 @@ import { Alert } from '../../../components/primitives/Alert';
 import { Button } from '../../../components/primitives/Button';
 import { Modal } from '../../../components/primitives/Modal';
 import { ResolveStruckAction, ResolveStruckSaleInput, SaleDetailDto, SaleListItemDto } from '../../../types/pos';
+import { preventEnterKeySubmit } from '../../../utils/formSafety';
 
 export interface ResolveStruckModalProps {
   isOpen: boolean;
@@ -60,7 +61,7 @@ export const ResolveStruckModal: React.FC<ResolveStruckModalProps> = ({
       description="Dictamen administrativo definitivo sobre una venta tachada en turno."
       size="md"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form noValidate onSubmit={handleSubmit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4">
         {errorMsg && (
           <Alert variant="danger" title="Error" onClose={() => setErrorMsg(null)}>
             {errorMsg}

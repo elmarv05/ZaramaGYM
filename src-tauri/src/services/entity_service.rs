@@ -20,16 +20,6 @@ use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool};
 fn check_person_access(session: &AuthSession, target_user_role: Option<UserRole>) -> Result<(), AppError> {
     match session.rol {
         UserRole::Administrador => Ok(()),
-        UserRole::Supervisor => {
-            if let Some(role) = target_user_role {
-                if role == UserRole::Supervisor || role == UserRole::Administrador {
-                    return Err(AppError::Forbidden(
-                        "No tiene privilegios para acceder o modificar a una persona con rol SUPERVISOR o ADMINISTRADOR.".into(),
-                    ));
-                }
-            }
-            Ok(())
-        }
         UserRole::Recepcionista => {
             if target_user_role.is_some() {
                 return Err(AppError::Forbidden(
@@ -76,9 +66,6 @@ pub async fn list_persons(
     // Filtro jerárquico estricto en SQL
     match session.rol {
         UserRole::Administrador => {}
-        UserRole::Supervisor => {
-            builder.push(" AND (u.id IS NULL OR u.rol_principal = 'RECEPCIONISTA')");
-        }
         UserRole::Recepcionista => {
             builder.push(" AND u.id IS NULL");
         }
@@ -221,6 +208,7 @@ pub async fn create_person(
     session: &AuthSession,
     input: CreatePersonInput,
 ) -> Result<PersonDetail, AppError> {
+    session.require_admin()?;
     let tipo_doc = input.tipo_documento.trim().to_uppercase();
     let num_doc = input.numero_documento.trim();
     let nombres = input.nombres.trim();
@@ -307,6 +295,7 @@ pub async fn update_person(
     person_id: i64,
     input: UpdatePersonInput,
 ) -> Result<PersonDetail, AppError> {
+    session.require_admin()?;
     // Verificar existencia y jerarquía
     let _ = get_person(pool, session, person_id).await?;
 
@@ -381,6 +370,7 @@ pub async fn toggle_person_active(
     person_id: i64,
     active: bool,
 ) -> Result<(), AppError> {
+    session.require_admin()?;
     // 1. Verificar existencia y jerarquía (Rechaza con Forbidden si no tiene acceso según su rango)
     let _ = get_person(pool, session, person_id).await?;
 
@@ -988,6 +978,7 @@ pub async fn toggle_client_active(
     client_id: i64,
     active: bool,
 ) -> Result<(), AppError> {
+    session.require_admin()?;
     let _ = get_client(pool, session, client_id).await?;
 
     let active_num = if active { 1 } else { 0 };
@@ -1383,6 +1374,7 @@ pub async fn update_company(
     company_id: i64,
     input: UpdateCompanyInput,
 ) -> Result<CompanyDetail, AppError> {
+    session.require_admin()?;
     let razon_social = input.razon_social.trim();
     if razon_social.is_empty() {
         return Err(AppError::Validation(
@@ -1434,6 +1426,7 @@ pub async fn toggle_company_active(
     company_id: i64,
     active: bool,
 ) -> Result<(), AppError> {
+    session.require_admin()?;
     let _ = get_company(pool, session, company_id).await?;
 
     let active_num = if active { 1 } else { 0 };
@@ -1913,6 +1906,7 @@ pub async fn update_supplier(
     supplier_id: i64,
     input: UpdateSupplierInput,
 ) -> Result<SupplierDetail, AppError> {
+    session.require_admin()?;
     let current = get_supplier(pool, session, supplier_id).await?;
 
     let mut tx = pool.begin().await?;
@@ -2072,6 +2066,7 @@ pub async fn toggle_supplier_active(
     supplier_id: i64,
     active: bool,
 ) -> Result<(), AppError> {
+    session.require_admin()?;
     let _ = get_supplier(pool, session, supplier_id).await?;
 
     let active_num = if active { 1 } else { 0 };

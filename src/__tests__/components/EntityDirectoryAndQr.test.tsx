@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { EntityDirectoryView } from '../../features/entities/EntityDirectoryView';
 import { QrCredentialModal } from '../../features/entities/QrCredentialModal';
 import { ClientWeightHistoryModal } from '../../features/entities/ClientWeightHistoryModal';
+import { entityIpc } from '../../services/ipc/entityIpc';
 import { AuthSession } from '../../types/auth';
 import { ClientListItem, PersonListItem, SupplierListItem } from '../../types/entity';
 
@@ -152,7 +153,7 @@ describe('Component: EntityDirectoryView & Modales Especializados (Slice 2)', ()
     ).toBeInTheDocument();
 
     // Cambiar a sub-pestaña de Proveedores
-    await user.click(screen.getByRole('button', { name: /proveedores & empresas/i }));
+    await user.click(screen.getByRole('button', { name: /proveedores \(/i }));
     expect(screen.getByText('Distribuidora Fit SAC')).toBeInTheDocument();
     expect(screen.getByText(/20601234567/)).toBeInTheDocument();
 
@@ -161,10 +162,83 @@ describe('Component: EntityDirectoryView & Modales Especializados (Slice 2)', ()
     expect(screen.getByText('(Persona de tu sesión activa)')).toBeInTheDocument();
 
     // Cambiar a la 4ta sub-pestaña de Empresas (RUC 20)
-    await user.click(screen.getByRole('button', { name: /empresas \(ruc 20\)/i }));
+    await user.click(screen.getByRole('button', { name: /empresas \(/i }));
     expect(
       screen.getAllByRole('button', { name: /registrar empresa/i }).length
     ).toBeGreaterThanOrEqual(1);
+  });
+
+  it('para RECEPCIONISTA oculta Personas, habilita crear Proveedores/Empresas sin editar/desactivar y oculta Desactivar cliente', async () => {
+    const user = userEvent.setup();
+    const recepSession: AuthSession = {
+      ...mockSession,
+      user_id: 3,
+      persona_id: 99,
+      username: 'recep1',
+      nombre_completo: 'Ana Recepción',
+      rol: 'RECEPCIONISTA',
+    };
+
+    render(
+      <EntityDirectoryView
+        currentSession={recepSession}
+        initialSubTab="persons"
+        clients={mockClients}
+        suppliers={mockSuppliers}
+        persons={mockPersons}
+        companies={[
+          {
+            id: 10,
+            ruc: '20609876543',
+            razon_social: 'Nutrición Total Perú SAC',
+            nombre_comercial: 'NutriTotal',
+            telefono: '01 5554321',
+            email: 'contacto@nutritotal.pe',
+            estado_activo: true,
+            created_at: '2026-11-12 10:00:00',
+          },
+        ]}
+        isLoading={false}
+        isActionLoading={false}
+        error={null}
+        onRefresh={vi.fn()}
+      />
+    );
+
+    // Sub-pestaña Personas oculta; Clientes, Proveedores y Empresas visibles (initialSubTab="persons" cae a clients)
+    expect(screen.queryByRole('button', { name: /personas \(/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /clientes & qr \(/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /proveedores \(/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /empresas \(/i })).toBeInTheDocument();
+
+    // Clientes visibles con Inscribir, Editar, Ver QR, Historial y Exportar Padrón; sin Desactivar
+    expect(screen.getByText('Roberto Mendoza')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /inscribir cliente/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ver credencial qr de roberto/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^editar$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Exportar Padrón de Clientes en CSV/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^desactivar$/i })).not.toBeInTheDocument();
+
+    // Proveedores: puede crear ("Nuevo Proveedor") y ver perfil en solo lectura, sin Editar ni Desactivar
+    await user.click(screen.getByRole('button', { name: /proveedores \(/i }));
+    expect(screen.getByText('Distribuidora Fit SAC')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /nuevo proveedor/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^editar$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^desactivar$/i })).not.toBeInTheDocument();
+
+    // Perfil de Proveedor en solo lectura
+    await user.click(screen.getByRole('button', { name: /ver perfil/i }));
+    expect(screen.getByText(/solo lectura/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /editar perfil/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^desactivar$/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^cerrar$/i }));
+
+    // Empresas RUC 20: puede crear ("Registrar Empresa") y ver perfil en solo lectura, sin Editar ni Desactivar
+    await user.click(screen.getByRole('button', { name: /empresas \(/i }));
+    expect(screen.getByText('Nutrición Total Perú SAC')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /registrar empresa/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^editar$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^desactivar$/i })).not.toBeInTheDocument();
   });
 
   it('renderiza la 4ta sub-pestaña Empresas (RUC 20) con datos y permite alternar estado', async () => {
@@ -402,5 +476,96 @@ describe('Component: EntityDirectoryView & Modales Especializados (Slice 2)', ()
       'aria-pressed',
       'true'
     );
+  });
+
+  it('hidrata fecha_nacimiento y direccion al abrir el perfil de una Persona desde el listado resumido', async () => {
+    const user = userEvent.setup();
+    const getPersonSpy = vi.spyOn(entityIpc, 'getPerson').mockResolvedValue({
+      ...mockPersons[1],
+      fecha_nacimiento: '1995-04-20',
+      direccion: 'Av. Los Pinos 456, Lima',
+      cliente_id: 1,
+      proveedor_id: null,
+      usuario_id: null,
+      updated_at: '2026-11-18 11:00:00',
+    });
+
+    render(
+      <EntityDirectoryView
+        currentSession={mockSession}
+        clients={mockClients}
+        suppliers={mockSuppliers}
+        persons={mockPersons}
+        initialSubTab="persons"
+        isLoading={false}
+        isActionLoading={false}
+        error={null}
+        onRefresh={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /ver perfil de roberto mendoza/i }));
+
+    await waitFor(() => {
+      expect(getPersonSpy).toHaveBeenCalledWith(2);
+      expect(screen.getByText('1995-04-20')).toBeInTheDocument();
+      expect(screen.getByText('Av. Los Pinos 456, Lima')).toBeInTheDocument();
+    });
+
+    getPersonSpy.mockRestore();
+  });
+
+  it('renderiza el gráfico estadístico lineal interactivo en la pestaña Historial de Peso e inspecciona puntos', async () => {
+    const user = userEvent.setup();
+    const handleGetHistory = vi.fn().mockResolvedValue([
+      {
+        id: 2,
+        cliente_id: 1,
+        peso_kg: '83.50',
+        variacion_kg: '-1.50',
+        nota: 'Control mes 1',
+        registrado_por_usuario_id: 1,
+        registrado_por_username: 'admin',
+        fecha_registro: '2026-11-18 13:30:58',
+      },
+      {
+        id: 1,
+        cliente_id: 1,
+        peso_kg: '85.00',
+        variacion_kg: '0.00',
+        nota: 'Peso inicial de inscripción',
+        registrado_por_usuario_id: 1,
+        registrado_por_username: 'admin',
+        fecha_registro: '2026-10-18 13:30:58',
+      },
+    ]);
+
+    render(
+      <EntityDirectoryView
+        currentSession={mockSession}
+        clients={mockClients}
+        suppliers={mockSuppliers}
+        persons={mockPersons}
+        isLoading={false}
+        isActionLoading={false}
+        error={null}
+        onRefresh={vi.fn()}
+        onGetClientWeightHistory={handleGetHistory}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /ver perfil de roberto mendoza/i }));
+    await user.click(screen.getByRole('button', { name: /3\. historial de peso/i }));
+
+    expect(await screen.findByText(/evolución lineal de peso corporal/i)).toBeInTheDocument();
+    expect(screen.getByText(/mín: 83\.50 kg/i)).toBeInTheDocument();
+    expect(screen.getByText(/máx: 85\.00 kg/i)).toBeInTheDocument();
+    expect(screen.getByText(/balance: -1\.50 kg/i)).toBeInTheDocument();
+
+    // Seleccionar el nodo inicial en el gráfico SVG actualiza el inspector interactivo
+    expect(screen.getAllByText(/— peso inicial de inscripción/i)).toHaveLength(1);
+    const initialNode = screen.getByRole('button', { name: /control 2026-10-18 13:30:58: 85\.00 kg/i });
+    await user.click(initialNode);
+    expect(screen.getAllByText(/— peso inicial de inscripción/i).length).toBeGreaterThanOrEqual(2);
   });
 });

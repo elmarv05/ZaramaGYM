@@ -131,9 +131,7 @@ export const SessionHeader: React.FC<SessionHeaderProps> = ({
                 {session.nombre_completo}
               </span>
               <Badge
-                variant={
-                  isAdmin ? 'default' : session.rol === 'SUPERVISOR' ? 'warning' : 'info'
-                }
+                variant={isAdmin ? 'default' : 'info'}
                 size="sm"
               >
                 {session.rol}

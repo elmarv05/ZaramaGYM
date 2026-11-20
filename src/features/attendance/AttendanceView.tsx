@@ -55,8 +55,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   const [isExtendModalOpen, setIsExtendModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
-  const isAdminOrSupervisor =
-    currentSession.rol === 'ADMINISTRADOR' || currentSession.rol === 'SUPERVISOR';
+  const isAdmin = currentSession.rol === 'ADMINISTRADOR';
 
   const {
     currentEvaluation,
@@ -212,7 +211,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
           <span className="text-[11px] text-txt-secondary">Pases diarios autorizados</span>
         </div>
 
-        {/* Acceso a Configuración de Semáforo (Admin / Supervisor) */}
+        {/* Acceso a Configuración de Semáforo (Exclusivo Administrador) */}
         <div className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-col justify-between col-span-2 sm:col-span-4 lg:col-span-1">
           <div className="flex flex-col">
             <span className="text-[10px] uppercase font-bold text-txt-muted tracking-wider">
@@ -222,7 +221,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
               Umbral: {systemConfig?.diasAlertaAmarillo ?? 5}d • Anti-Rebote: {systemConfig?.minutosAntireboteQr ?? 3}m
             </span>
           </div>
-          {isAdminOrSupervisor && (
+          {isAdmin && (
             <button
               type="button"
               data-testid="btn-open-system-config"
@@ -521,6 +520,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
             extensions={extensions}
             isLoading={isLoading}
             error={error}
+            canExtendMembership={true}
             onOpenExtendModal={() => setIsExtendModalOpen(true)}
             onRetry={() => void fetchExtensions()}
           />
@@ -566,15 +566,17 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       />
 
       {/* MODAL 4: CONFIGURACIÓN DE PARÁMETROS OPERATIVOS */}
-      <SystemConfigModal
-        isOpen={isConfigModalOpen}
-        onClose={() => setIsConfigModalOpen(false)}
-        config={systemConfig}
-        onSave={async (input) => {
-          await updateConfig(input);
-        }}
-        isLoading={isActionLoading}
-      />
+      {isAdmin && (
+        <SystemConfigModal
+          isOpen={isConfigModalOpen}
+          onClose={() => setIsConfigModalOpen(false)}
+          config={systemConfig}
+          onSave={async (input) => {
+            await updateConfig(input);
+          }}
+          isLoading={isActionLoading}
+        />
+      )}
     </div>
   );
 };

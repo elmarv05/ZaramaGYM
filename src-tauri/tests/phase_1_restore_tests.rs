@@ -36,7 +36,7 @@ async fn login_admin(state: &AppState) -> AuthSession {
 }
 
 #[tokio::test]
-async fn test_restore_database_rbac_rejects_receptionist_and_supervisor() {
+async fn test_restore_database_rbac_rejects_receptionist() {
     let (state, temp_dir, _db_path) = setup_test_env().await;
 
     // Sin sesión -> Unauthorized
@@ -55,7 +55,7 @@ async fn test_restore_database_rbac_rejects_receptionist_and_supervisor() {
         unauth_res
     );
 
-    // Admin crea Recepcionista y Supervisor
+    // Admin crea Recepcionista
     let _admin = login_admin(&state).await;
 
     auth_service::create_user(
@@ -72,26 +72,6 @@ async fn test_restore_database_rbac_rejects_receptionist_and_supervisor() {
             telefono: None,
             email: None,
             rol: UserRole::Recepcionista,
-            foto_perfil_data_url: None,
-        },
-    )
-    .await
-    .unwrap();
-
-    auth_service::create_user(
-        &state.pool(),
-        &state,
-        CreateUserInput {
-            persona_id: None,
-            username: "sup_restore".into(),
-            password: "Password123!".into(),
-            tipo_documento: "DNI".into(),
-            numero_documento: "40112234".into(),
-            nombres: "Carlos".into(),
-            apellidos: "Sup".into(),
-            telefono: None,
-            email: None,
-            rol: UserRole::Supervisor,
             foto_perfil_data_url: None,
         },
     )
@@ -125,35 +105,6 @@ async fn test_restore_database_rbac_rejects_receptionist_and_supervisor() {
         matches!(recep_res, Err(AppError::Forbidden(_))),
         "RECEPCIONISTA debe recibir Forbidden, obtenido: {:?}",
         recep_res
-    );
-
-    auth_service::logout(&state.pool(), &state).await.unwrap();
-
-    // Probar como SUPERVISOR
-    auth_service::login(
-        &state.pool(),
-        &state,
-        LoginCredentials {
-            username: "sup_restore".into(),
-            password: "Password123!".into(),
-        },
-    )
-    .await
-    .unwrap();
-
-    let sup_res = printing_backup_service::restore_database(
-        &state,
-        RestoreDatabaseRequest {
-            source_path: Some(temp_dir.path().join("dummy.db").to_string_lossy().to_string()),
-            file_bytes_base64: None,
-            file_name: None,
-        },
-    )
-    .await;
-    assert!(
-        matches!(sup_res, Err(AppError::Forbidden(_))),
-        "SUPERVISOR debe recibir Forbidden, obtenido: {:?}",
-        sup_res
     );
 }
 

@@ -627,7 +627,7 @@ describe('Suite Frontend: Slice 5 - Control de Asistencias, Semáforo y Prórrog
     });
   });
 
-  describe('8. Configuración del Semáforo para Administrador / Supervisor', () => {
+  describe('8. Configuración del Semáforo y Prórrogas (RBAC Admin vs Recepcionista)', () => {
     it('abre modal de configuración y permite modificar parámetros operativos', async () => {
       const updatedConfig: SystemConfigDto = {
         diasAlertaAmarillo: 7,
@@ -675,6 +675,46 @@ describe('Suite Frontend: Slice 5 - Control de Asistencias, Semáforo y Prórrog
           })
         );
       });
+    });
+
+    it('oculta Configuración pero habilita Otorgar Días de Membresía para rol RECEPCIONISTA', async () => {
+      const recepSession: AuthSession = {
+        user_id: 3,
+        persona_id: 3,
+        username: 'recep1',
+        nombre_completo: 'Ana Recepción',
+        rol: 'RECEPCIONISTA',
+        foto_perfil_data_url: null,
+        is_locked: false,
+        login_at: '2026-11-15 08:30:00',
+      };
+
+      mockSafeInvoke.mockImplementation(async (cmd: string) => {
+        if (cmd === 'get_system_config') return mockConfig;
+        if (cmd === 'get_attendance_summary_today') return mockSummary;
+        if (cmd === 'list_attendances') return mockAttendances;
+        if (cmd === 'list_membership_extensions') return mockExtensions;
+        if (cmd === 'list_client_memberships') return mockActiveMemberships;
+        return null;
+      });
+
+      render(
+        <AttendanceView currentSession={recepSession} clients={mockClients} />
+      );
+
+      expect(screen.queryByTestId('btn-open-system-config')).not.toBeInTheDocument();
+
+      const tabExtensions = screen.getByRole('tab', { name: /recuperación manual de días/i });
+      fireEvent.click(tabExtensions);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Registro Histórico de Prórrogas/i)).toBeInTheDocument();
+      });
+
+      const btnExtend = screen.getByTestId('btn-open-extend-modal');
+      expect(btnExtend).toBeInTheDocument();
+      fireEvent.click(btnExtend);
+      expect(screen.getByText('Recuperación Manual de Días')).toBeInTheDocument();
     });
   });
 });

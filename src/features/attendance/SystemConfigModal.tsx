@@ -1,6 +1,6 @@
 // ============================================================================
 // MODAL: CONFIGURACIÓN DE PARÁMETROS OPERATIVOS DEL SEMÁFORO (SLICE 5)
-// Solo para roles ADMINISTRADOR y SUPERVISOR
+// Exclusivo para rol ADMINISTRADOR
 // Ubicación: src/features/attendance/SystemConfigModal.tsx
 // ============================================================================
 
@@ -9,6 +9,13 @@ import { createPortal } from 'react-dom';
 import { Icon } from '../../components/primitives/Icon';
 import { validateSystemConfig } from '../../domain/attendance';
 import { SystemConfigDto, UpdateSystemConfigInput } from '../../types/attendance';
+import {
+  formatDecimalOnBlur,
+  preventEnterKeySubmit,
+  sanitizeDecimalInput,
+  sanitizeIntegerInput,
+  selectIfZeroDefault,
+} from '../../utils/formSafety';
 
 export interface SystemConfigModalProps {
   isOpen: boolean;
@@ -25,8 +32,12 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
   onSave,
   isLoading = false,
 }) => {
-  const [diasAmarillo, setDiasAmarillo] = useState<number>(config?.diasAlertaAmarillo ?? 5);
-  const [minutosRebote, setMinutosRebote] = useState<number>(config?.minutosAntireboteQr ?? 3);
+  const [diasAmarilloStr, setDiasAmarilloStr] = useState<string>(
+    String(config?.diasAlertaAmarillo ?? 5)
+  );
+  const [minutosReboteStr, setMinutosReboteStr] = useState<string>(
+    String(config?.minutosAntireboteQr ?? 3)
+  );
   const [precioPase, setPrecioPase] = useState<string>(
     config?.precioPaseDiarioCreditoDefault ?? '10.00'
   );
@@ -47,9 +58,14 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
     e.preventDefault();
     setError(null);
 
+    if (!diasAmarilloStr.trim() || !minutosReboteStr.trim() || !precioPase.trim()) {
+      setError('Todos los parámetros marcados con * son obligatorios.');
+      return;
+    }
+
     const input: UpdateSystemConfigInput = {
-      diasAlertaAmarillo: Number(diasAmarillo),
-      minutosAntireboteQr: Number(minutosRebote),
+      diasAlertaAmarillo: parseInt(diasAmarilloStr, 10),
+      minutosAntireboteQr: parseInt(minutosReboteStr, 10),
       precioPaseDiarioCreditoDefault: precioPase,
     };
 
@@ -88,7 +104,7 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
                 Configuración del Semáforo
               </h3>
               <p className="text-xs text-txt-muted">
-                Parámetros operativos globales (Admin / Supervisor)
+                Parámetros operativos globales (Administrador)
               </p>
             </div>
           </div>
@@ -111,18 +127,19 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form noValidate onSubmit={handleSubmit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="input-dias-amarillo" className="text-xs font-bold text-txt-secondary">
-              Umbral Alerta Semáforo Amarillo (Días restantes) *
+              Umbral Alerta Semáforo Amarillo (Días restantes) <span className="text-status-danger">*</span>
             </label>
             <input
               id="input-dias-amarillo"
-              type="number"
-              min="1"
-              max="30"
-              value={diasAmarillo}
-              onChange={(e) => setDiasAmarillo(parseInt(e.target.value, 10) || 1)}
+              type="text"
+              inputMode="numeric"
+              required
+              value={diasAmarilloStr}
+              onFocus={selectIfZeroDefault}
+              onChange={(e) => setDiasAmarilloStr(sanitizeIntegerInput(e.target.value))}
               className="w-full px-3 py-2 rounded-xl border border-border bg-canvas text-sm font-semibold text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
             />
             <span className="text-[11px] text-txt-muted">
@@ -132,15 +149,16 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="input-minutos-rebote" className="text-xs font-bold text-txt-secondary">
-              Ventana de Filtro Anti-Rebote (Minutos) *
+              Ventana de Filtro Anti-Rebote (Minutos) <span className="text-status-danger">*</span>
             </label>
             <input
               id="input-minutos-rebote"
-              type="number"
-              min="0"
-              max="60"
-              value={minutosRebote}
-              onChange={(e) => setMinutosRebote(parseInt(e.target.value, 10) || 0)}
+              type="text"
+              inputMode="numeric"
+              required
+              value={minutosReboteStr}
+              onFocus={selectIfZeroDefault}
+              onChange={(e) => setMinutosReboteStr(sanitizeIntegerInput(e.target.value))}
               className="w-full px-3 py-2 rounded-xl border border-border bg-canvas text-sm font-semibold text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
             />
             <span className="text-[11px] text-txt-muted">
@@ -150,7 +168,7 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="input-precio-pase-def" className="text-xs font-bold text-txt-secondary">
-              Precio Pase Diario a Crédito por Defecto (S/) *
+              Precio Pase Diario a Crédito por Defecto (S/) <span className="text-status-danger">*</span>
             </label>
             <div className="relative">
               <span className="absolute left-3.5 top-2 text-sm font-bold text-txt-muted">
@@ -158,17 +176,14 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
               </span>
               <input
                 id="input-precio-pase-def"
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="0.00"
+                required
                 value={precioPase}
-                onChange={(e) => setPrecioPase(e.target.value)}
+                onFocus={selectIfZeroDefault}
+                onChange={(e) => setPrecioPase(sanitizeDecimalInput(e.target.value))}
                 onBlur={(e) => {
-                  const v = parseFloat(e.target.value);
-                  if (!isNaN(v) && v >= 0) {
-                    setPrecioPase(v.toFixed(2));
-                  }
+                  setPrecioPase(formatDecimalOnBlur(e.target.value, { min: 0, fallback: '' }));
                 }}
                 className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border bg-canvas text-sm font-semibold text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
               />

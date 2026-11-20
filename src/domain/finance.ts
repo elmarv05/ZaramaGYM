@@ -12,6 +12,7 @@ import {
   PurchaseInvoiceType,
   UpdateExpenseDto,
 } from '../types/finance';
+import { roundMonetary } from '../utils/formSafety';
 
 /**
  * Diccionario de categorías de gasto para presentación UI
@@ -51,7 +52,7 @@ export function formatCurrency(amount: number | string | null | undefined): stri
  * Redondeo contable exacto a 2 decimales
  */
 export function roundMoney(amount: number): number {
-  return Math.round((amount + Number.EPSILON) * 100) / 100;
+  return roundMonetary(amount);
 }
 
 /**
@@ -208,20 +209,31 @@ export function validateExpenseInput(
 /**
  * RBAC: Gestión y consulta de gastos operativos es exclusiva de ADMINISTRADOR
  */
-export function canManageExpenses(rol?: string): boolean {
-  return rol === 'ADMINISTRADOR';
+export function canManageExpenses(role?: string | null): boolean {
+  return role === 'ADMINISTRADOR';
 }
 
 /**
  * RBAC: Anulación de compras a proveedores es exclusiva de ADMINISTRADOR
  */
-export function canCancelSupplierPurchase(rol?: string): boolean {
-  return rol === 'ADMINISTRADOR';
+export function canCancelSupplierPurchase(role?: string | null): boolean {
+  return role === 'ADMINISTRADOR';
 }
 
 /**
- * RBAC: Acceso al módulo de finanzas (Dashboard, Compras, Tachados) permitido a ADMINISTRADOR y SUPERVISOR
+ * RBAC: Resolución definitiva (Paso 2) de ventas tachadas es exclusiva de ADMINISTRADOR
  */
-export function canAccessFinanceModule(rol?: string): boolean {
-  return rol === 'ADMINISTRADOR' || rol === 'SUPERVISOR';
+export function canResolveStruckSales(role?: string | null): boolean {
+  return role === 'ADMINISTRADOR';
+}
+
+/**
+ * RBAC: Acceso al módulo de finanzas (Dashboard, Compras y Bandeja de Tachados en lectura) para ADMINISTRADOR y RECEPCIONISTA
+ */
+export function canAccessFinanceModule(rol?: string | null): boolean {
+  return rol === 'ADMINISTRADOR' || rol === 'RECEPCIONISTA';
+}
+
+export function canAccessFinance(role?: string | null): boolean {
+  return role === 'ADMINISTRADOR' || role === 'RECEPCIONISTA';
 }

@@ -44,7 +44,7 @@ pub async fn create_person(
     input: CreatePersonInput,
     state: State<'_, AppState>,
 ) -> Result<PersonDetail, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     entity_service::create_person(&state.pool(), &session, input).await
 }
 
@@ -55,7 +55,7 @@ pub async fn update_person(
     input: UpdatePersonInput,
     state: State<'_, AppState>,
 ) -> Result<PersonDetail, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let id = person_id
         .or(personId)
         .ok_or_else(|| AppError::Validation("Debe proporcionar el ID de la persona.".into()))?;
@@ -69,7 +69,7 @@ pub async fn toggle_person_active(
     active: bool,
     state: State<'_, AppState>,
 ) -> Result<(), AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let id = person_id
         .or(personId)
         .ok_or_else(|| AppError::Validation("Debe proporcionar el ID de la persona.".into()))?;
@@ -133,7 +133,7 @@ pub async fn toggle_client_active(
     active: bool,
     state: State<'_, AppState>,
 ) -> Result<(), AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let id = client_id
         .or(clientId)
         .ok_or_else(|| AppError::Validation("Debe proporcionar el ID del cliente.".into()))?;
@@ -218,7 +218,7 @@ pub async fn update_company(
     input: UpdateCompanyInput,
     state: State<'_, AppState>,
 ) -> Result<CompanyDetail, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let id = company_id
         .or(companyId)
         .ok_or_else(|| AppError::Validation("Debe proporcionar el ID de la empresa.".into()))?;
@@ -232,7 +232,7 @@ pub async fn toggle_company_active(
     active: bool,
     state: State<'_, AppState>,
 ) -> Result<(), AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let id = company_id
         .or(companyId)
         .ok_or_else(|| AppError::Validation("Debe proporcionar el ID de la empresa.".into()))?;
@@ -282,7 +282,7 @@ pub async fn update_supplier(
     input: UpdateSupplierInput,
     state: State<'_, AppState>,
 ) -> Result<SupplierDetail, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let id = supplier_id
         .or(supplierId)
         .ok_or_else(|| AppError::Validation("Debe proporcionar el ID del proveedor.".into()))?;
@@ -296,7 +296,7 @@ pub async fn toggle_supplier_active(
     active: bool,
     state: State<'_, AppState>,
 ) -> Result<(), AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let id = supplier_id
         .or(supplierId)
         .ok_or_else(|| AppError::Validation("Debe proporcionar el ID del proveedor.".into()))?;

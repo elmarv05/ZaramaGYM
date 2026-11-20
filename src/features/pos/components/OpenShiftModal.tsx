@@ -10,6 +10,13 @@ import { Button } from '../../../components/primitives/Button';
 import { Input } from '../../../components/primitives/Input';
 import { Modal } from '../../../components/primitives/Modal';
 import { OpenCashShiftInput } from '../../../types/pos';
+import {
+  formatDecimalOnBlur,
+  preventEnterKeySubmit,
+  roundMonetary,
+  sanitizeDecimalInput,
+  selectIfZeroDefault,
+} from '../../../utils/formSafety';
 
 export interface OpenShiftModalProps {
   isOpen: boolean;
@@ -41,7 +48,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({
       return;
     }
 
-    const formattedMonto = val.toFixed(2);
+    const formattedMonto = roundMonetary(val).toFixed(2);
     setMonto(formattedMonto);
 
     try {
@@ -63,7 +70,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({
       description="Establece el monto en efectivo físico disponible en gaveta para iniciar operaciones en el Punto de Venta."
       size="md"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form noValidate onSubmit={handleSubmit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4">
         {errorMsg && (
           <Alert variant="danger" title="Atención" onClose={() => setErrorMsg(null)}>
             {errorMsg}
@@ -78,22 +85,16 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({
             <span className="absolute left-3 top-2.5 text-txt-muted font-bold text-sm">S/</span>
             <Input
               id="open-shift-amount"
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.01"
-              min="0"
               value={monto}
+              onFocus={selectIfZeroDefault}
               onChange={(e) => {
-                setMonto(e.target.value);
+                setMonto(sanitizeDecimalInput(e.target.value));
                 setErrorMsg(null);
               }}
               onBlur={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!isNaN(v) && v >= 0) {
-                  setMonto(v.toFixed(2));
-                } else if (!e.target.value.trim()) {
-                  setMonto('0.00');
-                }
+                setMonto(formatDecimalOnBlur(e.target.value, { min: 0, fallback: '' }));
               }}
               required
               className="pl-9 font-bold text-base"

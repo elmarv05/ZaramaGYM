@@ -59,9 +59,9 @@ const mockRunningStatus: LanServerStatusDto = {
   port: 3443,
   localIps: ['192.168.1.45'],
   primaryIp: '192.168.1.45',
-  httpsUrl: 'https://192.168.1.45:3443/scanner',
-  httpUrl: 'http://192.168.1.45:3443/scanner',
-  mdnsHostname: 'sistema.local',
+  httpsUrl: 'https://zaramagym.local:3443/scanner',
+  httpUrl: 'http://zaramagym.local:3443/scanner',
+  mdnsHostname: 'zaramagym.local',
   mdnsActive: true,
   caCertPem: '-----BEGIN CERTIFICATE-----\nMIID...TEST\n-----END CERTIFICATE-----',
   caCertFingerprintSha256: '7F4AB902C1E58490DF28391820491029',
@@ -248,7 +248,8 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
     // Verificar indicador visual y datos de conexión
     expect(await screen.findByText('EN LÍNEA')).toBeInTheDocument();
     expect(screen.getByText('192.168.1.45:3443')).toBeInTheDocument();
-    expect(screen.getByText('sistema.local:3443')).toBeInTheDocument();
+    expect(screen.getByText('zaramagym.local:3443')).toBeInTheDocument();
+    expect(screen.getByText('https://zaramagym.local:3443/scanner')).toBeInTheDocument();
     expect(screen.getByText(/SHA256: 7F:4A:B9:02/i)).toBeInTheDocument();
 
     // Botón Detener Servidor (visible para Administrador)
@@ -278,7 +279,7 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
 
     // Mensaje RBAC informativo
     expect(
-      screen.getByText(/Solo Administrador\/Supervisor pueden apagar o iniciar el servidor/i)
+      screen.getByText(/Solo el Administrador puede apagar o iniciar el servidor/i)
     ).toBeInTheDocument();
 
     // NO debe existir el panel ni botón de generación de nuevo código
@@ -457,6 +458,23 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
       expect(writeTextMock).toHaveBeenCalledWith(
         'New-NetFirewallRule -DisplayName "ZaramaGYM - Servidor Escaner Movil LAN (TCP 3443)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3443 -RemoteAddress LocalSubnet -Profile Private,Domain,Public -Enabled True'
       );
+    });
+  });
+
+  it('8. Permite re-vincular en 1 clic un dispositivo ya vinculado (revoca y genera nuevo QR)', async () => {
+    render(<LanServerView currentSession={adminSession} clients={mockClients} />);
+
+    const relinkBtn = await screen.findByRole('button', { name: /^Re-vincular$/i });
+    fireEvent.click(relinkBtn);
+
+    await waitFor(() => {
+      expect(mockSafeInvoke).toHaveBeenCalledWith('revoke_mobile_device', {
+        deviceId: 10,
+        device_id: 10,
+      });
+      expect(mockSafeInvoke).toHaveBeenCalledWith('create_mobile_device_pairing', {
+        input: { nombreDispositivo: 'iPhone Recepción Puerta 1' },
+      });
     });
   });
 });

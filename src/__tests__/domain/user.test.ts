@@ -120,7 +120,7 @@ describe('Domain: User Validations', () => {
         apellidos: 'Pérez García',
         telefono: '+51 999888777',
         email: 'juan@zaramagym.com',
-        rol: 'SUPERVISOR',
+        rol: 'RECEPCIONISTA',
         foto_perfil_data_url: 'data:image/jpeg;base64,/9j/4AAQSkZJRg...',
       });
 

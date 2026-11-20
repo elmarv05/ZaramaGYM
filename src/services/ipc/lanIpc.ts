@@ -26,7 +26,7 @@ export const lanIpc = {
   },
 
   /**
-   * Inicia o detiene el servidor Axum en caliente (Solo ADMINISTRADOR y SUPERVISOR)
+   * Inicia o detiene el servidor Axum en caliente (Solo ADMINISTRADOR)
    */
   async toggleLanServer(enable: boolean): Promise<LanServerStatusDto> {
     return safeInvoke<LanServerStatusDto>('toggle_lan_server', { enable });
@@ -41,7 +41,7 @@ export const lanIpc = {
   },
 
   /**
-   * Genera una nueva vinculación con código de 6 caracteres y QR (Solo ADMINISTRADOR y SUPERVISOR)
+   * Genera una nueva vinculación con código de 6 caracteres y QR (Solo ADMINISTRADOR)
    * NOTA: 'input' se envía únicamente con propiedades camelCase
    */
   async createMobileDevicePairing(

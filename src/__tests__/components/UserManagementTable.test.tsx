@@ -15,17 +15,6 @@ const mockAdminSession: AuthSession = {
   login_at: '2026-11-11 10:00:00',
 };
 
-const mockSupervisorSession: AuthSession = {
-  user_id: 2,
-  persona_id: 2,
-  username: 'super1',
-  nombre_completo: 'Supervisor Turno Mañana',
-  rol: 'SUPERVISOR',
-  foto_perfil_data_url: 'data:image/jpeg;base64,mockphoto',
-  is_locked: false,
-  login_at: '2026-11-11 10:30:00',
-};
-
 const mockUsers: UserListItem[] = [
   {
     id: 1,
@@ -146,12 +135,12 @@ describe('Component: UserManagementTable', () => {
     expect(screen.getByLabelText(/nombre de usuario/i)).toBeInTheDocument();
   });
 
-  it('para Supervisor muestra botón Nuevo Recepcionista y restringe el selector de rol', async () => {
+  it('muestra únicamente los 2 roles (RECEPCIONISTA y ADMINISTRADOR) en el selector de rol al crear usuario', async () => {
     const user = userEvent.setup();
     render(
       <UserManagementTable
-        currentSession={mockSupervisorSession}
-        users={mockUsers.filter((u) => u.rol === 'RECEPCIONISTA')}
+        currentSession={mockAdminSession}
+        users={mockUsers}
         isLoading={false}
         isActionLoading={false}
         error={null}
@@ -161,17 +150,13 @@ describe('Component: UserManagementTable', () => {
       />
     );
 
-    const newBtn = screen.getByRole('button', { name: /nuevo recepcionista/i });
-    expect(newBtn).toBeInTheDocument();
-    await user.click(newBtn);
-
-    expect(
-      screen.getByRole('heading', { name: /crear nuevo recepcionista/i })
-    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /nuevo usuario/i }));
 
     const roleSelect = screen.getByLabelText(/rol asignado/i);
-    expect(roleSelect).toBeDisabled();
+    expect(roleSelect).not.toBeDisabled();
     expect(screen.getByText(/RECEPCIONISTA \(Operativo\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/ADMINISTRADOR \(Total\)/i)).toBeInTheDocument();
+    expect(screen.queryByText(/SUPERVISOR/i)).not.toBeInTheDocument();
   });
 
   it('permite crear usuario en 2 Fases seleccionando Persona Existente sin redigitar documento', async () => {

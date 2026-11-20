@@ -125,12 +125,16 @@ export function useEntities(autoFetch = true): UseEntitiesReturn {
   const fetchSuppliers = useCallback(async (customFilter?: SupplierFilter) => {
     try {
       setIsLoading(true);
-      setError(null);
       const activeFilter = customFilter ?? supplierFilter;
       const data = await entityIpc.listSuppliers(activeFilter);
       setSuppliers(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(normalizeAppError(err));
+      const normalized = normalizeAppError(err);
+      if (normalized.code === 'Forbidden') {
+        setSuppliers([]);
+      } else {
+        setError(normalized);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -139,12 +143,16 @@ export function useEntities(autoFetch = true): UseEntitiesReturn {
   const fetchCompanies = useCallback(async (customFilter?: CompanyFilter) => {
     try {
       setIsLoading(true);
-      setError(null);
       const activeFilter = customFilter ?? companyFilter;
       const data = await entityIpc.listCompanies(activeFilter);
       setCompanies(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(normalizeAppError(err));
+      const normalized = normalizeAppError(err);
+      if (normalized.code === 'Forbidden') {
+        setCompanies([]);
+      } else {
+        setError(normalized);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -153,12 +161,16 @@ export function useEntities(autoFetch = true): UseEntitiesReturn {
   const fetchPersons = useCallback(async (customFilter?: PersonFilter) => {
     try {
       setIsLoading(true);
-      setError(null);
       const activeFilter = customFilter ?? personFilter;
       const data = await entityIpc.listPersons(activeFilter);
       setPersons(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(normalizeAppError(err));
+      const normalized = normalizeAppError(err);
+      if (normalized.code === 'Forbidden') {
+        setPersons([]);
+      } else {
+        setError(normalized);
+      }
     } finally {
       setIsLoading(false);
     }

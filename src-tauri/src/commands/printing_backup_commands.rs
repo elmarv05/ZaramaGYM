@@ -67,7 +67,7 @@ pub async fn get_sale_receipt(
 pub async fn list_receipt_series(
     state: State<'_, AppState>,
 ) -> Result<Vec<ReceiptSeries>, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     printing_backup_service::list_receipt_series(&state.pool(), &session).await
 }
 
@@ -82,7 +82,7 @@ pub async fn update_receipt_series(
     estadoActivo: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<ReceiptSeries, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let resolved_req = if let Some(req) = input.or(request) {
         req
     } else {
@@ -224,7 +224,7 @@ pub async fn send_receipt_email(
 pub async fn create_local_backup(
     state: State<'_, AppState>,
 ) -> Result<BackupRecord, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let app_backups_dir = state.db_path().and_then(|p| {
         p.parent()
             .filter(|d| !d.as_os_str().is_empty())
@@ -242,7 +242,7 @@ pub async fn create_local_backup(
 pub async fn list_backup_history(
     state: State<'_, AppState>,
 ) -> Result<Vec<BackupRecord>, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     printing_backup_service::list_backup_history(&state.pool(), &session).await
 }
 
@@ -253,7 +253,7 @@ pub async fn verify_backup_integrity(
     backupId: Option<i64>,
     state: State<'_, AppState>,
 ) -> Result<BackupIntegrityReport, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let resolved_id = id
         .or(backup_id)
         .or(backupId)
@@ -266,8 +266,7 @@ pub async fn verify_backup_integrity(
 pub async fn pick_export_folder(
     state: State<'_, AppState>,
 ) -> Result<Option<String>, AppError> {
-    let session = state.require_unlocked_session().await?;
-    session.require_admin()?;
+    let _session = state.require_admin().await?;
 
     #[cfg(target_os = "windows")]
     {
@@ -333,7 +332,7 @@ pub async fn export_database_file(
     path: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<BackupRecord, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let resolved_path = target_path
         .or(targetPath)
         .or(path)
@@ -374,7 +373,7 @@ pub async fn sync_backup_to_gdrive(
     backupId: Option<i64>,
     state: State<'_, AppState>,
 ) -> Result<BackupRecord, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let resolved_id = id
         .or(backup_id)
         .or(backupId)
@@ -391,8 +390,7 @@ pub async fn sync_backup_to_gdrive(
 pub async fn get_printing_backup_config(
     state: State<'_, AppState>,
 ) -> Result<PrintingBackupConfigDto, AppError> {
-    let session = state.require_unlocked_session().await?;
-    session.require_supervisor_or_admin()?;
+    let session = state.require_admin().await?;
     printing_backup_service::get_printing_backup_config(&state.pool(), &session).await
 }
 
@@ -402,7 +400,7 @@ pub async fn update_printing_backup_config(
     request: Option<UpdatePrintingBackupConfigRequest>,
     state: State<'_, AppState>,
 ) -> Result<PrintingBackupConfigDto, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let resolved_req = input
         .or(request)
         .ok_or_else(|| AppError::Validation("Debe proveer los datos de configuración a actualizar.".into()))?;

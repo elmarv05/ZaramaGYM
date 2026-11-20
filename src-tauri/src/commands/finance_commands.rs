@@ -52,7 +52,7 @@ pub async fn cancel_supplier_purchase(
     input: CancelSupplierPurchaseDto,
     state: State<'_, AppState>,
 ) -> Result<SupplierPurchaseDetailDto, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let resolved_id = id
         .or(purchase_id)
         .or(purchaseId)
@@ -69,7 +69,7 @@ pub async fn create_operational_expense(
     input: CreateExpenseDto,
     state: State<'_, AppState>,
 ) -> Result<OperationalExpenseDto, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     finance_service::create_operational_expense(&state.pool(), &session, input).await
 }
 
@@ -81,7 +81,7 @@ pub async fn update_operational_expense(
     input: UpdateExpenseDto,
     state: State<'_, AppState>,
 ) -> Result<OperationalExpenseDto, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let resolved_id = id
         .or(expense_id)
         .or(expenseId)
@@ -96,7 +96,7 @@ pub async fn toggle_operational_expense_active(
     expenseId: Option<i64>,
     state: State<'_, AppState>,
 ) -> Result<OperationalExpenseDto, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let resolved_id = id
         .or(expense_id)
         .or(expenseId)
@@ -109,7 +109,7 @@ pub async fn list_operational_expenses(
     filter: Option<ExpenseFilter>,
     state: State<'_, AppState>,
 ) -> Result<Vec<OperationalExpenseDto>, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let f = filter.unwrap_or_default();
     finance_service::list_operational_expenses(&state.pool(), &session, &f).await
 }

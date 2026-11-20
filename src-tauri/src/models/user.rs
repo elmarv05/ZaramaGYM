@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "UPPERCASE")]
 pub enum UserRole {
     Recepcionista,
-    Supervisor,
     Administrador,
 }
 
@@ -14,8 +13,7 @@ impl UserRole {
     pub fn hierarchy_level(&self) -> u8 {
         match self {
             UserRole::Recepcionista => 1,
-            UserRole::Supervisor => 2,
-            UserRole::Administrador => 3,
+            UserRole::Administrador => 2,
         }
     }
 }
@@ -24,7 +22,6 @@ impl std::fmt::Display for UserRole {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             UserRole::Recepcionista => write!(f, "RECEPCIONISTA"),
-            UserRole::Supervisor => write!(f, "SUPERVISOR"),
             UserRole::Administrador => write!(f, "ADMINISTRADOR"),
         }
     }
@@ -35,9 +32,8 @@ impl std::str::FromStr for UserRole {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_uppercase().as_str() {
             "RECEPCIONISTA" => Ok(UserRole::Recepcionista),
-            "SUPERVISOR" => Ok(UserRole::Supervisor),
             "ADMINISTRADOR" => Ok(UserRole::Administrador),
-            other => Err(AppError::Validation(format!("Rol inválido: '{}'. Debe ser RECEPCIONISTA, SUPERVISOR o ADMINISTRADOR.", other))),
+            other => Err(AppError::Validation(format!("Rol inválido: '{}'. Debe ser RECEPCIONISTA o ADMINISTRADOR.", other))),
         }
     }
 }
@@ -65,15 +61,6 @@ impl AuthSession {
         if self.rol != UserRole::Administrador {
             return Err(AppError::Forbidden(
                 "Acceso denegado: se requieren privilegios de ADMINISTRADOR.".into(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn require_supervisor_or_admin(&self) -> Result<(), AppError> {
-        if self.rol.hierarchy_level() < UserRole::Supervisor.hierarchy_level() {
-            return Err(AppError::Forbidden(
-                "Acceso denegado: se requieren privilegios de SUPERVISOR o ADMINISTRADOR.".into(),
             ));
         }
         Ok(())

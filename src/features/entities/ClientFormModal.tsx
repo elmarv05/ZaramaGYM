@@ -26,6 +26,12 @@ import { Button } from '../../components/primitives/Button';
 import { Icon } from '../../components/primitives/Icon';
 import { Input } from '../../components/primitives/Input';
 import { Select } from '../../components/primitives/Select';
+import {
+  formatDecimalOnBlur,
+  preventEnterKeySubmit,
+  sanitizeDecimalInput,
+  selectIfZeroDefault,
+} from '../../utils/formSafety';
 
 export interface ClientFormModalProps {
   isOpen: boolean;
@@ -274,7 +280,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       description="Registra la persona, credencial QR, datos de emergencia y peso inicial."
       size="lg"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form
+        noValidate
+        onSubmit={handleSubmit}
+        onKeyDown={preventEnterKeySubmit}
+        className="flex flex-col gap-4"
+      >
         {/* En Creación: Selector de Modo (Nueva Persona vs Existente) */}
         {!isEditing ? (
           <div className="flex flex-col gap-1.5">
@@ -600,17 +611,14 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
               {!isEditing && (
                 <Input
                   label="Peso Inicial (kg) (Opcional)"
-                  type="number"
+                  type="text"
                   inputMode="decimal"
-                  step="0.01"
                   placeholder="Ej: 72.50"
                   value={pesoInicialKg}
-                  onChange={(e) => setPesoInicialKg(e.target.value)}
+                  onFocus={selectIfZeroDefault}
+                  onChange={(e) => setPesoInicialKg(sanitizeDecimalInput(e.target.value))}
                   onBlur={(e) => {
-                    const v = parseFloat(e.target.value);
-                    if (!isNaN(v) && v > 0) {
-                      setPesoInicialKg(v.toFixed(2));
-                    }
+                    setPesoInicialKg(formatDecimalOnBlur(e.target.value, { min: 1, max: 400 }));
                   }}
                   error={errors.peso_inicial_kg}
                   disabled={isLoading}

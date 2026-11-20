@@ -128,6 +128,13 @@ pub async fn login(
 
     state.set_session(Some(session.clone())).await;
 
+    let _ = crate::services::lifecycle_service::update_runtime_active_user(
+        pool,
+        Some(user_id),
+        Some(&db_username),
+    )
+    .await;
+
     let _ = record_audit(
         pool,
         Some(user_id),
@@ -170,6 +177,7 @@ pub async fn logout(pool: &SqlitePool, state: &AppState) -> Result<(), AppError>
     .await;
 
     state.set_session(None).await;
+    let _ = crate::services::lifecycle_service::update_runtime_active_user(pool, None, None).await;
     Ok(())
 }
 
@@ -249,6 +257,13 @@ pub async fn unlock_session(
     session.is_locked = false;
     state.set_session(Some(session.clone())).await;
 
+    let _ = crate::services::lifecycle_service::update_runtime_active_user(
+        pool,
+        Some(session.user_id),
+        Some(&session.username),
+    )
+    .await;
+
     let _ = record_audit(
         pool,
         Some(session.user_id),
@@ -314,68 +329,37 @@ pub async fn change_own_password(
     Ok(())
 }
 
-/// Lista usuarios registrados según la jerarquía del operador.
+/// Lista usuarios registrados.
 /// - ADMINISTRADOR: ve todos los usuarios.
-/// - SUPERVISOR: ve únicamente RECEPCIONISTA (filtrado en SQL).
 /// - RECEPCIONISTA: AppError::Forbidden.
 pub async fn list_users(pool: &SqlitePool, state: &AppState) -> Result<Vec<UserListItem>, AppError> {
-    let session = state.require_supervisor_or_admin().await?;
+    let _session = state.require_admin().await?;
 
-    let rows = if session.rol == UserRole::Administrador {
-        sqlx::query(
-            r#"
-            SELECT 
-                u.id, 
-                u.persona_id, 
-                u.username, 
-                p.nombres, 
-                p.apellidos, 
-                p.numero_documento, 
-                p.tipo_documento, 
-                p.telefono,
-                p.email,
-                p.direccion,
-                u.rol_principal, 
-                u.foto_perfil_data_url,
-                u.estado_activo, 
-                u.ultimo_login, 
-                u.created_at
-            FROM usuarios_sistema u
-            INNER JOIN personas p ON p.id = u.persona_id
-            ORDER BY u.id ASC
-            "#,
-        )
-        .fetch_all(pool)
-        .await?
-    } else {
-        // SUPERVISOR ve exclusivamente a RECEPCIONISTA
-        sqlx::query(
-            r#"
-            SELECT 
-                u.id, 
-                u.persona_id, 
-                u.username, 
-                p.nombres, 
-                p.apellidos, 
-                p.numero_documento, 
-                p.tipo_documento, 
-                p.telefono,
-                p.email,
-                p.direccion,
-                u.rol_principal, 
-                u.foto_perfil_data_url,
-                u.estado_activo, 
-                u.ultimo_login, 
-                u.created_at
-            FROM usuarios_sistema u
-            INNER JOIN personas p ON p.id = u.persona_id
-            WHERE u.rol_principal = 'RECEPCIONISTA'
-            ORDER BY u.id ASC
-            "#,
-        )
-        .fetch_all(pool)
-        .await?
-    };
+    let rows = sqlx::query(
+        r#"
+        SELECT 
+            u.id, 
+            u.persona_id, 
+            u.username, 
+            p.nombres, 
+            p.apellidos, 
+            p.numero_documento, 
+            p.tipo_documento, 
+            p.telefono,
+            p.email,
+            p.direccion,
+            u.rol_principal, 
+            u.foto_perfil_data_url,
+            u.estado_activo, 
+            u.ultimo_login, 
+            u.created_at
+        FROM usuarios_sistema u
+        INNER JOIN personas p ON p.id = u.persona_id
+        ORDER BY u.id ASC
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
 
     let mut users = Vec::new();
     for row in rows {
@@ -406,21 +390,14 @@ pub async fn list_users(pool: &SqlitePool, state: &AppState) -> Result<Vec<UserL
 }
 
 /// Crea un nuevo usuario y su respectiva persona dentro de una transacción.
-/// - ADMINISTRADOR: puede crear cualquier rol.
-/// - SUPERVISOR: SOLO puede crear RECEPCIONISTA.
+/// - ADMINISTRADOR: puede crear cualquier rol válido (RECEPCIONISTA o ADMINISTRADOR).
 /// - RECEPCIONISTA: AppError::Forbidden.
 pub async fn create_user(
     pool: &SqlitePool,
     state: &AppState,
     input: CreateUserInput,
 ) -> Result<UserListItem, AppError> {
-    let session = state.require_supervisor_or_admin().await?;
-
-    if session.rol == UserRole::Supervisor && input.rol != UserRole::Recepcionista {
-        return Err(AppError::Forbidden(
-            "Supervisores solo pueden crear usuarios con rol RECEPCIONISTA.".into(),
-        ));
-    }
+    let session = state.require_admin().await?;
 
     // Validaciones de esquema de entrada
     let username = input.username.trim();
@@ -641,15 +618,15 @@ pub async fn create_user(
 }
 
 /// Actualiza los datos de un usuario del sistema y/o de su persona asociada.
-/// Control jerárquico:
-/// - SUPERVISOR solo puede editar RECEPCIONISTA y no puede promoverlos a SUPERVISOR o ADMINISTRADOR.
-/// - ADMINISTRADOR puede editar a cualquiera (salvo alterar rol del Admin Root ID 1).
+/// Control RBAC:
+/// - ADMINISTRADOR: puede editar a cualquiera (salvo alterar rol del Admin Root ID 1).
+/// - RECEPCIONISTA: AppError::Forbidden.
 pub async fn update_user(
     pool: &SqlitePool,
     state: &AppState,
     input: UpdateUserInput,
 ) -> Result<UserListItem, AppError> {
-    let session = state.require_supervisor_or_admin().await?;
+    let session = state.require_admin().await?;
 
     let target_user = sqlx::query(
         r#"
@@ -666,27 +643,9 @@ pub async fn update_user(
     .await?
     .ok_or_else(|| AppError::NotFound(format!("Usuario con ID {} no encontrado.", input.user_id)))?;
 
-    let target_role_str: String = target_user.get("rol_principal");
-    let target_role: UserRole = target_role_str.parse()?;
     let persona_id: i64 = target_user.get("persona_id");
 
-    // Control jerárquico RBAC estricto
-    if session.rol == UserRole::Supervisor {
-        if target_role != UserRole::Recepcionista {
-            return Err(AppError::Forbidden(
-                "Supervisores solo pueden modificar usuarios con rol RECEPCIONISTA.".into(),
-            ));
-        }
-        if let Some(new_rol) = input.rol {
-            if new_rol != UserRole::Recepcionista {
-                return Err(AppError::Forbidden(
-                    "Supervisores no pueden promover usuarios a SUPERVISOR o ADMINISTRADOR.".into(),
-                ));
-            }
-        }
-    }
-
-    if session.rol == UserRole::Administrador && input.user_id == 1 {
+    if input.user_id == 1 {
         if let Some(new_rol) = input.rol {
             if new_rol != UserRole::Administrador {
                 return Err(AppError::Validation(
@@ -885,9 +844,8 @@ pub async fn update_user(
     })
 }
 
-/// Actualiza la foto de perfil de un usuario con control jerárquico.
-/// - Un usuario puede actualizar su propia foto.
-/// - SUPERVISOR puede actualizar su foto o la de un RECEPCIONISTA.
+/// Actualiza la foto de perfil de un usuario con control RBAC.
+/// - RECEPCIONISTA solo puede actualizar su propia foto.
 /// - ADMINISTRADOR puede actualizar la de cualquiera.
 pub async fn update_user_photo(
     pool: &SqlitePool,
@@ -896,15 +854,13 @@ pub async fn update_user_photo(
 ) -> Result<(), AppError> {
     let mut session = state.require_unlocked_session().await?;
 
-    let target_row = sqlx::query("SELECT id, username, rol_principal FROM usuarios_sistema WHERE id = ?")
+    let target_row = sqlx::query("SELECT id, username FROM usuarios_sistema WHERE id = ?")
         .bind(input.user_id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Usuario con ID {} no encontrado.", input.user_id)))?;
 
     let target_username: String = target_row.get("username");
-    let target_rol_str: String = target_row.get("rol_principal");
-    let target_rol: UserRole = target_rol_str.parse()?;
 
     let is_self = session.user_id == input.user_id;
 
@@ -912,13 +868,6 @@ pub async fn update_user_photo(
         match session.rol {
             UserRole::Administrador => {
                 // Permitido sobre cualquiera
-            }
-            UserRole::Supervisor => {
-                if target_rol != UserRole::Recepcionista {
-                    return Err(AppError::Forbidden(
-                        "Supervisores solo pueden actualizar la foto de recepcionistas o la propia.".into(),
-                    ));
-                }
             }
             UserRole::Recepcionista => {
                 return Err(AppError::Forbidden(
@@ -963,9 +912,8 @@ pub async fn update_user_photo(
     Ok(())
 }
 
-/// Activa o desactiva un usuario del sistema con control jerárquico.
+/// Activa o desactiva un usuario del sistema.
 /// - ADMINISTRADOR: puede cambiar a cualquiera, salvo auto-desactivarse o ID 1.
-/// - SUPERVISOR: SOLO puede cambiar a RECEPCIONISTA (bloqueado para igual o superior).
 /// - RECEPCIONISTA: AppError::Forbidden.
 pub async fn toggle_user_active(
     pool: &SqlitePool,
@@ -973,24 +921,15 @@ pub async fn toggle_user_active(
     user_id: i64,
     active: bool,
 ) -> Result<(), AppError> {
-    let session = state.require_supervisor_or_admin().await?;
+    let session = state.require_admin().await?;
 
-    let target_row = sqlx::query("SELECT username, rol_principal, estado_activo FROM usuarios_sistema WHERE id = ?")
+    let target_row = sqlx::query("SELECT username FROM usuarios_sistema WHERE id = ?")
         .bind(user_id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Usuario con ID {} no encontrado.", user_id)))?;
 
     let target_username: String = target_row.get("username");
-    let target_rol_str: String = target_row.get("rol_principal");
-    let target_rol: UserRole = target_rol_str.parse()?;
-
-    // Control jerárquico estricto: SUPERVISOR solo puede activar/desactivar RECEPCIONISTA
-    if session.rol == UserRole::Supervisor && target_rol != UserRole::Recepcionista {
-        return Err(AppError::Forbidden(
-            "Supervisores solo pueden activar o desactivar usuarios con rol RECEPCIONISTA.".into(),
-        ));
-    }
 
     // Defensa crítica: Prohibido auto-desactivarse
     if user_id == session.user_id && !active {

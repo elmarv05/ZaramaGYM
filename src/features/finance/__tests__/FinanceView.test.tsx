@@ -35,12 +35,12 @@ const adminSession: AuthSession = {
   login_at: '2026-11-15 08:00:00',
 };
 
-const supervisorSession: AuthSession = {
+const recepcionistaSession: AuthSession = {
   user_id: 2,
   persona_id: 2,
-  username: 'super1',
-  nombre_completo: 'Carlos Supervisor',
-  rol: 'SUPERVISOR',
+  username: 'recep1',
+  nombre_completo: 'Ana Recepcionista',
+  rol: 'RECEPCIONISTA',
   foto_perfil_data_url: null,
   is_locked: false,
   login_at: '2026-11-15 08:15:00',
@@ -385,10 +385,10 @@ describe('Suite Frontend: Slice 7 - Compras a Proveedores, Gastos Operativos y F
       expect(screen.getByText(/AJUSTE_NEGATIVO/i)).toBeDefined();
     });
 
-    it('oculta el botón de Anular Compra para el rol SUPERVISOR (Exclusivo Admin)', () => {
+    it('oculta el botón de Anular Compra para el rol RECEPCIONISTA (Exclusivo Admin)', () => {
       render(
         <FinanceView
-          currentSession={supervisorSession}
+          currentSession={recepcionistaSession}
           initialTab="compras"
           dashboard={mockDashboard}
           purchases={mockPurchases}
@@ -399,11 +399,10 @@ describe('Suite Frontend: Slice 7 - Compras a Proveedores, Gastos Operativos y F
         />
       );
 
-      // El supervisor puede ver la lista de compras y ver el detalle
       expect(screen.getByText('Distribuidora Lima SAC')).toBeDefined();
       expect(screen.getByRole('button', { name: 'Ver Detalle' })).toBeDefined();
 
-      // Pero el botón "Anular" NO debe existir
+      // El botón "Anular" NO debe existir
       expect(screen.queryByRole('button', { name: 'Anular' })).toBeNull();
     });
 
@@ -429,7 +428,7 @@ describe('Suite Frontend: Slice 7 - Compras a Proveedores, Gastos Operativos y F
     });
   });
 
-  describe('3. Gastos Operativos y Blindaje RBAC para Supervisores', () => {
+  describe('3. Gastos Operativos y Blindaje RBAC para no Administradores', () => {
     it('permite al ADMINISTRADOR consultar y registrar gastos operativos', () => {
       render(
         <FinanceView
@@ -449,10 +448,10 @@ describe('Suite Frontend: Slice 7 - Compras a Proveedores, Gastos Operativos y F
       expect(screen.getByRole('button', { name: 'Desactivar' })).toBeDefined();
     });
 
-    it('bloquea y muestra banner informativo con candado cuando un SUPERVISOR entra a Gastos Operativos', () => {
+    it('bloquea y muestra banner informativo con candado cuando un RECEPCIONISTA entra a Gastos Operativos', () => {
       render(
         <FinanceView
-          currentSession={supervisorSession}
+          currentSession={recepcionistaSession}
           initialTab="gastos"
           dashboard={mockDashboard}
           purchases={mockPurchases}
@@ -468,7 +467,7 @@ describe('Suite Frontend: Slice 7 - Compras a Proveedores, Gastos Operativos y F
         screen.getByText('Gastos Operativos (Módulo Exclusivo para Administrador)')
       ).toBeDefined();
       expect(
-        screen.getByText(/Acceso Restringido a Supervisores y Recepcionistas/i)
+        screen.getByText(/Acceso Restringido a Recepcionistas/i)
       ).toBeDefined();
       // No muestra el botón de nuevo gasto
       expect(screen.queryByText('+ Registrar Gasto Operativo')).toBeNull();
@@ -550,6 +549,25 @@ describe('Suite Frontend: Slice 7 - Compras a Proveedores, Gastos Operativos y F
       expect(screen.getByText('ANULADA DEFINITIVA')).toBeDefined();
       expect(screen.getByText('@admin')).toBeDefined();
       expect(screen.getByText('Confirmado con extracto bancario')).toBeDefined();
+    });
+
+    it('muestra la Bandeja Global de Tachados en modo solo lectura para RECEPCIONISTA (sin botón Resolver Paso 2)', () => {
+      render(
+        <FinanceView
+          currentSession={recepcionistaSession}
+          initialTab="tachados"
+          dashboard={mockDashboard}
+          purchases={mockPurchases}
+          expenses={mockExpenses}
+          struckSalesTray={mockStruckTray}
+          suppliers={mockSuppliers}
+          products={mockProducts}
+        />
+      );
+
+      expect(screen.getByText('Carlos Gómez')).toBeDefined();
+      expect(screen.getByText('TACHADA EN TURNO')).toBeDefined();
+      expect(screen.queryByRole('button', { name: /^Resolver \(Paso 2\)$/i })).toBeNull();
     });
   });
 });

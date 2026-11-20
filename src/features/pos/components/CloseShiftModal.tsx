@@ -13,6 +13,13 @@ import { Input } from '../../../components/primitives/Input';
 import { Modal } from '../../../components/primitives/Modal';
 import { calculateCashDifference, formatMoney } from '../../../domain/pos';
 import { CashShiftDto, CloseCashShiftInput } from '../../../types/pos';
+import {
+  formatDecimalOnBlur,
+  preventEnterKeySubmit,
+  roundMonetary,
+  sanitizeDecimalInput,
+  selectIfZeroDefault,
+} from '../../../utils/formSafety';
 
 export interface CloseShiftModalProps {
   isOpen: boolean;
@@ -58,7 +65,7 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
       return;
     }
 
-    const formattedDeclarado = val.toFixed(2);
+    const formattedDeclarado = roundMonetary(val).toFixed(2);
     setDeclarado(formattedDeclarado);
 
     try {
@@ -80,7 +87,7 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
       description={`Cierre de operaciones para el Turno #${shift.id}. Declara el efectivo físico contado en gaveta.`}
       size="lg"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form noValidate onSubmit={handleSubmit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4">
         {errorMsg && (
           <Alert variant="danger" title="Error" onClose={() => setErrorMsg(null)}>
             {errorMsg}
@@ -151,22 +158,16 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
             <span className="absolute left-3 top-2.5 text-txt-muted font-bold text-sm">S/</span>
             <Input
               id="declared-amount-input"
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.01"
-              min="0"
               value={declarado}
+              onFocus={selectIfZeroDefault}
               onChange={(e) => {
-                setDeclarado(e.target.value);
+                setDeclarado(sanitizeDecimalInput(e.target.value));
                 setErrorMsg(null);
               }}
               onBlur={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!isNaN(v) && v >= 0) {
-                  setDeclarado(v.toFixed(2));
-                } else if (!e.target.value.trim()) {
-                  setDeclarado('0.00');
-                }
+                setDeclarado(formatDecimalOnBlur(e.target.value, { min: 0, fallback: '' }));
               }}
               required
               className="pl-9 font-extrabold text-base text-txt-primary"

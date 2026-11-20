@@ -5,7 +5,7 @@
 
 import type { UpdatePersonInput } from './entity';
 
-export type UserRole = 'ADMINISTRADOR' | 'SUPERVISOR' | 'RECEPCIONISTA';
+export type UserRole = 'ADMINISTRADOR' | 'RECEPCIONISTA';
 
 export type AppErrorCode =
   | 'Unauthorized'
@@ -101,4 +101,37 @@ export interface AuditLogItem {
   detalles_json: string;
   ip_o_terminal: string;
   created_at: string;
+}
+
+export interface CloseBlockedPayload {
+  shift_id: number;
+  usuario_apertura_username: string;
+  usuario_apertura_nombre: string;
+  fecha_apertura: string;
+  message: string;
+}
+
+export interface CrashRecoveryNotice {
+  detected: boolean;
+  had_open_cash_shift: boolean;
+  shift_id: number | null;
+  shift_opened_by_username: string | null;
+  shift_opened_by_name: string | null;
+  shift_opened_at: string | null;
+  last_active_username: string | null;
+  last_heartbeat_at: string | null;
+  restarted_at: string;
+  message: string;
+}
+
+export interface SafeUpdatePreparationDto {
+  current_version: string;
+  target_version: string;
+  backup_id: number;
+  backup_filename: string;
+  backup_path: string;
+  backup_size_bytes: number;
+  backup_sha256: string;
+  integrity_verified: boolean;
+  prepared_at: string;
 }

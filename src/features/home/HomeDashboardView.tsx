@@ -87,8 +87,7 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
   const [localExportingKey, setLocalExportingKey] = useState<string | null>(null);
   const [exportFeedback, setExportFeedback] = useState<ExportFeedbackState | null>(null);
 
-  const isRecepcionista = session.rol === 'RECEPCIONISTA';
-  const directoryTarget: HomeNavigationTarget = isRecepcionista ? 'reception' : 'directory';
+  const directoryTarget: HomeNavigationTarget = 'directory';
 
   const handleRefresh = () => {
     if (onRefreshMetrics) {
@@ -161,7 +160,7 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
 
   const maxSlotTotal = Math.max(peakSlot?.total || 0, 1);
 
-  const canViewMonthly = Boolean(metrics?.can_view_monthly_revenue && !isRecepcionista);
+  const canViewMonthly = session.rol === 'ADMINISTRADOR';
 
   const shortcuts: {
     label: string;
@@ -251,7 +250,7 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
               Bienvenido, {session.nombre_completo}
             </h2>
             <p className="text-xs text-txt-secondary">
-              Centro de Comando Analítico ZaramaGYM — métricas en vivo, alertas de renovación y
+              Dashboard principal ZARAMA GYM — KPI´s de métricas, alertas de renovación y
               exportación contable.
             </p>
           </div>
@@ -439,7 +438,7 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
               </p>
             </article>
 
-            {/* KPI 3: Ingresos (RBAC: Mensual Admin/Supervisor vs Diario Recepcionista) */}
+            {/* KPI 3: Ingresos (RBAC: Mensual Administrador vs Diario Recepcionista) */}
             <article className="bg-surface border border-border rounded-xl p-4 shadow-xs flex flex-col justify-between gap-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">

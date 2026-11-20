@@ -214,6 +214,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
             />
           ) : (
             logs.map((log) => {
+              const isCriticalAlert = log.accion.includes('CIERRE_FORZADO');
               const isSecurityOrAlert =
                 log.accion.includes('FALLIDO') ||
                 log.accion.includes('LOCKED') ||
@@ -244,7 +245,9 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
                   <TableCell>
                     <Badge
                       variant={
-                        log.accion.includes('EXITOSO')
+                        isCriticalAlert
+                          ? 'danger'
+                          : log.accion.includes('EXITOSO')
                           ? 'success'
                           : isSecurityOrAlert
                           ? 'warning'

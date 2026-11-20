@@ -21,7 +21,8 @@ import {
 } from '../../components/primitives/Table';
 import {
   calculateDayOverflowPreview,
-  canMutateCatalog,
+  canCreatePlans,
+  canEditOrDeactivatePlans,
   formatPEN,
 } from '../../domain/catalog';
 import { getLocalDateISO } from '../../domain/printingBackup';
@@ -62,7 +63,8 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
   onTogglePlanActive,
   onSimulate,
 }) => {
-  const canMutate = canMutateCatalog(userRole);
+  const canCreate = canCreatePlans(userRole);
+  const canEditOrDeactivate = canEditOrDeactivatePlans(userRole);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<PlanListItem | null>(null);
@@ -372,7 +374,7 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
             </Button>
           )}
 
-          {canMutate && (
+          {canCreate && (
             <Button
               variant="primary"
               size="sm"
@@ -421,7 +423,7 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
                   : 'Configura las membresías y pases diarios autorizados en el gimnasio.'
               }
               action={
-                canMutate ? (
+                canCreate ? (
                   <Button
                     variant="primary"
                     size="sm"
@@ -506,7 +508,7 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
                         Simular
                       </Button>
 
-                      {canMutate && (
+                      {canEditOrDeactivate && (
                         <>
                           <Button
                             variant="ghost"
@@ -546,7 +548,7 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
       </Table>
 
       {/* Modal de Plan */}
-      {canMutate && (
+      {(canCreate || canEditOrDeactivate) && (
         <PlanFormModal
           isOpen={isModalOpen}
           onClose={() => {
@@ -556,10 +558,10 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
           planToEdit={editingPlan}
           isLoading={isActionLoading}
           onSubmit={async (input) => {
-            if (editingPlan && onUpdatePlan) {
+            if (editingPlan && canEditOrDeactivate && onUpdatePlan) {
               const res = await onUpdatePlan(editingPlan.id, input as UpdatePlanInput);
               return Boolean(res);
-            } else if (onCreatePlan) {
+            } else if (!editingPlan && canCreate && onCreatePlan) {
               const res = await onCreatePlan(input as CreatePlanInput);
               return Boolean(res);
             }

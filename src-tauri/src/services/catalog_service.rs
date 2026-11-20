@@ -3,26 +3,13 @@ use crate::models::{
     AuthSession, CreatePlanInput, CreateProductInput, InventoryMovementFilter,
     InventoryMovementItem, InventoryMovementType, PlanExpirationPreview, PlanFilter,
     PlanListItem, PlanType, ProductFilter, ProductListItem,
-    RecordInventoryMovementInput, UpdatePlanInput, UpdateProductInput, UserRole,
+    RecordInventoryMovementInput, UpdatePlanInput, UpdateProductInput,
 };
 use crate::services::audit_service::record_audit;
 use chrono::{Datelike, NaiveDate};
 use rust_decimal::Decimal;
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool};
 use std::str::FromStr;
-
-// ============================================================================
-// HELPERS RBAC
-// ============================================================================
-
-fn require_supervisor_or_admin(session: &AuthSession) -> Result<(), AppError> {
-    if session.rol == UserRole::Recepcionista {
-        return Err(AppError::Forbidden(
-            "Acceso denegado: se requieren privilegios de SUPERVISOR o ADMINISTRADOR.".into(),
-        ));
-    }
-    Ok(())
-}
 
 // ============================================================================
 // MATEMÁTICA PURA: DAY OVERFLOW
@@ -268,8 +255,6 @@ pub async fn create_plan(
     session: &AuthSession,
     input: CreatePlanInput,
 ) -> Result<PlanListItem, AppError> {
-    require_supervisor_or_admin(session)?;
-
     let codigo = input.codigo.trim().to_uppercase();
     if codigo.is_empty() {
         return Err(AppError::Validation(
@@ -383,7 +368,7 @@ pub async fn update_plan(
     plan_id: i64,
     input: UpdatePlanInput,
 ) -> Result<PlanListItem, AppError> {
-    require_supervisor_or_admin(session)?;
+    session.require_admin()?;
 
     let nombre = input.nombre.trim();
     if nombre.is_empty() {
@@ -484,7 +469,7 @@ pub async fn toggle_plan_active(
     plan_id: i64,
     active: bool,
 ) -> Result<(), AppError> {
-    require_supervisor_or_admin(session)?;
+    session.require_admin()?;
 
     let nuevo_estado = if active { 1 } else { 0 };
     let rows_affected = sqlx::query(
@@ -640,8 +625,6 @@ pub async fn create_product(
     session: &AuthSession,
     input: CreateProductInput,
 ) -> Result<ProductListItem, AppError> {
-    require_supervisor_or_admin(session)?;
-
     let sku = input.codigo_sku.trim().to_uppercase();
     if sku.is_empty() {
         return Err(AppError::Validation(
@@ -823,8 +806,6 @@ pub async fn update_product(
     product_id: i64,
     input: UpdateProductInput,
 ) -> Result<ProductListItem, AppError> {
-    require_supervisor_or_admin(session)?;
-
     let nombre = input.nombre.trim();
     if nombre.is_empty() {
         return Err(AppError::Validation(
@@ -1020,7 +1001,7 @@ pub async fn toggle_product_active(
     product_id: i64,
     active: bool,
 ) -> Result<(), AppError> {
-    require_supervisor_or_admin(session)?;
+    session.require_admin()?;
 
     let nuevo_estado = if active { 1 } else { 0 };
     let rows_affected = sqlx::query(
@@ -1073,7 +1054,7 @@ pub async fn record_inventory_movement(
     session: &AuthSession,
     input: RecordInventoryMovementInput,
 ) -> Result<InventoryMovementItem, AppError> {
-    require_supervisor_or_admin(session)?;
+    session.require_admin()?;
 
     if input.cantidad <= 0 {
         return Err(AppError::Validation(

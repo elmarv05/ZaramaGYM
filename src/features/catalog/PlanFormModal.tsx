@@ -10,6 +10,13 @@ import { Modal } from '../../components/primitives/Modal';
 import { Select } from '../../components/primitives/Select';
 import { validatePlanForm } from '../../domain/catalog';
 import { CreatePlanInput, PlanListItem, TipoPlan, UpdatePlanInput } from '../../types/catalog';
+import {
+  formatDecimalOnBlur,
+  preventEnterKeySubmit,
+  sanitizeDecimalInput,
+  sanitizeIntegerInput,
+  selectIfZeroDefault,
+} from '../../utils/formSafety';
 
 export interface PlanFormModalProps {
   isOpen: boolean;
@@ -32,7 +39,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [tipoPlan, setTipoPlan] = useState<TipoPlan>('MENSUALIDAD');
-  const [duracionMeses, setDuracionMeses] = useState<number>(1);
+  const [duracionMesesStr, setDuracionMesesStr] = useState<string>('1');
   const [precioBase, setPrecioBase] = useState('80.00');
   const [permiteRecuperacion, setPermiteRecuperacion] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -43,7 +50,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
       setNombre(planToEdit.nombre);
       setDescripcion(planToEdit.descripcion || '');
       setTipoPlan(planToEdit.tipo_plan);
-      setDuracionMeses(planToEdit.duracion_meses);
+      setDuracionMesesStr(String(planToEdit.duracion_meses));
       setPrecioBase(planToEdit.precio_base);
       setPermiteRecuperacion(planToEdit.permite_recuperacion_dias);
     } else {
@@ -51,7 +58,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
       setNombre('');
       setDescripcion('');
       setTipoPlan('MENSUALIDAD');
-      setDuracionMeses(1);
+      setDuracionMesesStr('1');
       setPrecioBase('80.00');
       setPermiteRecuperacion(true);
     }
@@ -62,10 +69,10 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
     const nextTipo = e.target.value as TipoPlan;
     setTipoPlan(nextTipo);
     if (nextTipo === 'PASE_DIARIO') {
-      setDuracionMeses(0);
+      setDuracionMesesStr('0');
       setPermiteRecuperacion(false);
-    } else if (duracionMeses === 0) {
-      setDuracionMeses(1);
+    } else if (!duracionMesesStr || parseInt(duracionMesesStr, 10) === 0) {
+      setDuracionMesesStr('1');
       setPermiteRecuperacion(true);
     }
   };
@@ -73,12 +80,13 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const parsedDuracion = parseInt(duracionMesesStr, 10);
     const formValues = {
       codigo: isEditing ? planToEdit?.codigo : codigo,
       nombre,
       descripcion: descripcion.trim() || null,
       tipo_plan: tipoPlan,
-      duracion_meses: tipoPlan === 'PASE_DIARIO' ? 0 : Number(duracionMeses),
+      duracion_meses: tipoPlan === 'PASE_DIARIO' ? 0 : isNaN(parsedDuracion) ? 0 : parsedDuracion,
       precio_base: precioBase,
       permite_recuperacion_dias: permiteRecuperacion,
     };
@@ -124,7 +132,12 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
       description="Define las condiciones de acceso, duración en meses y precio base en soles."
       size="md"
     >
-      <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form
+        noValidate
+        onSubmit={handleSubmit}
+        onKeyDown={preventEnterKeySubmit}
+        className="flex flex-col gap-4"
+      >
         {!isEditing && (
           <Input
             label="Código / SKU del Plan"
@@ -175,11 +188,22 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
 
           <Input
             label="Duración en Meses"
-            type="number"
-            min={tipoPlan === 'PASE_DIARIO' ? 0 : 1}
-            max={tipoPlan === 'PASE_DIARIO' ? 0 : 36}
-            value={duracionMeses}
-            onChange={(e) => setDuracionMeses(parseInt(e.target.value, 10) || 0)}
+            type="text"
+            inputMode="numeric"
+            value={duracionMesesStr}
+            onFocus={selectIfZeroDefault}
+            onChange={(e) => setDuracionMesesStr(sanitizeIntegerInput(e.target.value))}
+            onBlur={(e) => {
+              if (tipoPlan === 'PASE_DIARIO') {
+                setDuracionMesesStr('0');
+                return;
+              }
+              const n = parseInt(e.target.value, 10);
+              if (!e.target.value.trim()) return;
+              if (!isNaN(n)) {
+                setDuracionMesesStr(String(Math.min(36, Math.max(0, n))));
+              }
+            }}
             error={errors.duracion_meses}
             disabled={tipoPlan === 'PASE_DIARIO' || isEditing}
             hint={
@@ -193,18 +217,14 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
 
         <Input
           label="Precio Base (S/ PEN)"
-          type="number"
+          type="text"
           inputMode="decimal"
-          step="0.01"
-          min="0"
           placeholder="0.00"
           value={precioBase}
-          onChange={(e) => setPrecioBase(e.target.value)}
+          onFocus={selectIfZeroDefault}
+          onChange={(e) => setPrecioBase(sanitizeDecimalInput(e.target.value))}
           onBlur={(e) => {
-            const v = parseFloat(e.target.value);
-            if (!isNaN(v) && v >= 0) {
-              setPrecioBase(v.toFixed(2));
-            }
+            setPrecioBase(formatDecimalOnBlur(e.target.value, { min: 0, fallback: '' }));
           }}
           error={errors.precio_base}
           required

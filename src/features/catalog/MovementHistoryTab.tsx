@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '../../components/primitives/Table';
 import {
-  canMutateCatalog,
+  canRecordInventoryMovement,
   getMovementTypeBadge,
 } from '../../domain/catalog';
 import {
@@ -50,7 +50,7 @@ export const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({
   onRefresh,
   onRecordMovement,
 }) => {
-  const canMutate = canMutateCatalog(userRole);
+  const canMutate = canRecordInventoryMovement(userRole);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');

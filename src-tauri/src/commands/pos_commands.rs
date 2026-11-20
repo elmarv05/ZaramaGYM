@@ -46,7 +46,7 @@ pub async fn list_cash_shifts(
     filter: Option<CashShiftFilter>,
     state: State<'_, AppState>,
 ) -> Result<Vec<CashShiftDto>, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let f = filter.unwrap_or_default();
     pos_service::list_cash_shifts(&state.pool(), &session, &f).await
 }
@@ -123,7 +123,7 @@ pub async fn resolve_struck_sale(
     input: ResolveStruckSaleInput,
     state: State<'_, AppState>,
 ) -> Result<SaleDetailDto, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let id = sale_id
         .or(saleId)
         .ok_or_else(|| AppError::Validation("Debe indicar el ID de la venta.".into()))?;

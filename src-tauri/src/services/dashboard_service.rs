@@ -139,8 +139,8 @@ pub async fn get_home_dashboard_metrics(
     let ingresos_hoy_digital = parse_decimal(today_rev_row.get("hoy_digital"));
     let ingresos_hoy_total = ingresos_hoy_fisico + ingresos_hoy_digital;
 
-    // 5. Ingresos del mes (RBAC: solo SUPERVISOR y ADMINISTRADOR)
-    let can_view_monthly_revenue = session.rol != UserRole::Recepcionista;
+    // 5. Ingresos del mes (RBAC: solo ADMINISTRADOR)
+    let can_view_monthly_revenue = session.rol == UserRole::Administrador;
     let (ingresos_mes_fisico, ingresos_mes_digital, ingresos_mes_total) =
         if can_view_monthly_revenue {
             let month_rev_row = sqlx::query(
@@ -954,14 +954,12 @@ pub async fn export_debtors_portfolio(
     .await
 }
 
-/// 3. Reporte detallado de ventas y movimientos de caja (solo SUPERVISOR o ADMINISTRADOR).
+/// 3. Reporte detallado de ventas y movimientos de caja (RECEPCIONISTA y ADMINISTRADOR).
 pub async fn export_sales_cash_report(
     pool: &SqlitePool,
     session: &AuthSession,
     request: ExportSalesReportRequest,
 ) -> Result<ExportFileResult, AppError> {
-    session.require_supervisor_or_admin()?;
-
     let desde_opt = validate_optional_date(&request.fecha_desde, "fecha_desde")?;
     let hasta_opt = validate_optional_date(&request.fecha_hasta, "fecha_hasta")?;
     if let (Some(ref d), Some(ref h)) = (&desde_opt, &hasta_opt) {

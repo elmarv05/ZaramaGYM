@@ -87,22 +87,37 @@ export function getDeviceStatusBadge(status: DevicePairingStatus): {
 }
 
 /**
- * Regla RBAC: Solo ADMINISTRADOR y SUPERVISOR pueden gestionar dispositivos LAN
+ * Regla RBAC: Solo el ADMINISTRADOR puede gestionar el servidor y dispositivos LAN
  * (encender/apagar el servidor, crear códigos de vinculación, revocar dispositivos).
- * RECEPCIONISTA solo tiene acceso de consulta y operación de escáner.
  */
 export function canManageLanDevices(role?: string | null): boolean {
   if (!role) return false;
-  const upper = role.toUpperCase();
-  return upper === 'ADMINISTRADOR' || upper === 'SUPERVISOR';
+  return role.toUpperCase() === 'ADMINISTRADOR';
 }
 
 /**
  * Construye la URL completa del escáner móvil para abrir en el navegador del teléfono,
- * incorporando opcionalmente el código de vinculación como parámetro `?pair=XXXXXX`.
+ * priorizando el dominio mDNS local (`zaramagym.local:3443`) cuando está activo para
+ * conservar la sesión incluso si cambia la IP del Mobile Hotspot, e incorporando
+ * opcionalmente el código de vinculación como parámetro `?pair=XXXXXX`.
  */
-export function formatScannerUrl(status: LanServerStatusDto, pairingCode?: string): string {
-  const base = status.httpsUrl || status.httpUrl || `https://${status.primaryIp || '127.0.0.1'}:${status.port || 3443}/scanner`;
+export function formatScannerUrl(
+  status: LanServerStatusDto,
+  pairingCode?: string,
+  preferMdns = true
+): string {
+  const port = status.port || 3443;
+  const mdnsHost = (status.mdnsHostname || '').trim();
+  const hasExplicitQuery = Boolean(status.httpsUrl && status.httpsUrl.includes('?'));
+
+  const base = hasExplicitQuery
+    ? status.httpsUrl
+    : preferMdns && status.mdnsActive && mdnsHost
+    ? `https://${mdnsHost}:${port}/scanner`
+    : status.httpsUrl ||
+      status.httpUrl ||
+      `https://${status.primaryIp || '127.0.0.1'}:${port}/scanner`;
+
   if (!pairingCode) {
     return base;
   }

@@ -8,6 +8,13 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../../components/primitives/Icon';
 import { AuthorizeRedPassInput, CheckInEvaluationDto } from '../../types/attendance';
+import {
+  formatDecimalOnBlur,
+  preventEnterKeySubmit,
+  roundMonetary,
+  sanitizeDecimalInput,
+  selectIfZeroDefault,
+} from '../../utils/formSafety';
 
 export interface AuthorizeRedPassModalProps {
   isOpen: boolean;
@@ -54,7 +61,7 @@ export const AuthorizeRedPassModal: React.FC<AuthorizeRedPassModalProps> = ({
     try {
       await onConfirm({
         clienteId: evaluation.clienteId,
-        montoPase: parsedMonto.toFixed(2),
+        montoPase: roundMonetary(parsedMonto).toFixed(2),
         notas: notas.trim() || undefined,
       });
       onClose();
@@ -119,10 +126,10 @@ export const AuthorizeRedPassModal: React.FC<AuthorizeRedPassModalProps> = ({
           </span>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form noValidate onSubmit={handleSubmit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="input-monto-red-pass" className="text-xs font-bold text-txt-secondary">
-              Monto del Pase Diario a Crédito (S/) *
+              Monto del Pase Diario a Crédito (S/) <span className="text-status-danger">*</span>
             </label>
             <div className="relative">
               <span className="absolute left-3.5 top-2.5 text-sm font-bold text-txt-muted">
@@ -130,18 +137,15 @@ export const AuthorizeRedPassModal: React.FC<AuthorizeRedPassModalProps> = ({
               </span>
               <input
                 id="input-monto-red-pass"
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="1.00"
                 value={monto}
-                onChange={(e) => setMonto(e.target.value)}
+                onFocus={selectIfZeroDefault}
+                onChange={(e) => setMonto(sanitizeDecimalInput(e.target.value))}
                 onBlur={(e) => {
-                  const v = parseFloat(e.target.value);
-                  if (!isNaN(v) && v > 0) {
-                    setMonto(v.toFixed(2));
-                  }
+                  setMonto(formatDecimalOnBlur(e.target.value, { min: 0.01, fallback: '' }));
                 }}
+                required
                 className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border bg-canvas text-sm font-black text-txt-primary focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
             </div>

@@ -22,6 +22,7 @@ import {
 import { fileToBase64, formatBytes } from '../../../domain/printingBackup';
 import { normalizeAppError } from '../../../services/ipc/client';
 import { printingBackupIpc } from '../../../services/ipc/printingBackupIpc';
+import { preventEnterKeySubmit, sanitizeIntegerInput } from '../../../utils/formSafety';
 import {
   BackupIntegrityReport,
   BackupRecord,
@@ -146,6 +147,7 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
         <Alert
           variant="warning"
           title="Módulo Exclusivo del Administrador"
+          floating={false}
         >
           <div className="flex flex-col gap-2">
             <p className="text-xs">
@@ -455,7 +457,9 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
 
         {/* Configuración de Sincronización Google Drive */}
         <form
+          noValidate
           onSubmit={handleSaveDriveConfig}
+          onKeyDown={preventEnterKeySubmit}
           className="lg:col-span-6 bg-surface p-5 rounded-xl border border-border shadow-sm flex flex-col gap-3"
         >
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
@@ -526,11 +530,13 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
 
             <Input
               label="Intervalo Auto-Respaldo (Horas)"
-              type="number"
-              min="1"
-              max="72"
-              value={String(intervalHours)}
-              onChange={(e) => setIntervalHours(Number(e.target.value))}
+              type="text"
+              inputMode="numeric"
+              value={intervalHours === 0 ? '' : String(intervalHours)}
+              onChange={(e) => {
+                const clean = sanitizeIntegerInput(e.target.value);
+                setIntervalHours(clean ? Number(clean) : 0);
+              }}
               disabled={isActionLoading}
               placeholder="2"
             />
@@ -739,7 +745,7 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
         description="Genera una copia limpia e independiente del archivo SQLite en la carpeta o memoria USB que elijas."
         size="md"
       >
-        <form onSubmit={handleExportSubmit} className="flex flex-col gap-4">
+        <form noValidate onSubmit={handleExportSubmit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <div className="flex items-end gap-2">
               <div className="flex-1">
@@ -884,7 +890,7 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
         description="Recuperación ante desastres (Disaster Recovery) — Exclusivo Administrador"
         size="lg"
       >
-        <form onSubmit={handleRestoreSubmit} className="flex flex-col gap-4">
+        <form noValidate onSubmit={handleRestoreSubmit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4">
           {/* Banner Crítico Semáforo Rojo */}
           <div
             role="region"

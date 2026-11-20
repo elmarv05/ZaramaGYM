@@ -294,9 +294,17 @@ export function canManageBackupsAndPrinterConfig(rol?: string): boolean {
   return rol === 'ADMINISTRADOR';
 }
 
+export function canManagePrintingAndBackups(rol?: string): boolean {
+  return rol === 'ADMINISTRADOR';
+}
+
 /**
- * Regla RBAC: ADMINISTRADOR y SUPERVISOR pueden visualizar el módulo de impresión y respaldos
+ * Regla RBAC: Solo el ADMINISTRADOR puede visualizar el módulo de impresión y respaldos
  */
 export function canViewPrintingBackupModule(rol?: string): boolean {
-  return rol === 'ADMINISTRADOR' || rol === 'SUPERVISOR';
+  return rol === 'ADMINISTRADOR';
+}
+
+export function canViewPrintingAndBackups(rol?: string): boolean {
+  return rol === 'ADMINISTRADOR';
 }

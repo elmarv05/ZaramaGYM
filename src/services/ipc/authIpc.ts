@@ -3,7 +3,12 @@
 // Ubicación: src/services/ipc/authIpc.ts
 // ============================================================================
 
-import { AuthSession, LoginCredentials } from '../../types/auth';
+import {
+  AuthSession,
+  CrashRecoveryNotice,
+  LoginCredentials,
+  SafeUpdatePreparationDto,
+} from '../../types/auth';
 import { safeInvoke } from './client';
 
 export const authIpc = {
@@ -52,5 +57,37 @@ export const authIpc = {
       current_password: currentPassword,
       new_password: newPassword,
     });
+  },
+
+  /**
+   * Consulta si el sistema detectó un cierre forzado/apagado brusco con caja abierta al iniciar
+   */
+  async getCrashRecoveryNotice(): Promise<CrashRecoveryNotice | null> {
+    return safeInvoke<CrashRecoveryNotice | null>('get_crash_recovery_notice');
+  },
+
+  /**
+   * Marca como reconocido el aviso de recuperación de cierre forzado en la sesión actual
+   */
+  async acknowledgeCrashRecoveryNotice(): Promise<void> {
+    return safeInvoke<void>('acknowledge_crash_recovery_notice');
+  },
+
+  /**
+   * Prepara el sistema antes de una actualización OTA:
+   * valida caja cerrada, crea respaldo preventivo verificado y apaga bandera runtime
+   */
+  async prepareSafeAppUpdate(targetVersion: string): Promise<SafeUpdatePreparationDto> {
+    return safeInvoke<SafeUpdatePreparationDto>('prepare_safe_app_update', {
+      targetVersion,
+      target_version: targetVersion,
+    });
+  },
+
+  /**
+   * Restaura bandera runtime si la descarga OTA falló por red para mantener protección activa
+   */
+  async restoreRuntimeAfterFailedUpdate(): Promise<void> {
+    return safeInvoke<void>('restore_runtime_after_failed_update');
   },
 };

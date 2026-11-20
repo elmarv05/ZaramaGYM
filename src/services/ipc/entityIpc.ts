@@ -257,4 +257,20 @@ export const entityIpc = {
       active,
     });
   },
+
+  /**
+   * Abre una URL externa segura (ej. WhatsApp Web) mediante Tauri IPC o fallback navegador
+   */
+  async openExternalUrl(url: string): Promise<void> {
+    const isTauriRuntime =
+      typeof window !== 'undefined' &&
+      ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
+    if (isTauriRuntime) {
+      await safeInvoke<void>('open_external_url', { url });
+      return;
+    }
+    if (typeof window !== 'undefined' && typeof window.open === 'function') {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  },
 };

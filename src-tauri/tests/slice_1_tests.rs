@@ -159,8 +159,12 @@ async fn test_session_lock_and_unlock_lifecycle() {
 }
 
 #[tokio::test]
-async fn test_supervisor_and_receptionist_rbac_hierarchy() {
+async fn test_admin_and_receptionist_rbac_hierarchy() {
     let (state, _temp_dir) = setup_test_env().await;
+
+    // Verificar que "SUPERVISOR" es rechazado por UserRole::from_str
+    let invalid_role = "SUPERVISOR".parse::<UserRole>();
+    assert!(matches!(invalid_role, Err(AppError::Validation(_))));
 
     // 1. Admin login
     auth_service::login(
@@ -174,22 +178,24 @@ async fn test_supervisor_and_receptionist_rbac_hierarchy() {
     .await
     .unwrap();
 
-    // 2. Admin crea SUPERVISOR
-    let sup_input = CreateUserInput {
+    // 2. Admin crea otro ADMINISTRADOR
+    let admin2_input = CreateUserInput {
         persona_id: None,
-        username: "supervisor1".into(),
-        password: "supPassword123".into(),
+        username: "admin2".into(),
+        password: "admPassword123".into(),
         tipo_documento: "DNI".into(),
         numero_documento: "44556677".into(),
         nombres: "Carlos".into(),
         apellidos: "Mendoza".into(),
         telefono: Some("987654321".into()),
-        email: Some("supervisor@zaramagym.com".into()),
-        rol: UserRole::Supervisor,
+        email: Some("admin2@zaramagym.com".into()),
+        rol: UserRole::Administrador,
         foto_perfil_data_url: None,
     };
-    let created_sup = auth_service::create_user(&state.pool(), &state, sup_input).await.unwrap();
-    assert_eq!(created_sup.rol, UserRole::Supervisor);
+    let created_adm2 = auth_service::create_user(&state.pool(), &state, admin2_input)
+        .await
+        .unwrap();
+    assert_eq!(created_adm2.rol, UserRole::Administrador);
 
     // 3. Admin crea RECEPCIONISTA 1
     let recep_input = CreateUserInput {
@@ -205,97 +211,24 @@ async fn test_supervisor_and_receptionist_rbac_hierarchy() {
         rol: UserRole::Recepcionista,
         foto_perfil_data_url: None,
     };
-    let created_rec = auth_service::create_user(&state.pool(), &state, recep_input).await.unwrap();
+    let created_rec = auth_service::create_user(&state.pool(), &state, recep_input)
+        .await
+        .unwrap();
     assert_eq!(created_rec.rol, UserRole::Recepcionista);
 
-    // Admin ve a todos (3 usuarios: admin, supervisor1, recepcionista1)
+    // Admin ve a todos (3 usuarios: admin, admin2, recepcionista1)
     let admin_view = auth_service::list_users(&state.pool(), &state).await.unwrap();
     assert_eq!(admin_view.len(), 3);
 
-    auth_service::logout(&state.pool(), &state).await.unwrap();
-
-    // 4. SUPERVISOR inicia sesión
-    auth_service::login(
-        &state.pool(),
-        &state,
-        LoginCredentials {
-            username: "supervisor1".into(),
-            password: "supPassword123".into(),
-        },
-    )
-    .await
-    .unwrap();
-
-    // 4.1 SUPERVISOR lista usuarios: debe ver ÚNICAMENTE a recepcionistas (1 usuario)
-    let sup_view = auth_service::list_users(&state.pool(), &state).await.unwrap();
-    assert_eq!(sup_view.len(), 1, "Supervisor solo debe ver a los recepcionistas");
-    assert_eq!(sup_view[0].username, "recepcionista1");
-
-    // 4.2 SUPERVISOR intenta crear otro SUPERVISOR o ADMINISTRADOR -> Forbidden
-    let bad_sup_create = auth_service::create_user(
-        &state.pool(),
-        &state,
-        CreateUserInput {
-            persona_id: None,
-            username: "otro_supervisor".into(),
-            password: "password123".into(),
-            tipo_documento: "DNI".into(),
-            numero_documento: "11223344".into(),
-            nombres: "Pedro".into(),
-            apellidos: "Gomez".into(),
-            telefono: None,
-            email: None,
-            rol: UserRole::Supervisor,
-            foto_perfil_data_url: None,
-        },
-    )
-    .await;
-    assert!(matches!(bad_sup_create.unwrap_err(), AppError::Forbidden(_)));
-
-    // 4.3 SUPERVISOR puede crear un nuevo RECEPCIONISTA
-    let sup_creates_rec = auth_service::create_user(
-        &state.pool(),
-        &state,
-        CreateUserInput {
-            persona_id: None,
-            username: "recepcionista2".into(),
-            password: "password123".into(),
-            tipo_documento: "DNI".into(),
-            numero_documento: "22334455".into(),
-            nombres: "Ana".into(),
-            apellidos: "Ruiz".into(),
-            telefono: None,
-            email: None,
-            rol: UserRole::Recepcionista,
-            foto_perfil_data_url: None,
-        },
-    )
-    .await
-    .expect("Supervisor debe poder crear un usuario RECEPCIONISTA");
-    assert_eq!(sup_creates_rec.username, "recepcionista2");
-
-    // Ahora supervisor ve a los 2 recepcionistas
-    let sup_view_2 = auth_service::list_users(&state.pool(), &state).await.unwrap();
-    assert_eq!(sup_view_2.len(), 2);
-
-    // 4.4 SUPERVISOR tiene acceso de lectura a get_audit_logs
-    let sup_audit_guard = state.require_supervisor_or_admin().await;
-    assert!(sup_audit_guard.is_ok(), "Supervisor debe tener acceso a auditoría");
-
+    // Admin tiene acceso a auditoría
+    let adm_audit_guard = state.require_admin().await;
+    assert!(adm_audit_guard.is_ok(), "Admin debe tener acceso a auditoría");
     let audit_logs = audit_service::get_audit_logs(&state.pool(), &AuditFilter::default()).await;
     assert!(audit_logs.is_ok());
 
-    // 4.5 SUPERVISOR intenta toggle_user_active sobre Admin -> Forbidden
-    let sup_toggle_admin = auth_service::toggle_user_active(&state.pool(), &state, 1, false).await;
-    assert!(matches!(sup_toggle_admin.unwrap_err(), AppError::Forbidden(_)));
-
-    // 4.6 SUPERVISOR desactiva a recepcionista2 -> Éxito
-    let sup_toggle_rec = auth_service::toggle_user_active(&state.pool(), &state, sup_creates_rec.id, false).await;
-    assert!(sup_toggle_rec.is_ok());
-
     auth_service::logout(&state.pool(), &state).await.unwrap();
 
-    // 5. RECEPCIONISTA inicia sesión y verifica bloqueos estrictos
+    // 4. RECEPCIONISTA inicia sesión y verifica bloqueos estrictos
     auth_service::login(
         &state.pool(),
         &state,
@@ -307,11 +240,11 @@ async fn test_supervisor_and_receptionist_rbac_hierarchy() {
     .await
     .unwrap();
 
-    // 5.1 list_users -> Forbidden
+    // 4.1 list_users -> Forbidden
     let rec_list = auth_service::list_users(&state.pool(), &state).await;
     assert!(matches!(rec_list.unwrap_err(), AppError::Forbidden(_)));
 
-    // 5.2 create_user -> Forbidden
+    // 4.2 create_user -> Forbidden
     let rec_create = auth_service::create_user(
         &state.pool(),
         &state,
@@ -332,11 +265,11 @@ async fn test_supervisor_and_receptionist_rbac_hierarchy() {
     .await;
     assert!(matches!(rec_create.unwrap_err(), AppError::Forbidden(_)));
 
-    // 5.3 get_audit_logs -> Forbidden
-    let rec_audit = state.require_supervisor_or_admin().await;
+    // 4.3 get_audit_logs / require_admin -> Forbidden
+    let rec_audit = state.require_admin().await;
     assert!(matches!(rec_audit.unwrap_err(), AppError::Forbidden(_)));
 
-    // 5.4 toggle_user_active -> Forbidden
+    // 4.4 toggle_user_active -> Forbidden
     let rec_toggle = auth_service::toggle_user_active(&state.pool(), &state, 1, false).await;
     assert!(matches!(rec_toggle.unwrap_err(), AppError::Forbidden(_)));
 }
@@ -352,26 +285,6 @@ async fn test_user_profile_photo_hierarchical_permissions() {
         LoginCredentials {
             username: "admin".into(),
             password: "admin123".into(),
-        },
-    )
-    .await
-    .unwrap();
-
-    let sup = auth_service::create_user(
-        &state.pool(),
-        &state,
-        CreateUserInput {
-            persona_id: None,
-            username: "sup_foto".into(),
-            password: "password123".into(),
-            tipo_documento: "DNI".into(),
-            numero_documento: "33445566".into(),
-            nombres: "Esteban".into(),
-            apellidos: "Quito".into(),
-            telefono: None,
-            email: None,
-            rol: UserRole::Supervisor,
-            foto_perfil_data_url: None,
         },
     )
     .await
@@ -422,12 +335,12 @@ async fn test_user_profile_photo_hierarchical_permissions() {
     .await;
     assert!(own_photo_res.is_ok(), "Recepcionista debe poder actualizar su propia foto");
 
-    // Recepcionista intenta actualizar foto de SUPERVISOR -> Forbidden
+    // Recepcionista intenta actualizar foto de ADMIN -> Forbidden
     let bad_rec_photo = auth_service::update_user_photo(
         &state.pool(),
         &state,
         UpdateUserPhotoInput {
-            user_id: sup.id,
+            user_id: 1,
             foto_perfil_data_url: Some("data:image/png;base64,hacked".into()),
         },
     )
@@ -436,44 +349,7 @@ async fn test_user_profile_photo_hierarchical_permissions() {
 
     auth_service::logout(&state.pool(), &state).await.unwrap();
 
-    // 2. Supervisor actualiza la foto de un RECEPCIONISTA -> Éxito
-    auth_service::login(
-        &state.pool(),
-        &state,
-        LoginCredentials {
-            username: "sup_foto".into(),
-            password: "password123".into(),
-        },
-    )
-    .await
-    .unwrap();
-
-    let sup_updates_rec = auth_service::update_user_photo(
-        &state.pool(),
-        &state,
-        UpdateUserPhotoInput {
-            user_id: rec.id,
-            foto_perfil_data_url: Some("data:image/png;base64,nueva_foto_rec".into()),
-        },
-    )
-    .await;
-    assert!(sup_updates_rec.is_ok(), "Supervisor puede actualizar foto de recepcionista");
-
-    // Supervisor intenta actualizar foto de ADMIN -> Forbidden
-    let sup_updates_admin = auth_service::update_user_photo(
-        &state.pool(),
-        &state,
-        UpdateUserPhotoInput {
-            user_id: 1,
-            foto_perfil_data_url: Some("data:image/png;base64,intento".into()),
-        },
-    )
-    .await;
-    assert!(matches!(sup_updates_admin.unwrap_err(), AppError::Forbidden(_)));
-
-    auth_service::logout(&state.pool(), &state).await.unwrap();
-
-    // 3. Admin actualiza foto de SUPERVISOR -> Éxito
+    // 2. Admin actualiza foto de RECEPCIONISTA -> Éxito
     auth_service::login(
         &state.pool(),
         &state,
@@ -485,16 +361,16 @@ async fn test_user_profile_photo_hierarchical_permissions() {
     .await
     .unwrap();
 
-    let admin_updates_sup = auth_service::update_user_photo(
+    let admin_updates_rec = auth_service::update_user_photo(
         &state.pool(),
         &state,
         UpdateUserPhotoInput {
-            user_id: sup.id,
+            user_id: rec.id,
             foto_perfil_data_url: Some("data:image/png;base64,admin_photo".into()),
         },
     )
     .await;
-    assert!(admin_updates_sup.is_ok(), "Admin puede actualizar cualquier foto");
+    assert!(admin_updates_rec.is_ok(), "Admin puede actualizar cualquier foto");
 }
 
 #[tokio::test]
@@ -537,4 +413,80 @@ async fn test_change_own_password_and_defenses() {
     )
     .await;
     assert!(new_login.is_ok());
+}
+
+#[tokio::test]
+async fn test_legacy_supervisor_role_migrates_to_receptionist_and_check_constraint() {
+    use sqlx::Row;
+
+    let temp_dir = tempfile::tempdir().expect("Error creando directorio temporal");
+    let db_path = temp_dir.path().join("test_legacy_supervisor.db");
+    let db_url = format!("sqlite://{}", db_path.to_string_lossy());
+
+    // 1. Simular base de datos heredada con constraint antiguo y un usuario SUPERVISOR
+    {
+        let opts = sqlx::sqlite::SqliteConnectOptions::new()
+            .filename(&db_path)
+            .create_if_missing(true);
+        let legacy_pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .unwrap();
+
+        sqlx::raw_sql(
+            r#"
+            CREATE TABLE personas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tipo_documento TEXT NOT NULL,
+                numero_documento TEXT NOT NULL UNIQUE,
+                nombres TEXT NOT NULL,
+                apellidos TEXT NOT NULL,
+                fecha_nacimiento TEXT,
+                telefono TEXT,
+                email TEXT,
+                direccion TEXT,
+                estado_activo INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
+            CREATE TABLE usuarios_sistema (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                persona_id INTEGER NOT NULL UNIQUE REFERENCES personas(id) ON DELETE RESTRICT,
+                username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                password_hash TEXT NOT NULL,
+                rol_principal TEXT NOT NULL CHECK(rol_principal IN ('ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA')),
+                foto_perfil_data_url TEXT,
+                estado_activo INTEGER NOT NULL DEFAULT 1,
+                ultimo_login TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
+            INSERT INTO personas (id, tipo_documento, numero_documento, nombres, apellidos) VALUES (2, 'DNI', '55443322', 'Legacy', 'Supervisor');
+            INSERT INTO usuarios_sistema (id, persona_id, username, password_hash, rol_principal) VALUES (2, 2, 'legacy_sup', 'hash', 'SUPERVISOR');
+            "#,
+        )
+        .execute(&legacy_pool)
+        .await
+        .unwrap();
+        legacy_pool.close().await;
+    }
+
+    // 2. Ejecutar init_db / run_migrations sobre la DB heredada
+    let pool = init_db(&db_url).await.expect("init_db debe migrar BD heredada");
+    let row = sqlx::query("SELECT rol_principal FROM usuarios_sistema WHERE id = 2")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let migrated_role: String = row.get("rol_principal");
+    assert_eq!(migrated_role, "RECEPCIONISTA");
+
+    // 3. En una BD fresca, el CHECK constraint debe rechazar 'SUPERVISOR'
+    let (fresh_state, _fresh_dir) = setup_test_env().await;
+    let insert_sup = sqlx::query(
+        "INSERT INTO usuarios_sistema (persona_id, username, password_hash, rol_principal) VALUES (1, 'bad_sup', 'hash', 'SUPERVISOR')",
+    )
+    .execute(&fresh_state.pool())
+    .await;
+    assert!(insert_sup.is_err(), "CHECK constraint debe rechazar SUPERVISOR");
 }

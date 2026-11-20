@@ -82,7 +82,7 @@ export const attendanceIpc = {
   },
 
   /**
-   * Modifica los parámetros operativos del sistema (solo Supervisor y Administrador)
+   * Modifica los parámetros operativos del sistema (solo Administrador)
    */
   async updateSystemConfig(input: UpdateSystemConfigInput): Promise<SystemConfigDto> {
     return safeInvoke<SystemConfigDto>('update_system_config', {

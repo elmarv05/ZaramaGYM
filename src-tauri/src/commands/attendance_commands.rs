@@ -4,7 +4,7 @@ use crate::errors::AppError;
 use crate::models::{
     AttendanceFilter, AttendanceListItemDto, AttendanceTodaySummaryDto, AuthorizeRedPassInput,
     CheckInEvaluationDto, CheckInInput, ExtendMembershipInput, MembershipExtensionDto,
-    MembershipExtensionFilter, SystemConfigDto, UpdateSystemConfigInput, UserRole,
+    MembershipExtensionFilter, SystemConfigDto, UpdateSystemConfigInput,
 };
 use crate::services::attendance_service;
 use crate::state::AppState;
@@ -102,7 +102,7 @@ pub async fn get_system_config(
 }
 
 // ============================================================================
-// 8. ACTUALIZACIÓN DE PARÁMETROS GLOBALES DEL SISTEMA (ADMIN / SUPERVISOR)
+// 8. ACTUALIZACIÓN DE PARÁMETROS GLOBALES DEL SISTEMA (SOLO ADMINISTRADOR)
 // ============================================================================
 
 #[tauri::command]
@@ -110,12 +110,6 @@ pub async fn update_system_config(
     input: UpdateSystemConfigInput,
     state: State<'_, AppState>,
 ) -> Result<SystemConfigDto, AppError> {
-    let session = state.require_unlocked_session().await?;
-    if session.rol == UserRole::Recepcionista {
-        return Err(AppError::Forbidden(
-            "Solo administradores y supervisores pueden modificar la configuración del sistema"
-                .to_string(),
-        ));
-    }
+    let session = state.require_admin().await?;
     attendance_service::update_system_config(&state.pool(), &session, input).await
 }

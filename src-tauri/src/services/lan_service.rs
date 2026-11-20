@@ -40,6 +40,36 @@ use tower_http::cors::{Any, CorsLayer};
 // Biblioteca jsQR offline embebida para que el escáner móvil funcione 100% en LAN sin Internet
 const JSQR_BUNDLE: &str = include_str!("../../assets/jsQR.js");
 
+// Íconos PNG oficiales de ZaramaGYM embebidos para acceso directo móvil (Android / iOS PWA)
+const APP_ICON_512_PNG: &[u8] = include_bytes!("../../icons/icon.png");
+const APP_ICON_256_PNG: &[u8] = include_bytes!("../../icons/128x128@2x.png");
+
+const SCANNER_WEB_MANIFEST: &str = r##"{
+  "name": "ZaramaGYM Escáner Móvil",
+  "short_name": "ZaramaGYM",
+  "description": "Escáner QR LAN en tiempo real para control de asistencias ZaramaGYM",
+  "start_url": "/scanner",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/assets/zaramagym-icon-256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/zaramagym-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}"##;
+
 // ============================================================================
 // CERTIFICADO CA RAÍZ LOCAL + TLS MULTI-IP DINÁMICO (RUST PURO: RCGEN + RUSTLS)
 // ============================================================================
@@ -123,26 +153,39 @@ async fn ensure_or_load_root_ca(
     Ok((ca_cert_pem, ca_cert, ca_key))
 }
 
+pub const DEFAULT_MDNS_HOSTNAME: &str = "zaramagym.local";
+const LEGACY_MDNS_HOSTNAME: &str = "sistema.local";
+
+/// Lee el hostname mDNS configurado en SQLite, usando `zaramagym.local` por defecto.
+pub async fn resolve_mdns_hostname(pool: &SqlitePool) -> String {
+    sqlx::query("SELECT valor FROM configuracion_sistema WHERE clave = 'LAN_MDNS_HOSTNAME'")
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|r| r.get::<Option<String>, _>("valor"))
+        .map(|s| s.trim().trim_end_matches('.').to_lowercase())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| DEFAULT_MDNS_HOSTNAME.to_string())
+}
+
 /// Construye el `TlsAcceptor` para el servidor HTTPS emitiendo un certificado hoja válido para
-/// localhost, sistema.local y TODAS las IPs LAN privadas activas (Wi-Fi y Ethernet).
+/// localhost, zaramagym.local (mDNS), alias sistema.local y TODAS las IPs LAN privadas activas.
 async fn build_server_tls_acceptor(
     pool: &SqlitePool,
 ) -> Result<(TlsAcceptor, String), AppError> {
     let (ca_pem, ca_cert, ca_key) = ensure_or_load_root_ca(pool).await?;
 
-    let mdns_hostname = sqlx::query(
-        "SELECT valor FROM configuracion_sistema WHERE clave = 'LAN_MDNS_HOSTNAME'",
-    )
-    .fetch_optional(pool)
-    .await?
-    .and_then(|r| r.get::<Option<String>, _>("valor"))
-    .unwrap_or_else(|| "sistema.local".to_string());
+    let mdns_hostname = resolve_mdns_hostname(pool).await;
 
     let mut sans = vec![
         "localhost".to_string(),
         "127.0.0.1".to_string(),
-        mdns_hostname,
+        mdns_hostname.clone(),
     ];
+    if !sans.iter().any(|s| s.eq_ignore_ascii_case(LEGACY_MDNS_HOSTNAME)) {
+        sans.push(LEGACY_MDNS_HOSTNAME.to_string());
+    }
     for ip in get_lan_interface_ips() {
         if !sans.contains(&ip) {
             sans.push(ip);
@@ -388,11 +431,20 @@ pub fn generate_session_token() -> String {
 // PÁGINA WEB EMBEBIDA PWA (VISTAS M1 & M2 CON CÁMARA REAL + JSQR OFFLINE)
 // ============================================================================
 
-pub const SCANNER_HTML: &str = r#"<!DOCTYPE html>
+pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ZaramaGYM">
+  <link rel="icon" type="image/png" sizes="256x256" href="/assets/zaramagym-icon-256.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/assets/zaramagym-icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/zaramagym-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
   <title>ZaramaGYM Escáner Móvil</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -435,7 +487,10 @@ pub const SCANNER_HTML: &str = r#"<!DOCTYPE html>
 </head>
 <body>
   <header>
-    <div class="logo">⚡ ZaramaGYM</div>
+    <div class="logo">
+      <img src="/assets/zaramagym-icon-256.png" alt="ZaramaGYM" style="width: 26px; height: 26px; border-radius: 6px; object-fit: cover;">
+      <span>ZaramaGYM</span>
+    </div>
     <div class="badge-lan" id="statusBadge">LAN :3443</div>
   </header>
 
@@ -582,7 +637,61 @@ pub const SCANNER_HTML: &str = r#"<!DOCTYPE html>
       window.location.href = 'https://' + window.location.host + window.location.pathname + window.location.search;
     });
 
-    if (localStorage.getItem('zarama_mobile_token')) {
+    // Persistencia dual (localStorage + Cookie de 365 días) para tolerar cierres de ventana móvil
+    function readCookieVal(name) {
+      try {
+        const prefix = name + '=';
+        const parts = document.cookie.split(';');
+        for (let i = 0; i < parts.length; i++) {
+          const item = parts[i].trim();
+          if (item.startsWith(prefix)) return decodeURIComponent(item.slice(prefix.length));
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    function getMobileToken() {
+      let tok = null;
+      try { tok = localStorage.getItem('zarama_mobile_token'); } catch (e) {}
+      if (!tok) {
+        tok = readCookieVal('zarama_mobile_token');
+        if (tok) {
+          try { localStorage.setItem('zarama_mobile_token', tok); } catch (e) {}
+        }
+      }
+      return tok || null;
+    }
+
+    function getMobileName() {
+      let name = null;
+      try { name = localStorage.getItem('zarama_mobile_name'); } catch (e) {}
+      if (!name) name = readCookieVal('zarama_mobile_name');
+      return name || 'Móvil Vinculado';
+    }
+
+    function saveMobileSession(token, deviceName) {
+      try {
+        localStorage.setItem('zarama_mobile_token', token);
+        localStorage.setItem('zarama_mobile_name', deviceName);
+      } catch (e) {}
+      try {
+        document.cookie = 'zarama_mobile_token=' + encodeURIComponent(token) + '; Path=/; Max-Age=31536000; SameSite=Lax';
+        document.cookie = 'zarama_mobile_name=' + encodeURIComponent(deviceName) + '; Path=/; Max-Age=31536000; SameSite=Lax';
+      } catch (e) {}
+    }
+
+    function clearMobileSession() {
+      try {
+        localStorage.removeItem('zarama_mobile_token');
+        localStorage.removeItem('zarama_mobile_name');
+      } catch (e) {}
+      try {
+        document.cookie = 'zarama_mobile_token=; Path=/; Max-Age=0; SameSite=Lax';
+        document.cookie = 'zarama_mobile_name=; Path=/; Max-Age=0; SameSite=Lax';
+      } catch (e) {}
+    }
+
+    if (getMobileToken()) {
       showM2();
     } else {
       showM1();
@@ -600,7 +709,7 @@ pub const SCANNER_HTML: &str = r#"<!DOCTYPE html>
     function showM2() {
       document.getElementById('viewM1').style.display = 'none';
       document.getElementById('viewM2').style.display = 'flex';
-      document.getElementById('devNameLabel').textContent = '📱 ' + (localStorage.getItem('zarama_mobile_name') || 'Móvil Vinculado');
+      document.getElementById('devNameLabel').textContent = '📱 ' + getMobileName();
       startCamera();
     }
 
@@ -619,8 +728,7 @@ pub const SCANNER_HTML: &str = r#"<!DOCTYPE html>
           return alert('Error vinculando: ' + (err.error || res.statusText));
         }
         const data = await res.json();
-        localStorage.setItem('zarama_mobile_token', data.tokenSesion);
-        localStorage.setItem('zarama_mobile_name', data.nombreDispositivo);
+        saveMobileSession(data.tokenSesion, data.nombreDispositivo);
         showM2();
       } catch (e) {
         alert('Fallo de conexión con el servidor LAN ZaramaGYM: ' + e.message);
@@ -629,8 +737,7 @@ pub const SCANNER_HTML: &str = r#"<!DOCTYPE html>
 
     document.getElementById('btnUnlink').addEventListener('click', () => {
       if (confirm('¿Desvincular este teléfono?')) {
-        localStorage.removeItem('zarama_mobile_token');
-        localStorage.removeItem('zarama_mobile_name');
+        clearMobileSession();
         showM1();
       }
     });
@@ -799,7 +906,7 @@ pub const SCANNER_HTML: &str = r#"<!DOCTYPE html>
     });
 
     async function sendScan(payload) {
-      const curToken = localStorage.getItem('zarama_mobile_token');
+      const curToken = getMobileToken();
       if (!curToken) {
         alert('El dispositivo no está vinculado.');
         return showM1();
@@ -817,7 +924,7 @@ pub const SCANNER_HTML: &str = r#"<!DOCTYPE html>
         });
         if (res.status === 401) {
           alert('Dispositivo revocado o no autorizado. Se desvinculará este teléfono.');
-          localStorage.removeItem('zarama_mobile_token');
+          clearMobileSession();
           return showM1();
         }
         if (!res.ok) {
@@ -894,7 +1001,7 @@ pub const SCANNER_HTML: &str = r#"<!DOCTYPE html>
   </script>
 </body>
 </html>
-"#;
+"##;
 
 // ============================================================================
 // ROUTER AXUM, SERVIDOR DUAL HTTPS/HTTP EN :3443 Y ENDPOINTS
@@ -909,6 +1016,11 @@ pub fn create_lan_router(state: AppState) -> Router {
     Router::new()
         .route("/", get(handle_scanner_page))
         .route("/scanner", get(handle_scanner_page))
+        .route("/manifest.webmanifest", get(handle_web_manifest))
+        .route("/assets/zaramagym-icon.png", get(handle_app_icon_512))
+        .route("/assets/zaramagym-icon-256.png", get(handle_app_icon_256))
+        .route("/apple-touch-icon.png", get(handle_app_icon_512))
+        .route("/favicon.ico", get(handle_app_icon_256))
         .route("/assets/jsqr.js", get(handle_jsqr_asset))
         .route("/api/lan/ping", get(handle_lan_ping))
         .route("/api/lan/ca.pem", get(handle_lan_ca_pem))
@@ -920,6 +1032,39 @@ pub fn create_lan_router(state: AppState) -> Router {
 
 async fn handle_scanner_page() -> impl IntoResponse {
     Html(SCANNER_HTML)
+}
+
+async fn handle_web_manifest() -> impl IntoResponse {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::CONTENT_TYPE,
+        "application/manifest+json; charset=utf-8".parse().unwrap(),
+    );
+    headers.insert(
+        header::CACHE_CONTROL,
+        "public, max-age=3600".parse().unwrap(),
+    );
+    (StatusCode::OK, headers, SCANNER_WEB_MANIFEST)
+}
+
+async fn handle_app_icon_512() -> impl IntoResponse {
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, "image/png".parse().unwrap());
+    headers.insert(
+        header::CACHE_CONTROL,
+        "public, max-age=86400".parse().unwrap(),
+    );
+    (StatusCode::OK, headers, APP_ICON_512_PNG)
+}
+
+async fn handle_app_icon_256() -> impl IntoResponse {
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, "image/png".parse().unwrap());
+    headers.insert(
+        header::CACHE_CONTROL,
+        "public, max-age=86400".parse().unwrap(),
+    );
+    (StatusCode::OK, headers, APP_ICON_256_PNG)
 }
 
 async fn handle_jsqr_asset() -> impl IntoResponse {
@@ -937,11 +1082,12 @@ async fn handle_jsqr_asset() -> impl IntoResponse {
 
 async fn handle_lan_ping(State(state): State<AppState>) -> impl IntoResponse {
     let port = *state.lan_server_port.read().await;
+    let hostname = resolve_mdns_hostname(&state.pool()).await;
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
     let body = json!({
         "status": "ok",
         "gym": "ZaramaGYM",
-        "hostname": "sistema.local",
+        "hostname": hostname,
         "port": port,
         "serverTime": now
     });
@@ -1148,21 +1294,7 @@ pub async fn start_lan_server(state: &AppState) -> Result<(), AppError> {
     }
 
     // Responder mDNS RFC 6762 sobre UDP 5353 (multicast 224.0.0.251)
-    let mdns_hostname_cfg = sqlx::query(
-        "SELECT valor FROM configuracion_sistema WHERE clave = 'LAN_MDNS_HOSTNAME'",
-    )
-    .fetch_optional(&state.pool())
-    .await
-    .ok()
-    .flatten()
-    .and_then(|r| r.get::<Option<String>, _>("valor"))
-    .map(|s| s.trim().to_string())
-    .filter(|s| !s.is_empty())
-    .unwrap_or_else(|| "sistema.local".to_string());
-
-    let primary_ipv4: Ipv4Addr = detect_primary_ip()
-        .parse::<Ipv4Addr>()
-        .unwrap_or(Ipv4Addr::LOCALHOST);
+    let mdns_hostname_cfg = resolve_mdns_hostname(&state.pool()).await;
     let state_for_mdns = state.clone();
 
     tokio::spawn(async move {
@@ -1178,8 +1310,21 @@ pub async fn start_lan_server(state: &AppState) -> Result<(), AppError> {
         let multicast_dest = SocketAddr::from((multicast_ip, 5353));
         let _ = socket.join_multicast_v4(multicast_ip, Ipv4Addr::UNSPECIFIED);
 
-        let announcement = build_mdns_a_record_packet(0, &mdns_hostname_cfg, primary_ipv4);
-        let _ = socket.send_to(&announcement, multicast_dest).await;
+        let mut mdns_hosts = vec![mdns_hostname_cfg.clone()];
+        if !mdns_hosts
+            .iter()
+            .any(|h| h.eq_ignore_ascii_case(LEGACY_MDNS_HOSTNAME))
+        {
+            mdns_hosts.push(LEGACY_MDNS_HOSTNAME.to_string());
+        }
+
+        let current_ip = detect_primary_ip()
+            .parse::<Ipv4Addr>()
+            .unwrap_or(Ipv4Addr::LOCALHOST);
+        for host in &mdns_hosts {
+            let announcement = build_mdns_a_record_packet(0, host, current_ip);
+            let _ = socket.send_to(&announcement, multicast_dest).await;
+        }
         let mut last_announce = tokio::time::Instant::now();
         let mut buf = [0u8; 1500];
 
@@ -1190,17 +1335,28 @@ pub async fn start_lan_server(state: &AppState) -> Result<(), AppError> {
             )
             .await
             {
-                if let Some(tx_id) = parse_mdns_query_for_host(&buf[..len], &mdns_hostname_cfg) {
-                    let resp = build_mdns_a_record_packet(tx_id, &mdns_hostname_cfg, primary_ipv4);
-                    let _ = socket.send_to(&resp, multicast_dest).await;
-                    if peer_addr.port() != 5353 {
-                        let _ = socket.send_to(&resp, peer_addr).await;
+                let live_ipv4 = detect_primary_ip()
+                    .parse::<Ipv4Addr>()
+                    .unwrap_or(Ipv4Addr::LOCALHOST);
+                for host in &mdns_hosts {
+                    if let Some(tx_id) = parse_mdns_query_for_host(&buf[..len], host) {
+                        let resp = build_mdns_a_record_packet(tx_id, host, live_ipv4);
+                        let _ = socket.send_to(&resp, multicast_dest).await;
+                        if peer_addr.port() != 5353 {
+                            let _ = socket.send_to(&resp, peer_addr).await;
+                        }
                     }
                 }
             }
 
             if last_announce.elapsed() >= std::time::Duration::from_secs(30) {
-                let _ = socket.send_to(&announcement, multicast_dest).await;
+                let live_ipv4 = detect_primary_ip()
+                    .parse::<Ipv4Addr>()
+                    .unwrap_or(Ipv4Addr::LOCALHOST);
+                for host in &mdns_hosts {
+                    let announcement = build_mdns_a_record_packet(0, host, live_ipv4);
+                    let _ = socket.send_to(&announcement, multicast_dest).await;
+                }
                 last_announce = tokio::time::Instant::now();
             }
         }
@@ -1269,17 +1425,15 @@ pub async fn get_lan_server_status(state: &AppState) -> Result<LanServerStatusDt
     let port = *state.lan_server_port.read().await;
     let primary_ip = detect_primary_ip();
     let local_ips = get_local_ips(&primary_ip);
-    let https_url = format!("https://{}:{}/scanner", primary_ip, port);
-    let http_url = format!("http://{}:{}/scanner", primary_ip, port);
 
-    let mdns_row = sqlx::query(
-        "SELECT valor FROM configuracion_sistema WHERE clave = 'LAN_MDNS_HOSTNAME'",
-    )
-    .fetch_optional(&state.pool())
-    .await?;
-    let mdns_hostname = mdns_row
-        .and_then(|r| r.get::<Option<String>, _>("valor"))
-        .unwrap_or_else(|| "sistema.local".to_string());
+    let mdns_hostname = resolve_mdns_hostname(&state.pool()).await;
+    let primary_host = if !mdns_hostname.is_empty() {
+        mdns_hostname.as_str()
+    } else {
+        primary_ip.as_str()
+    };
+    let https_url = format!("https://{}:{}/scanner", primary_host, port);
+    let http_url = format!("http://{}:{}/scanner", primary_host, port);
 
     let ca_cert_pem = get_active_ca_pem(state).await;
     let ca_cert_fingerprint_sha256 = get_ca_fingerprint_from_pem(&ca_cert_pem);
@@ -1328,11 +1482,7 @@ pub async fn toggle_lan_server(
     session: &AuthSession,
     enable: bool,
 ) -> Result<LanServerStatusDto, AppError> {
-    if session.rol.hierarchy_level() < UserRole::Supervisor.hierarchy_level() {
-        return Err(AppError::Forbidden(
-            "Se requieren permisos de SUPERVISOR o ADMINISTRADOR para gestionar el servidor LAN.".into(),
-        ));
-    }
+    session.require_admin()?;
 
     let current_running = *state.lan_server_running.read().await;
     let port = *state.lan_server_port.read().await;
@@ -1479,11 +1629,7 @@ pub async fn create_mobile_device_pairing(
     state: &AppState,
     input: CreateMobileDeviceInput,
 ) -> Result<MobileDevicePairingDto, AppError> {
-    if session.rol.hierarchy_level() < UserRole::Supervisor.hierarchy_level() {
-        return Err(AppError::Forbidden(
-            "Se requieren permisos de SUPERVISOR o ADMINISTRADOR para generar vinculaciones móviles.".into(),
-        ));
-    }
+    session.require_admin()?;
 
     let nombre = input.nombre_dispositivo.trim();
     if nombre.is_empty() {
@@ -1512,9 +1658,14 @@ pub async fn create_mobile_device_pairing(
 
     let device_id = res.last_insert_rowid();
 
-    let primary_ip = detect_primary_ip();
+    let mdns_hostname = resolve_mdns_hostname(pool).await;
+    let primary_host = if !mdns_hostname.is_empty() {
+        mdns_hostname
+    } else {
+        detect_primary_ip()
+    };
     let port = *state.lan_server_port.read().await;
-    let pairing_url = format!("https://{}:{}/scanner?pair={}", primary_ip, port, codigo);
+    let pairing_url = format!("https://{}:{}/scanner?pair={}", primary_host, port, codigo);
     let qr_data_url = generate_qr_svg_data_url(&pairing_url)?;
 
     let det_str = json!({ "device_id": device_id, "nombre": nombre, "codigo": codigo }).to_string();
@@ -1631,11 +1782,7 @@ pub async fn revoke_mobile_device(
     session: &AuthSession,
     device_id: i64,
 ) -> Result<(), AppError> {
-    if session.rol.hierarchy_level() < UserRole::Supervisor.hierarchy_level() {
-        return Err(AppError::Forbidden(
-            "Se requieren permisos de SUPERVISOR o ADMINISTRADOR para revocar dispositivos móviles.".into(),
-        ));
-    }
+    session.require_admin()?;
 
     let row = sqlx::query("SELECT id FROM dispositivos_moviles WHERE id = ?")
         .bind(device_id)
@@ -1741,7 +1888,7 @@ pub async fn mobile_scan_qr(
             let rol_str: String = user_row.get("rol_principal");
             let nombres: String = user_row.get("nombres");
             let apellidos: String = user_row.get("apellidos");
-            let rol = rol_str.parse::<UserRole>().unwrap_or(UserRole::Supervisor);
+            let rol = rol_str.parse::<UserRole>().unwrap_or(UserRole::Recepcionista);
             AuthSession {
                 user_id: creador_id,
                 persona_id,

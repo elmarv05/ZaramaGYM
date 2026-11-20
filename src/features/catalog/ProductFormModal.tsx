@@ -16,6 +16,13 @@ import {
   ProductListItem,
   UpdateProductInput,
 } from '../../types/catalog';
+import {
+  formatDecimalOnBlur,
+  preventEnterKeySubmit,
+  sanitizeDecimalInput,
+  sanitizeIntegerInput,
+  selectIfZeroDefault,
+} from '../../utils/formSafety';
 
 export interface ProductFormModalProps {
   isOpen: boolean;
@@ -40,8 +47,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [unidadMedida, setUnidadMedida] = useState('UNIDAD');
   const [precioCompra, setPrecioCompra] = useState('0.00');
   const [precioVenta, setPrecioVenta] = useState('5.00');
-  const [stockInicial, setStockInicial] = useState<number>(0);
-  const [stockMinimo, setStockMinimo] = useState<number>(5);
+  const [stockInicialStr, setStockInicialStr] = useState<string>('0');
+  const [stockMinimoStr, setStockMinimoStr] = useState<string>('5');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -52,8 +59,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setUnidadMedida(productToEdit.unidad_medida || 'UNIDAD');
       setPrecioCompra(productToEdit.precio_compra_referencial);
       setPrecioVenta(productToEdit.precio_venta);
-      setStockInicial(productToEdit.stock_actual);
-      setStockMinimo(productToEdit.stock_minimo);
+      setStockInicialStr(String(productToEdit.stock_actual));
+      setStockMinimoStr(String(productToEdit.stock_minimo));
     } else {
       setSku('');
       setNombre('');
@@ -61,8 +68,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setUnidadMedida('UNIDAD');
       setPrecioCompra('0.00');
       setPrecioVenta('5.00');
-      setStockInicial(0);
-      setStockMinimo(5);
+      setStockInicialStr('0');
+      setStockMinimoStr('5');
     }
     setErrors({});
   }, [productToEdit, isOpen]);
@@ -70,15 +77,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const parsedStockInicial = parseInt(stockInicialStr, 10);
+    const parsedStockMinimo = parseInt(stockMinimoStr, 10);
     const formValues = {
       codigo_sku: isEditing ? productToEdit?.codigo_sku : sku,
       nombre,
       categoria,
       unidad_medida: unidadMedida,
-      precio_compra_referencial: precioCompra,
+      precio_compra_referencial: precioCompra.trim() ? precioCompra : '0.00',
       precio_venta: precioVenta,
-      stock_inicial: isEditing ? undefined : Number(stockInicial),
-      stock_minimo: Number(stockMinimo),
+      stock_inicial: isEditing ? undefined : (stockInicialStr.trim() === '' || isNaN(parsedStockInicial) ? 0 : parsedStockInicial),
+      stock_minimo: stockMinimoStr.trim() === '' || isNaN(parsedStockMinimo) ? -1 : parsedStockMinimo,
     };
 
     const validationErrors = validateProductForm(formValues, isEditing);
@@ -127,7 +136,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       description="Ingresa datos comerciales y umbrales de alerta de reposición."
       size="md"
     >
-      <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form
+        noValidate
+        onSubmit={handleSubmit}
+        onKeyDown={preventEnterKeySubmit}
+        className="flex flex-col gap-4"
+      >
         {!isEditing && (
           <Input
             label="Código / SKU"
@@ -182,17 +196,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="Precio de Compra Referencial"
-            type="number"
+            type="text"
             inputMode="decimal"
-            step="0.01"
-            min="0"
             value={precioCompra}
-            onChange={(e) => setPrecioCompra(e.target.value)}
+            onFocus={selectIfZeroDefault}
+            onChange={(e) => setPrecioCompra(sanitizeDecimalInput(e.target.value))}
             onBlur={(e) => {
-              const v = parseFloat(e.target.value);
-              if (!isNaN(v) && v >= 0) {
-                setPrecioCompra(v.toFixed(2));
-              }
+              setPrecioCompra(formatDecimalOnBlur(e.target.value, { min: 0, fallback: '0.00' }));
             }}
             error={errors.precio_compra_referencial}
             leftIcon={<span className="text-xs font-bold text-txt-muted">S/</span>}
@@ -201,17 +211,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
           <Input
             label="Precio de Venta al Público"
-            type="number"
+            type="text"
             inputMode="decimal"
-            step="0.01"
-            min="0"
             value={precioVenta}
-            onChange={(e) => setPrecioVenta(e.target.value)}
+            onFocus={selectIfZeroDefault}
+            onChange={(e) => setPrecioVenta(sanitizeDecimalInput(e.target.value))}
             onBlur={(e) => {
-              const v = parseFloat(e.target.value);
-              if (!isNaN(v) && v >= 0) {
-                setPrecioVenta(v.toFixed(2));
-              }
+              setPrecioVenta(formatDecimalOnBlur(e.target.value, { min: 0, fallback: '' }));
             }}
             error={errors.precio_venta}
             required
@@ -224,10 +230,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           {!isEditing ? (
             <Input
               label="Stock Inicial Físico"
-              type="number"
-              min="0"
-              value={stockInicial}
-              onChange={(e) => setStockInicial(parseInt(e.target.value, 10) || 0)}
+              type="text"
+              inputMode="numeric"
+              value={stockInicialStr}
+              onFocus={selectIfZeroDefault}
+              onChange={(e) => setStockInicialStr(sanitizeIntegerInput(e.target.value))}
+              onBlur={(e) => {
+                if (!e.target.value.trim()) setStockInicialStr('0');
+              }}
               error={errors.stock_inicial}
               hint="Genera asiento STOCK_INICIAL en Kardex"
             />
@@ -247,10 +257,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
           <Input
             label="Umbral Stock Mínimo"
-            type="number"
-            min="0"
-            value={stockMinimo}
-            onChange={(e) => setStockMinimo(parseInt(e.target.value, 10) || 0)}
+            type="text"
+            inputMode="numeric"
+            value={stockMinimoStr}
+            onFocus={selectIfZeroDefault}
+            onChange={(e) => setStockMinimoStr(sanitizeIntegerInput(e.target.value))}
             error={errors.stock_minimo}
             required
             hint="Dispara alerta visual en la tabla"

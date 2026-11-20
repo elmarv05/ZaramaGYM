@@ -150,7 +150,9 @@ async fn test_cp_lan_01_toggle_server_and_idempotent_migrations() {
     let started = lan_service::toggle_lan_server(&state, &admin, true).await.unwrap();
     assert!(started.is_running);
     assert!(started.mdns_active);
-    assert!(started.https_url.contains(&started.primary_ip));
+    assert_eq!(started.mdns_hostname, "zaramagym.local");
+    assert!(started.https_url.contains(&started.mdns_hostname));
+    assert!(!started.primary_ip.is_empty());
 
     // Detener servidor LAN
     let stopped = lan_service::toggle_lan_server(&state, &admin, false).await.unwrap();
@@ -182,7 +184,7 @@ async fn test_cp_lan_02_healthcheck_ping() {
 
     assert_eq!(body_json["status"], "ok");
     assert_eq!(body_json["gym"], "ZaramaGYM");
-    assert_eq!(body_json["hostname"], "sistema.local");
+    assert_eq!(body_json["hostname"], "zaramagym.local");
 }
 
 // ============================================================================
@@ -922,4 +924,151 @@ async fn test_cp_lan_14_hid_keyboard_es_qr_normalization_in_checkin() {
     assert_eq!(eval.cliente_id, client_id);
     assert_eq!(eval.color_semaforo, TrafficLightColor::Verde);
     assert!(eval.ingreso_permitido);
+}
+
+// ============================================================================
+// CP-LAN-15: ÍCONO OFICIAL ZARAMAGYM Y MANIFEST PWA PARA ACCESO DIRECTO MÓVIL
+// ============================================================================
+#[tokio::test]
+async fn test_cp_lan_15_mobile_pwa_icon_and_manifest_routes() {
+    let (state, _temp, _admin) = setup_test_env().await;
+    let app = lan_service::create_lan_router(state);
+
+    // 1. Verificar que /scanner declara manifest, apple-touch-icon y favicon oficiales
+    let scanner_resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/scanner")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(scanner_resp.status(), StatusCode::OK);
+    let scanner_bytes = axum::body::to_bytes(scanner_resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let scanner_html = String::from_utf8_lossy(&scanner_bytes);
+    assert!(scanner_html.contains(r#"rel="manifest" href="/manifest.webmanifest""#));
+    assert!(scanner_html.contains(r#"rel="apple-touch-icon" sizes="180x180" href="/assets/zaramagym-icon.png""#));
+    assert!(scanner_html.contains(r#"name="apple-mobile-web-app-capable" content="yes""#));
+
+    // 2. Verificar /manifest.webmanifest
+    let manifest_resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/manifest.webmanifest")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(manifest_resp.status(), StatusCode::OK);
+    let manifest_ct = manifest_resp
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert!(manifest_ct.contains("application/manifest+json"));
+    let manifest_bytes = axum::body::to_bytes(manifest_resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let manifest_json: serde_json::Value = serde_json::from_slice(&manifest_bytes).unwrap();
+    assert_eq!(manifest_json["short_name"], "ZaramaGYM");
+    assert_eq!(manifest_json["display"], "standalone");
+    assert_eq!(manifest_json["start_url"], "/scanner");
+
+    // 3. Verificar PNG embebidos (magic bytes \x89PNG\r\n\x1a\n) en todas las rutas de ícono
+    for route in [
+        "/assets/zaramagym-icon.png",
+        "/assets/zaramagym-icon-256.png",
+        "/apple-touch-icon.png",
+        "/favicon.ico",
+    ] {
+        let icon_resp = app
+            .clone()
+            .oneshot(Request::builder().uri(route).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(icon_resp.status(), StatusCode::OK, "Ruta falló: {}", route);
+        let ct = icon_resp
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert_eq!(ct, "image/png", "Content-Type incorrecto en {}", route);
+        let bytes = axum::body::to_bytes(icon_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert!(bytes.len() > 1024, "PNG demasiado pequeño en {}", route);
+        assert_eq!(
+            &bytes[..8],
+            b"\x89PNG\r\n\x1a\n",
+            "Header PNG inválido en {}",
+            route
+        );
+    }
+}
+
+// ============================================================================
+// CP-LAN-16: ENLACE PRINCIPAL mDNS (zaramagym.local:3443) Y MIGRACIÓN IDEMPOTENTE
+// ============================================================================
+#[tokio::test]
+async fn test_cp_lan_16_mdns_primary_url_and_legacy_migration() {
+    let (state, _temp, admin) = setup_test_env().await;
+
+    // 1. Verificar que get_lan_server_status expone zaramagym.local como URL principal
+    let status = lan_service::get_lan_server_status(&state).await.unwrap();
+    assert_eq!(status.mdns_hostname, "zaramagym.local");
+    assert_eq!(
+        status.https_url,
+        format!("https://zaramagym.local:{}/scanner", status.port)
+    );
+    assert_eq!(
+        status.http_url,
+        format!("http://zaramagym.local:{}/scanner", status.port)
+    );
+
+    // 2. Verificar que create_mobile_device_pairing genera pairing_url con mDNS zaramagym.local
+    let pairing = lan_service::create_mobile_device_pairing(
+        &state.pool(),
+        &admin,
+        &state,
+        CreateMobileDeviceInput {
+            nombre_dispositivo: "Celular Turno Hotspot".into(),
+        },
+    )
+    .await
+    .unwrap();
+    assert!(
+        pairing
+            .pairing_url
+            .starts_with(&format!("https://zaramagym.local:{}/scanner?pair=", status.port)),
+        "pairing_url inesperada: {}",
+        pairing.pairing_url
+    );
+
+    // 3. Verificar migración idempotente si una BD antigua tenía 'sistema.local'
+    sqlx::query("UPDATE configuracion_sistema SET valor = 'sistema.local' WHERE clave = 'LAN_MDNS_HOSTNAME'")
+        .execute(&state.pool())
+        .await
+        .unwrap();
+    zarama_gym_lib::db::run_migrations(&state.pool())
+        .await
+        .expect("Re-ejecutar migraciones debe migrar sistema.local -> zaramagym.local");
+    let migrated_host = lan_service::resolve_mdns_hostname(&state.pool()).await;
+    assert_eq!(migrated_host, "zaramagym.local");
+
+    // 4. Verificar que el responder mDNS parsea consultas para zaramagym.local
+    let packet = lan_service::build_mdns_a_record_packet(
+        0x1234,
+        "zaramagym.local",
+        std::net::Ipv4Addr::new(192, 168, 43, 100),
+    );
+    assert!(packet.len() > 24);
+    assert_eq!(&packet[packet.len() - 4..], &[192, 168, 43, 100]);
 }

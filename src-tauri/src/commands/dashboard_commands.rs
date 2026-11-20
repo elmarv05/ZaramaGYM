@@ -51,7 +51,7 @@ pub async fn export_sales_cash_report(
     canalFiltro: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ExportFileResult, AppError> {
-    let session = state.require_supervisor_or_admin().await?;
+    let session = state.require_unlocked_session().await?;
     let resolved_req = if let Some(req) = request.or(input) {
         req
     } else {

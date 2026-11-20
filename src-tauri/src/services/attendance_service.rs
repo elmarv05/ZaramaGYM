@@ -1202,6 +1202,7 @@ pub async fn update_system_config(
     session: &AuthSession,
     input: UpdateSystemConfigInput,
 ) -> Result<SystemConfigDto, AppError> {
+    session.require_admin()?;
     if let Some(dias) = input.dias_alerta_amarillo {
         if dias < 1 {
             return Err(AppError::Validation(

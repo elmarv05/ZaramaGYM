@@ -1,7 +1,7 @@
 // ============================================================================
 // SUITE DE PRUEBAS FRONTEND: SLICE 8 (IMPRESIÓN TÉRMICA, PDFS Y RESPALDOS)
 // Verificación integral: Configuración Virtual 58/80mm, SMTP, Series NV01/B001/F001,
-// Respaldos VACUUM INTO, Diagnóstico PRAGMA y RBAC Admin vs Supervisor
+// Respaldos VACUUM INTO, Diagnóstico PRAGMA y RBAC Admin vs Recepcionista
 // Ubicación: src/features/printing_backup/__tests__/PrintingBackupView.test.tsx
 // ============================================================================
 
@@ -39,12 +39,12 @@ const adminSession: AuthSession = {
   login_at: '2026-11-15 08:00:00',
 };
 
-const supervisorSession: AuthSession = {
+const recepcionistaSession: AuthSession = {
   user_id: 2,
   persona_id: 2,
-  username: 'supervisor1',
-  nombre_completo: 'Carlos Supervisor',
-  rol: 'SUPERVISOR',
+  username: 'recep1',
+  nombre_completo: 'Ana Recepción',
+  rol: 'RECEPCIONISTA',
   foto_perfil_data_url: null,
   is_locked: false,
   login_at: '2026-11-15 08:30:00',
@@ -269,10 +269,10 @@ describe('Suite Frontend: Slice 8 - Impresión Térmica, PDFs y Respaldos', () =
       });
     });
 
-    it('bloquea la edición para SUPERVISOR mostrando aviso informativo', () => {
+    it('bloquea la edición para no-administradores mostrando aviso informativo', () => {
       render(
         <PrintingBackupView
-          currentSession={supervisorSession}
+          currentSession={recepcionistaSession}
           initialTab="printer"
           config={mockConfig}
           series={mockSeries}
@@ -282,7 +282,7 @@ describe('Suite Frontend: Slice 8 - Impresión Térmica, PDFs y Respaldos', () =
 
       expect(screen.getByText('Modo Visualización')).toBeInTheDocument();
       expect(
-        screen.getByText(/Como Supervisor tienes acceso de lectura/i)
+        screen.getByText(/Los cambios de configuración de impresión, encabezados y correo del gimnasio son exclusivos del Administrador/i)
       ).toBeInTheDocument();
 
       // No debe existir el botón de guardar
@@ -292,7 +292,7 @@ describe('Suite Frontend: Slice 8 - Impresión Térmica, PDFs y Respaldos', () =
         })
       ).not.toBeInTheDocument();
 
-      // Tampoco debe existir el botón Autocompletar Gmail para SUPERVISOR
+      // Tampoco debe existir el botón Autocompletar Gmail
       expect(
         screen.queryByRole('button', { name: /Autocompletar Gmail/i })
       ).not.toBeInTheDocument();
@@ -488,10 +488,10 @@ describe('Suite Frontend: Slice 8 - Impresión Térmica, PDFs y Respaldos', () =
       });
     });
 
-    it('muestra banner informativo de restricción para rol SUPERVISOR', () => {
+    it('muestra banner informativo de restricción para rol RECEPCIONISTA', () => {
       render(
         <PrintingBackupView
-          currentSession={supervisorSession}
+          currentSession={recepcionistaSession}
           initialTab="backups"
           config={mockConfig}
           series={mockSeries}
@@ -513,7 +513,7 @@ describe('Suite Frontend: Slice 8 - Impresión Térmica, PDFs y Respaldos', () =
         })
       ).not.toBeInTheDocument();
 
-      // Botón Restaurar Base de Datos tampoco debe mostrarse para SUPERVISOR
+      // Botón Restaurar Base de Datos tampoco debe mostrarse
       expect(
         screen.queryByRole('button', {
           name: /Restaurar Base de Datos/i,
@@ -927,6 +927,19 @@ describe('Suite Frontend: Slice 8 - Impresión Térmica, PDFs y Respaldos', () =
           screen.getByRole('button', { name: /Imprimir Ticket Ahora/i })
         ).toBeInTheDocument();
       });
+
+      const waBtn = screen.getByRole('button', { name: /Enviar por WhatsApp/i });
+      expect(waBtn).toBeInTheDocument();
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+      fireEvent.click(waBtn);
+      await waitFor(() => {
+        expect(openSpy).toHaveBeenCalledWith(
+          expect.stringContaining('https://wa.me/?text='),
+          '_blank',
+          'noopener,noreferrer'
+        );
+      });
+      openSpy.mockRestore();
     });
   });
 });

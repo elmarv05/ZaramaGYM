@@ -11,6 +11,7 @@ import { Icon } from '../../../components/primitives/Icon';
 import { Modal } from '../../../components/primitives/Modal';
 import { validateCancelPurchaseInput } from '../../../domain/finance';
 import { CancelSupplierPurchaseDto } from '../../../types/finance';
+import { preventEnterKeySubmit } from '../../../utils/formSafety';
 
 export interface CancelPurchaseModalProps {
   isOpen: boolean;
@@ -62,7 +63,7 @@ export const CancelPurchaseModal: React.FC<CancelPurchaseModalProps> = ({
       description="Operación administrativa irreversible sobre inventario y Kardex."
       size="md"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-xs">
+      <form noValidate onSubmit={handleSubmit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4 text-xs">
         {errorMsg && (
           <Alert variant="danger" title="Error en anulación" onClose={() => setErrorMsg(null)}>
             {errorMsg}
@@ -93,6 +94,7 @@ export const CancelPurchaseModal: React.FC<CancelPurchaseModalProps> = ({
             onChange={(e) => setMotivo(e.target.value)}
             placeholder="Indique detalladamente el motivo (mínimo 5 caracteres: error de factura, devolución de mercadería al proveedor, etc.)..."
             rows={3}
+            required
             aria-label="Motivo de Anulación"
             className="w-full px-2.5 py-1.5 rounded-md border border-border bg-canvas text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
           />

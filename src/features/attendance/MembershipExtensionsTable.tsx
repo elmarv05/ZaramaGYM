@@ -12,6 +12,7 @@ export interface MembershipExtensionsTableProps {
   extensions: MembershipExtensionDto[];
   isLoading: boolean;
   error: string | null;
+  canExtendMembership?: boolean;
   onOpenExtendModal: () => void;
   onRetry: () => void;
 }
@@ -20,6 +21,7 @@ export const MembershipExtensionsTable: React.FC<MembershipExtensionsTableProps>
   extensions,
   isLoading,
   error,
+  canExtendMembership = true,
   onOpenExtendModal,
   onRetry,
 }) => {
@@ -57,15 +59,17 @@ export const MembershipExtensionsTable: React.FC<MembershipExtensionsTableProps>
             Todas las extensiones manuales de membresía son auditadas de forma inmutable.
           </p>
         </div>
-        <button
-          type="button"
-          data-testid="btn-open-extend-modal"
-          onClick={onOpenExtendModal}
-          className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-brand-text text-xs font-black shadow-xs transition-colors flex items-center gap-2"
-        >
-          <Icon name="plus" className="w-4 h-4" />
-          <span>Otorgar Días de Membresía</span>
-        </button>
+        {canExtendMembership && (
+          <button
+            type="button"
+            data-testid="btn-open-extend-modal"
+            onClick={onOpenExtendModal}
+            className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-brand-text text-xs font-black shadow-xs transition-colors flex items-center gap-2"
+          >
+            <Icon name="plus" className="w-4 h-4" />
+            <span>Otorgar Días de Membresía</span>
+          </button>
+        )}
       </div>
 
       {/* 2. LOADING / SKELETON */}
@@ -91,15 +95,19 @@ export const MembershipExtensionsTable: React.FC<MembershipExtensionsTableProps>
             No se han registrado extensiones de membresía
           </h4>
           <p className="text-xs text-txt-muted max-w-sm">
-            Cuando un socio justifique inasistencia médica o viaje, use el botón superior para extender sus días válidos.
+            {canExtendMembership
+              ? 'Cuando un socio justifique inasistencia médica o viaje, use el botón superior para extender sus días válidos.'
+              : 'Consulta aquí el historial auditado de prórrogas autorizadas por el Administrador.'}
           </p>
-          <button
-            type="button"
-            onClick={onOpenExtendModal}
-            className="mt-2 px-4 py-2 bg-brand text-brand-text text-xs font-bold rounded-lg shadow-xs hover:bg-brand-hover transition-colors"
-          >
-            Otorgar Primera Prórroga
-          </button>
+          {canExtendMembership && (
+            <button
+              type="button"
+              onClick={onOpenExtendModal}
+              className="mt-2 px-4 py-2 bg-brand text-brand-text text-xs font-bold rounded-lg shadow-xs hover:bg-brand-hover transition-colors"
+            >
+              Otorgar Primera Prórroga
+            </button>
+          )}
         </div>
       ) : (
         /* 4. SUCCESS / DATA STATE */

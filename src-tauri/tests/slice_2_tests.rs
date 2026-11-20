@@ -39,21 +39,21 @@ async fn test_exact_5_persons_scenario_hierarchical_visibility_and_crud() {
     .await
     .unwrap();
 
-    // 2. Crear Persona 2: Supervisor (sup1)
-    let sup_user = auth_service::create_user(
+    // 2. Crear Persona 2: Administrador auxiliar (adm2)
+    let adm2_user = auth_service::create_user(
         &state.pool(),
         &state,
         CreateUserInput {
             persona_id: None,
-            username: "sup1".into(),
+            username: "adm2".into(),
             password: "password123".into(),
             tipo_documento: "DNI".into(),
             numero_documento: "22222222".into(),
             nombres: "Santiago".into(),
-            apellidos: "Supervisor".into(),
+            apellidos: "AdminDos".into(),
             telefono: None,
             email: None,
-            rol: UserRole::Supervisor,
+            rol: UserRole::Administrador,
             foto_perfil_data_url: None,
         },
     )
@@ -135,47 +135,15 @@ async fn test_exact_5_persons_scenario_hierarchical_visibility_and_crud() {
         .unwrap();
     assert_eq!(admin_persons.len(), 5, "Administrador debe ver las 5 personas");
 
-    auth_service::logout(&state.pool(), &state).await.unwrap();
-
-    // =========================================================================
-    // VERIFICACIÓN 2: SUPERVISOR VE EXACTAMENTE 3 PERSONAS (2 Clientes + Recepcionista)
-    // =========================================================================
-    let sup_session = auth_service::login(
-        &state.pool(),
-        &state,
-        LoginCredentials {
-            username: "sup1".into(),
-            password: "password123".into(),
-        },
-    )
-    .await
-    .unwrap();
-
-    let sup_persons = entity_service::list_persons(&state.pool(), &sup_session, &PersonFilter::default())
+    // Admin tiene acceso CRUD sobre la persona del Recepcionista
+    let rec_person_detail = entity_service::get_person(&state.pool(), &admin_session, rec_user.persona_id)
         .await
-        .unwrap();
-    assert_eq!(
-        sup_persons.len(),
-        3,
-        "Supervisor debe ver exactamente 3 personas: 2 clientes + 1 recepcionista"
-    );
-
-    let sup_doc_list: Vec<String> = sup_persons.iter().map(|p| p.numero_documento.clone()).collect();
-    assert!(sup_doc_list.contains(&"33333333".to_string()), "Debe ver al recepcionista");
-    assert!(sup_doc_list.contains(&"44444444".to_string()), "Debe ver al cliente A");
-    assert!(sup_doc_list.contains(&"55555555".to_string()), "Debe ver al cliente B");
-    assert!(!sup_doc_list.contains(&"00000000".to_string()), "NO debe ver al Admin");
-    assert!(!sup_doc_list.contains(&"22222222".to_string()), "NO debe ver al Supervisor");
-
-    // Supervisor tiene acceso CRUD sobre la persona del Recepcionista
-    let rec_person_detail = entity_service::get_person(&state.pool(), &sup_session, rec_user.persona_id)
-        .await
-        .expect("Supervisor debe poder consultar al recepcionista");
+        .expect("Admin debe poder consultar al recepcionista");
     assert_eq!(rec_person_detail.numero_documento, "33333333");
 
     let updated_rec = entity_service::update_person(
         &state.pool(),
-        &sup_session,
+        &admin_session,
         rec_user.persona_id,
         UpdatePersonInput {
             tipo_documento: "DNI".into(),
@@ -189,40 +157,12 @@ async fn test_exact_5_persons_scenario_hierarchical_visibility_and_crud() {
         },
     )
     .await;
-    assert!(updated_rec.is_ok(), "Supervisor debe poder editar al recepcionista");
-
-    // Supervisor intenta consultar, editar o desactivar al Admin o Supervisor -> Forbidden
-    let bad_sup_get_admin = entity_service::get_person(&state.pool(), &sup_session, 1).await;
-    assert!(matches!(bad_sup_get_admin.unwrap_err(), AppError::Forbidden(_)));
-
-    let bad_sup_update_admin = entity_service::update_person(
-        &state.pool(),
-        &sup_session,
-        1,
-        UpdatePersonInput {
-            tipo_documento: "DNI".into(),
-            numero_documento: "00000000".into(),
-            nombres: "Hacked".into(),
-            apellidos: "Admin".into(),
-            fecha_nacimiento: None,
-            telefono: None,
-            email: None,
-            direccion: None,
-        },
-    )
-    .await;
-    assert!(matches!(bad_sup_update_admin.unwrap_err(), AppError::Forbidden(_)));
-
-    let bad_sup_toggle_admin = entity_service::toggle_person_active(&state.pool(), &sup_session, 1, false).await;
-    assert!(matches!(bad_sup_toggle_admin.unwrap_err(), AppError::Forbidden(_)));
-
-    let bad_sup_toggle_sup = entity_service::toggle_person_active(&state.pool(), &sup_session, sup_user.persona_id, false).await;
-    assert!(matches!(bad_sup_toggle_sup.unwrap_err(), AppError::Forbidden(_)));
+    assert!(updated_rec.is_ok(), "Admin debe poder editar al recepcionista");
 
     auth_service::logout(&state.pool(), &state).await.unwrap();
 
     // =========================================================================
-    // VERIFICACIÓN 3: RECEPCIONISTA VE EXACTAMENTE 2 PERSONAS (Solo los 2 Clientes)
+    // VERIFICACIÓN 2: RECEPCIONISTA VE EXACTAMENTE 2 PERSONAS (Solo los 2 Clientes)
     // =========================================================================
     let rec_session = auth_service::login(
         &state.pool(),
@@ -248,18 +188,100 @@ async fn test_exact_5_persons_scenario_hierarchical_visibility_and_crud() {
     assert!(rec_doc_list.contains(&"44444444".to_string()));
     assert!(rec_doc_list.contains(&"55555555".to_string()));
     assert!(!rec_doc_list.contains(&"33333333".to_string()), "NO debe ver a recepcionistas");
-    assert!(!rec_doc_list.contains(&"22222222".to_string()), "NO debe ver a supervisores");
-    assert!(!rec_doc_list.contains(&"00000000".to_string()), "NO debe ver a administradores");
+    assert!(!rec_doc_list.contains(&"22222222".to_string()), "NO debe ver a otros administradores");
+    assert!(!rec_doc_list.contains(&"00000000".to_string()), "NO debe ver al admin root");
 
     // Recepcionista intenta consultar a cualquier usuario de sistema -> Forbidden
     let bad_rec_get_rec = entity_service::get_person(&state.pool(), &rec_session, rec_user.persona_id).await;
     assert!(matches!(bad_rec_get_rec.unwrap_err(), AppError::Forbidden(_)));
 
-    let bad_rec_get_sup = entity_service::get_person(&state.pool(), &rec_session, sup_user.persona_id).await;
-    assert!(matches!(bad_rec_get_sup.unwrap_err(), AppError::Forbidden(_)));
+    let bad_rec_get_adm2 = entity_service::get_person(&state.pool(), &rec_session, adm2_user.persona_id).await;
+    assert!(matches!(bad_rec_get_adm2.unwrap_err(), AppError::Forbidden(_)));
 
     let bad_rec_get_admin = entity_service::get_person(&state.pool(), &rec_session, 1).await;
     assert!(matches!(bad_rec_get_admin.unwrap_err(), AppError::Forbidden(_)));
+
+    // Recepcionista NO puede crear, editar ni desactivar personas directamente ni desactivar clientes/proveedores/empresas
+    let bad_rec_update_person = entity_service::update_person(
+        &state.pool(),
+        &rec_session,
+        client_a.persona_id,
+        UpdatePersonInput {
+            tipo_documento: "DNI".into(),
+            numero_documento: "44444444".into(),
+            nombres: "Carlos".into(),
+            apellidos: "Cliente".into(),
+            fecha_nacimiento: None,
+            telefono: None,
+            email: None,
+            direccion: None,
+        },
+    )
+    .await;
+    assert!(matches!(bad_rec_update_person.unwrap_err(), AppError::Forbidden(_)));
+
+    let bad_rec_toggle_client =
+        entity_service::toggle_client_active(&state.pool(), &rec_session, client_a.id, false).await;
+    assert!(matches!(bad_rec_toggle_client.unwrap_err(), AppError::Forbidden(_)));
+
+    // Recepcionista SÍ puede listar/consultar/crear empresas y proveedores, pero NO editar ni desactivar
+    let ok_rec_suppliers =
+        entity_service::list_suppliers(&state.pool(), &rec_session, &SupplierFilter::default()).await;
+    assert!(ok_rec_suppliers.is_ok());
+
+    let rec_company = entity_service::create_company(
+        &state.pool(),
+        &rec_session,
+        CreateCompanyInput {
+            ruc: "20998877665".into(),
+            razon_social: "Empresa Creada Por Recep S.A.C.".into(),
+            nombre_comercial: None,
+            telefono: None,
+            email: None,
+            direccion: None,
+        },
+    )
+    .await
+    .expect("Recepcionista debe poder crear empresas RUC 20");
+
+    let bad_rec_update_company = entity_service::update_company(
+        &state.pool(),
+        &rec_session,
+        rec_company.id,
+        UpdateCompanyInput {
+            razon_social: "Intento Editar".into(),
+            nombre_comercial: None,
+            telefono: None,
+            email: None,
+            direccion: None,
+        },
+    )
+    .await;
+    assert!(matches!(bad_rec_update_company.unwrap_err(), AppError::Forbidden(_)));
+
+    let bad_rec_toggle_company =
+        entity_service::toggle_company_active(&state.pool(), &rec_session, rec_company.id, false).await;
+    assert!(matches!(bad_rec_toggle_company.unwrap_err(), AppError::Forbidden(_)));
+
+    let rec_supplier = entity_service::create_supplier(
+        &state.pool(),
+        &rec_session,
+        CreateSupplierInput {
+            tipo_proveedor: SupplierType::Empresa,
+            persona_id: None,
+            empresa_id: Some(rec_company.id),
+            persona_data: None,
+            empresa_data: None,
+            rubro_o_categoria: Some("Bebidas".into()),
+            contacto_referencia: None,
+        },
+    )
+    .await
+    .expect("Recepcionista debe poder crear proveedores");
+
+    let bad_rec_toggle_supplier =
+        entity_service::toggle_supplier_active(&state.pool(), &rec_session, rec_supplier.id, false).await;
+    assert!(matches!(bad_rec_toggle_supplier.unwrap_err(), AppError::Forbidden(_)));
 
     // Recepcionista SÍ puede consultar a los clientes (personas naturales sin rol de usuario)
     let ok_client_a = entity_service::get_person(&state.pool(), &rec_session, client_a.persona_id).await;
@@ -789,7 +811,7 @@ async fn test_slice2_two_phase_entities_dual_edit_and_juan_perez_case() {
 
     assert_eq!(juan_client.persona_rol_usuario, Some(UserRole::Recepcionista));
 
-    // Promover a Juan a SUPERVISOR
+    // Promover a Juan a ADMINISTRADOR
     auth_service::update_user(
         &state.pool(),
         &state,
@@ -797,7 +819,7 @@ async fn test_slice2_two_phase_entities_dual_edit_and_juan_perez_case() {
             user_id: new_user.id,
             username: None,
             new_password: None,
-            rol: Some(UserRole::Supervisor),
+            rol: Some(UserRole::Administrador),
             foto_perfil_data_url: None,
             persona_data: None,
         },
@@ -839,7 +861,7 @@ async fn test_slice2_two_phase_entities_dual_edit_and_juan_perez_case() {
     .await
     .unwrap();
 
-    // 8.1 Recepcionista edita a Juan (Cliente que es SUPERVISOR):
+    // 8.1 Recepcionista edita a Juan (Cliente que es ADMINISTRADOR):
     // Solo edita notas médicas y contacto de emergencia (modificar_datos_personales: Some(false))
     // -> ¡DEBE PERMITIRSE!
     let juan_updated_by_rec = entity_service::update_client(

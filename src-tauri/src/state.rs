@@ -1,5 +1,5 @@
 use crate::errors::AppError;
-use crate::models::{AuthSession, UserRole};
+use crate::models::{AuthSession, CrashRecoveryNotice, UserRole};
 use sqlx::SqlitePool;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -15,6 +15,7 @@ pub struct AppState {
     pub lan_server_port: Arc<RwLock<u16>>,
     pub lan_server_stop_tx: Arc<RwLock<Option<tokio::sync::oneshot::Sender<()>>>>,
     pub lan_ca_pem: Arc<RwLock<String>>,
+    pub pending_crash_recovery: Arc<RwLock<Option<CrashRecoveryNotice>>>,
 }
 
 impl AppState {
@@ -28,6 +29,7 @@ impl AppState {
             lan_server_port: Arc::new(RwLock::new(3443)),
             lan_server_stop_tx: Arc::new(RwLock::new(None)),
             lan_ca_pem: Arc::new(RwLock::new(String::new())),
+            pending_crash_recovery: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -41,6 +43,7 @@ impl AppState {
             lan_server_port: Arc::new(RwLock::new(port)),
             lan_server_stop_tx: Arc::new(RwLock::new(None)),
             lan_ca_pem: Arc::new(RwLock::new(String::new())),
+            pending_crash_recovery: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -54,6 +57,7 @@ impl AppState {
             lan_server_port: Arc::new(RwLock::new(3443)),
             lan_server_stop_tx: Arc::new(RwLock::new(None)),
             lan_ca_pem: Arc::new(RwLock::new(String::new())),
+            pending_crash_recovery: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -91,6 +95,24 @@ impl AppState {
         *lock = new_session;
     }
 
+    /// Obtiene el aviso de recuperación por cierre forzado pendiente si existe
+    pub async fn get_crash_recovery_notice(&self) -> Option<CrashRecoveryNotice> {
+        let lock = self.pending_crash_recovery.read().await;
+        lock.clone()
+    }
+
+    /// Registra un aviso de recuperación por cierre forzado
+    pub async fn set_crash_recovery_notice(&self, notice: Option<CrashRecoveryNotice>) {
+        let mut lock = self.pending_crash_recovery.write().await;
+        *lock = notice;
+    }
+
+    /// Limpia el aviso de recuperación una vez que el usuario lo atendió
+    pub async fn clear_crash_recovery_notice(&self) {
+        let mut lock = self.pending_crash_recovery.write().await;
+        *lock = None;
+    }
+
     /// Exige que exista una sesión activa y que NO esté bloqueada
     pub async fn require_unlocked_session(&self) -> Result<AuthSession, AppError> {
         let lock = self.session.read().await;
@@ -115,17 +137,6 @@ impl AppState {
             Some(sess) => Ok(sess.clone()),
             None => Err(AppError::Unauthorized("No hay una sesión activa en el sistema.".into())),
         }
-    }
-
-    /// Exige que exista una sesión activa, no bloqueada, y con rol SUPERVISOR o ADMINISTRADOR
-    pub async fn require_supervisor_or_admin(&self) -> Result<AuthSession, AppError> {
-        let session = self.require_unlocked_session().await?;
-        if session.rol.hierarchy_level() < UserRole::Supervisor.hierarchy_level() {
-            return Err(AppError::Forbidden(
-                "Esta acción requiere privilegios de SUPERVISOR o ADMINISTRADOR.".into(),
-            ));
-        }
-        Ok(session)
     }
 
     /// Exige que exista una sesión activa, no bloqueada, y con rol ADMINISTRADOR

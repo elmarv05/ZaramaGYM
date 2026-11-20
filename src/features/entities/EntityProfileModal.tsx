@@ -27,9 +27,17 @@ import {
 } from '../../types/entity';
 import { AuthSession, UpdateUserInput, UserListItem, UserRole } from '../../types/auth';
 import {
+  formatDecimalOnBlur,
+  preventEnterKeySubmit,
+  sanitizeDecimalInput,
+  selectIfZeroDefault,
+} from '../../utils/formSafety';
+import {
   PERSON_DOCUMENT_TYPES,
   buildWhatsAppWelcomeLink,
+  canEditOrDeactivateSupplierOrCompany,
   canModifyLinkedPersonData,
+  canToggleClientActive,
   formatKg,
   formatWeightVariation,
   validateClientForm,
@@ -38,10 +46,15 @@ import {
   validateRecordWeightInput,
 } from '../../domain/entity';
 import { normalizeAppError, openExternalUrl } from '../../services/ipc/client';
+import { entityIpc } from '../../services/ipc/entityIpc';
 import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
 import { Icon } from '../../components/primitives/Icon';
 import { Input } from '../../components/primitives/Input';
+import {
+  InteractiveLineChart,
+  LineChartDataPoint,
+} from '../../components/primitives/InteractiveLineChart';
 import { Select } from '../../components/primitives/Select';
 import { Alert } from '../../components/primitives/Alert';
 
@@ -98,7 +111,7 @@ function buildDirectWhatsAppLink(phone: string | null | undefined, name: string)
 export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
   isOpen,
   onClose,
-  subject,
+  subject: propSubject,
   currentSession,
   isActionLoading = false,
   onUpdateClient,
@@ -112,6 +125,19 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
   fetchWeightHistory,
   onOpenAdvancedEdit,
 }) => {
+  // Hidratación bajo demanda con el detalle completo (*Detail) desde SQLite vía IPC
+  const [hydratedSubject, setHydratedSubject] = useState<ProfileEntitySubject | null>(null);
+  const subject: ProfileEntitySubject | null = useMemo(() => {
+    if (!hydratedSubject) return propSubject;
+    return {
+      ...hydratedSubject,
+      data: {
+        ...hydratedSubject.data,
+        estado_activo: propSubject?.data.estado_activo ?? hydratedSubject.data.estado_activo,
+      },
+    } as ProfileEntitySubject;
+  }, [hydratedSubject, propSubject]);
+
   // Control de animación de entrada y salida suave
   const [isRendered, setIsRendered] = useState(isOpen);
   const [isClosing, setIsClosing] = useState(false);
@@ -129,6 +155,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
   // Estado QR para Clientes
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copiedToken, setCopiedToken] = useState(false);
+  const [downloadedQrPng, setDownloadedQrPng] = useState(false);
   const [showConfirmRegen, setShowConfirmRegen] = useState(false);
   const [isRegeneratingQr, setIsRegeneratingQr] = useState(false);
   const [isOpeningWhatsApp, setIsOpeningWhatsApp] = useState(false);
@@ -221,6 +248,49 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isSaving, isActionLoading]);
+
+  // Cargar detalle completo (*Detail: fecha_nacimiento, direccion, etc.) al abrir el perfil
+  useEffect(() => {
+    setHydratedSubject(null);
+    if (!isOpen || !propSubject) return;
+
+    let mounted = true;
+    const targetKind = propSubject.kind;
+    const targetId = propSubject.data.id;
+
+    const fetchDetail = async () => {
+      try {
+        if (targetKind === 'person') {
+          const detail = await entityIpc.getPerson(targetId);
+          if (mounted && detail && typeof detail === 'object' && 'id' in detail) {
+            setHydratedSubject({ kind: 'person', data: detail });
+          }
+        } else if (targetKind === 'client') {
+          const detail = await entityIpc.getClient(targetId);
+          if (mounted && detail && typeof detail === 'object' && 'id' in detail) {
+            setHydratedSubject({ kind: 'client', data: detail });
+          }
+        } else if (targetKind === 'company') {
+          const detail = await entityIpc.getCompany(targetId);
+          if (mounted && detail && typeof detail === 'object' && 'id' in detail) {
+            setHydratedSubject({ kind: 'company', data: detail });
+          }
+        } else if (targetKind === 'supplier') {
+          const detail = await entityIpc.getSupplier(targetId);
+          if (mounted && detail && typeof detail === 'object' && 'id' in detail) {
+            setHydratedSubject({ kind: 'supplier', data: detail });
+          }
+        }
+      } catch {
+        // Fallback silencioso al objeto resumido de lista si no hay runtime IPC (ej. tests)
+      }
+    };
+
+    void fetchDetail();
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, propSubject?.kind, propSubject?.data.id]);
 
   // Poblar campos al cambiar el sujeto activo
   useEffect(() => {
@@ -334,6 +404,29 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
       mounted = false;
     };
   }, [isOpen, clientData?.id, fetchWeightHistory]);
+
+  // Serie cronológica para gráfico lineal interactivo de evolución de peso
+  const weightChartData: LineChartDataPoint[] = useMemo(() => {
+    if (!weightHistory || weightHistory.length === 0) return [];
+    return [...weightHistory].reverse().map((rec) => {
+      const datePart = rec.fecha_registro ? rec.fecha_registro.slice(0, 10) : '';
+      const shortDate = datePart.length >= 10 ? datePart.slice(5, 10) : datePart || `#${rec.id}`;
+      return {
+        id: rec.id,
+        label: shortDate,
+        fullLabel: rec.fecha_registro,
+        value: Number(rec.peso_kg),
+        delta:
+          rec.variacion_kg !== null && rec.variacion_kg !== undefined
+            ? Number(rec.variacion_kg)
+            : null,
+        note: rec.nota,
+      };
+    });
+  }, [weightHistory]);
+
+  const activeClientWeightKg =
+    weightHistory.length > 0 ? weightHistory[0].peso_kg : clientData?.peso_actual_kg;
 
   // Información derivada de cabecera
   const headerInfo = useMemo(() => {
@@ -454,15 +547,13 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
           variant:
             u.rol === 'ADMINISTRADOR'
               ? ('default' as const)
-              : u.rol === 'SUPERVISOR'
-              ? ('warning' as const)
               : ('info' as const),
         },
       ],
     };
   }, [subject]);
 
-  if (!isRendered || !subject || !headerInfo) return null;
+  if ((!isOpen && !isRendered) || !subject || !headerInfo) return null;
 
   // Permisos para editar datos personales vinculados ("Caso Juan Pérez")
   const canEditLinkedPerson = (() => {
@@ -476,11 +567,26 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
     return true;
   })();
 
+  // Permisos para editar el sujeto actual (Proveedores y Empresas solo lectura para RECEPCIONISTA)
+  const canEditCurrentSubject = (() => {
+    if (!currentSession) return true;
+    if (subject.kind === 'supplier' || subject.kind === 'company') {
+      return canEditOrDeactivateSupplierOrCompany(currentSession.rol);
+    }
+    return true;
+  })();
+
   // Permisos para alternar estado activo
   const canToggleStatus = (() => {
     if (!onToggleActive) return false;
     if (subject.kind === 'client' && currentSession) {
-      return subject.data.persona_id !== currentSession.persona_id;
+      return (
+        canToggleClientActive(currentSession.rol) &&
+        subject.data.persona_id !== currentSession.persona_id
+      );
+    }
+    if ((subject.kind === 'supplier' || subject.kind === 'company') && currentSession) {
+      return canEditOrDeactivateSupplierOrCompany(currentSession.rol);
     }
     if (subject.kind === 'person' && currentSession) {
       return subject.data.id !== currentSession.persona_id && subject.data.id !== 1;
@@ -489,8 +595,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
       const isCurrentUser = subject.data.id === currentSession.user_id;
       const isRoot = subject.data.id === 1;
       const isAdmin = currentSession.rol === 'ADMINISTRADOR';
-      const isSuper = currentSession.rol === 'SUPERVISOR';
-      return !isCurrentUser && !isRoot && (isAdmin || (isSuper && subject.data.rol === 'RECEPCIONISTA'));
+      return !isCurrentUser && !isRoot && isAdmin;
     }
     return true;
   })();
@@ -502,6 +607,10 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
     setIsOpeningWhatsApp(true);
     try {
       await openExternalUrl(headerInfo.whatsappLink);
+      setFeedback({
+        variant: 'info',
+        message: `Abriendo conversación de WhatsApp con ${headerInfo.title}...`,
+      });
     } catch (err) {
       setFeedback({
         variant: 'danger',
@@ -520,6 +629,10 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
         await navigator.clipboard.writeText(qrToken);
       }
       setCopiedToken(true);
+      setFeedback({
+        variant: 'success',
+        message: `Token QR (${qrToken}) copiado al portapapeles.`,
+      });
       window.setTimeout(() => setCopiedToken(false), 1800);
     } catch {
       setCopiedToken(false);
@@ -529,6 +642,14 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
   // Descargar Carnet QR en PNG
   const handleDownloadQrPng = () => {
     if (!qrDataUrl || !clientData) return;
+    const fileName = `Carnet_QR_${clientData.numero_documento}.png`;
+    setDownloadedQrPng(true);
+    setFeedback({
+      variant: 'success',
+      message: `Credencial QR (${fileName}) descargada en tu carpeta de Descargas.`,
+    });
+    window.setTimeout(() => setDownloadedQrPng(false), 3000);
+
     const canvas = document.createElement('canvas');
     canvas.width = 480;
     canvas.height = 680;
@@ -567,7 +688,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
       ctx.fillText(`TOKEN: ${qrToken}`, canvas.width / 2, 480);
 
       const link = document.createElement('a');
-      link.download = `Carnet_QR_${clientData.numero_documento}.png`;
+      link.download = fileName;
       link.href = canvas.toDataURL('image/png');
       link.click();
     };
@@ -633,6 +754,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
   // Guardar cambios de edición inline
   const handleSaveInlineChanges = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEditCurrentSubject) return;
     setFormErrors({});
     setFeedback(null);
 
@@ -668,6 +790,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
           modificar_datos_personales: canEditLinkedPerson,
         });
         if (updated) {
+          setHydratedSubject({ kind: 'client', data: updated });
           setIsEditing(false);
           setFeedback({ variant: 'success', message: 'Datos del cliente actualizados.' });
         }
@@ -703,6 +826,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
           direccion: direccion.trim() || null,
         });
         if (updated) {
+          setHydratedSubject({ kind: 'person', data: updated });
           setIsEditing(false);
           setFeedback({ variant: 'success', message: 'Datos de la persona actualizados.' });
         }
@@ -734,6 +858,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
           direccion: direccion.trim() || null,
         });
         if (updated) {
+          setHydratedSubject({ kind: 'company', data: updated });
           setIsEditing(false);
           setFeedback({ variant: 'success', message: 'Datos de la empresa actualizados.' });
         }
@@ -777,6 +902,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
             : {}),
         });
         if (updated) {
+          setHydratedSubject({ kind: 'supplier', data: updated });
           setIsEditing(false);
           setFeedback({ variant: 'success', message: 'Datos del proveedor actualizados.' });
         }
@@ -934,21 +1060,27 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
               </a>
             )}
 
-            <Button
-              type="button"
-              variant={isEditing ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => {
-                setIsEditing((prev) => !prev);
-                setActiveTab('general');
-                setFormErrors({});
-              }}
-              leftIcon={<Icon name="edit" className="w-3.5 h-3.5" />}
-            >
-              {isEditing ? 'Editando...' : 'Editar Perfil'}
-            </Button>
+            {canEditCurrentSubject ? (
+              <Button
+                type="button"
+                variant={isEditing ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => {
+                  setIsEditing((prev) => !prev);
+                  setActiveTab('general');
+                  setFormErrors({});
+                }}
+                leftIcon={<Icon name="edit" className="w-3.5 h-3.5" />}
+              >
+                {isEditing ? 'Editando...' : 'Editar Perfil'}
+              </Button>
+            ) : (
+              <Badge variant="info" size="sm">
+                Solo lectura
+              </Badge>
+            )}
 
-            {onOpenAdvancedEdit && (
+            {canEditCurrentSubject && onOpenAdvancedEdit && (
               <Button
                 type="button"
                 variant="outline"
@@ -960,7 +1092,13 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
               </Button>
             )}
 
-            {onToggleActive && (
+            {onToggleActive &&
+              !(subject.kind === 'client' && currentSession && !canToggleClientActive(currentSession.rol)) &&
+              !(
+                (subject.kind === 'supplier' || subject.kind === 'company') &&
+                currentSession &&
+                !canEditOrDeactivateSupplierOrCompany(currentSession.rol)
+              ) && (
               <Button
                 type="button"
                 variant="outline"
@@ -1031,7 +1169,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
               <Icon name="activity" className="w-3.5 h-3.5" />
               <span>3. Historial de Peso</span>
               <span className="px-1.5 py-0.2 rounded bg-surface border border-border font-mono text-[10px] text-txt-secondary">
-                {formatKg(clientData?.peso_actual_kg)}
+                {formatKg(activeClientWeightKg)}
               </span>
             </button>
           </div>
@@ -1051,7 +1189,9 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
           {activeTab === 'general' && (
             <form
               id="entity-profile-inline-form"
+              noValidate
               onSubmit={handleSaveInlineChanges}
+              onKeyDown={preventEnterKeySubmit}
               className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"
             >
               {/* COLUMNA IZQUIERDA (7 cols): DATOS BASE Y CONTACTO */}
@@ -1354,14 +1494,19 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
 
                           <Button
                             type="button"
-                            variant="secondary"
+                            variant={downloadedQrPng ? 'primary' : 'secondary'}
                             size="sm"
                             onClick={handleDownloadQrPng}
                             disabled={!qrDataUrl}
-                            leftIcon={<Icon name="download" className="w-3.5 h-3.5" />}
+                            leftIcon={
+                              <Icon
+                                name={downloadedQrPng ? 'check' : 'download'}
+                                className="w-3.5 h-3.5"
+                              />
+                            }
                             className="w-full"
                           >
-                            Descargar Carnet PNG
+                            {downloadedQrPng ? '¡PNG Descargado!' : 'Descargar Carnet PNG'}
                           </Button>
 
                           {onRegenerateQr && !showConfirmRegen && (
@@ -1424,7 +1569,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
 
                       <div className="flex items-baseline justify-between">
                         <span className="text-2xl font-bold text-txt-primary">
-                          {formatKg(clientData.peso_actual_kg)}
+                          {formatKg(activeClientWeightKg)}
                         </span>
                         {weightHistory.length > 0 && (
                           <span className="text-xs font-mono text-txt-muted">
@@ -1526,10 +1671,9 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                           label="Rol del Sistema"
                           value={userRol}
                           onChange={(e) => setUserRol(e.target.value as UserRole)}
-                          disabled={currentSession?.rol === 'SUPERVISOR'}
+                          disabled={currentSession?.rol !== 'ADMINISTRADOR'}
                           options={[
                             { value: 'RECEPCIONISTA', label: 'RECEPCIONISTA' },
-                            { value: 'SUPERVISOR', label: 'SUPERVISOR' },
                             { value: 'ADMINISTRADOR', label: 'ADMINISTRADOR' },
                           ]}
                         />
@@ -1574,13 +1718,18 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
               <div className="w-full flex flex-col sm:flex-row gap-2">
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant={downloadedQrPng ? 'primary' : 'secondary'}
                   size="md"
                   onClick={handleDownloadQrPng}
-                  leftIcon={<Icon name="download" className="w-4 h-4" />}
+                  leftIcon={
+                    <Icon
+                      name={downloadedQrPng ? 'check' : 'download'}
+                      className="w-4 h-4"
+                    />
+                  }
                   className="flex-1"
                 >
-                  Descargar PNG
+                  {downloadedQrPng ? '¡PNG Descargado!' : 'Descargar PNG'}
                 </Button>
                 {headerInfo.whatsappLink && (
                   <a
@@ -1600,86 +1749,111 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
 
           {/* PESTAÑA 3: HISTORIAL Y REGISTRO DE PESO (CLIENTES) */}
           {subject.kind === 'client' && activeTab === 'weight' && clientData && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-              <div className="lg:col-span-5 bg-surface rounded-xl border border-border p-4 shadow-sm flex flex-col gap-3.5">
-                <h3 className="text-sm font-bold text-txt-primary border-b border-border pb-2">
-                  Registrar Nuevo Peso
-                </h3>
-                <form onSubmit={handleRecordNewWeight} className="flex flex-col gap-3">
-                  <Input
-                    label="Peso (kg)"
-                    type="number"
-                    step="0.1"
-                    placeholder="Ej. 75.5"
-                    value={newWeightKg}
-                    onChange={(e) => setNewWeightKg(e.target.value)}
-                    error={weightError || undefined}
-                    required
-                  />
-                  <Input
-                    label="Nota (opcional)"
-                    placeholder="Ej. Control mensual"
-                    value={newWeightNote}
-                    onChange={(e) => setNewWeightNote(e.target.value)}
-                  />
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="sm"
-                    isLoading={isSaving}
-                    disabled={!onRecordWeight}
-                  >
-                    Guardar Peso
-                  </Button>
-                </form>
-              </div>
+            <div className="flex flex-col gap-5">
+              {/* Gráfico Estadístico Lineal Interactivo (Reutilizable) */}
+              {!isWeightLoading && (
+                <InteractiveLineChart
+                  data={weightChartData}
+                  unit="kg"
+                  decimals={2}
+                  trendSemantic="neutral"
+                  title="Evolución Lineal de Peso Corporal"
+                  subtitle="Pasa el cursor o selecciona un nodo para ver fecha, variación (Δ) y nota"
+                  emptyTitle="Sin mediciones previas registradas"
+                  emptyDescription="Registra el peso actual del socio abajo para comenzar a graficar su evolución."
+                />
+              )}
 
-              <div className="lg:col-span-7 bg-surface rounded-xl border border-border p-4 shadow-sm flex flex-col gap-3">
-                <div className="flex items-center justify-between border-b border-border pb-2">
-                  <h3 className="text-sm font-bold text-txt-primary">
-                    Historial de Mediciones
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                <div className="lg:col-span-5 bg-surface rounded-xl border border-border p-4 shadow-sm flex flex-col gap-3.5">
+                  <h3 className="text-sm font-bold text-txt-primary border-b border-border pb-2">
+                    Registrar Nuevo Peso
                   </h3>
-                  <span className="text-xs font-bold text-brand">
-                    Actual: {formatKg(clientData.peso_actual_kg)}
-                  </span>
+                  <form
+                    noValidate
+                    onSubmit={handleRecordNewWeight}
+                    onKeyDown={preventEnterKeySubmit}
+                    className="flex flex-col gap-3"
+                  >
+                    <Input
+                      label="Peso (kg)"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Ej. 75.50"
+                      value={newWeightKg}
+                      onFocus={selectIfZeroDefault}
+                      onChange={(e) => setNewWeightKg(sanitizeDecimalInput(e.target.value))}
+                      onBlur={(e) => {
+                        setNewWeightKg(formatDecimalOnBlur(e.target.value, { min: 1, max: 400 }));
+                      }}
+                      error={weightError || undefined}
+                      required
+                    />
+                    <Input
+                      label="Nota (opcional)"
+                      placeholder="Ej. Control mensual"
+                      value={newWeightNote}
+                      onChange={(e) => setNewWeightNote(e.target.value)}
+                    />
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="sm"
+                      isLoading={isSaving}
+                      disabled={!onRecordWeight}
+                    >
+                      Guardar Peso
+                    </Button>
+                  </form>
                 </div>
 
-                {isWeightLoading ? (
-                  <div className="py-6 text-center text-xs text-txt-muted">
-                    Cargando historial...
+                <div className="lg:col-span-7 bg-surface rounded-xl border border-border p-4 shadow-sm flex flex-col gap-3">
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <h3 className="text-sm font-bold text-txt-primary">
+                      Historial de Mediciones
+                    </h3>
+                    <span className="text-xs font-bold text-brand">
+                      Actual: {formatKg(activeClientWeightKg)}
+                    </span>
                   </div>
-                ) : weightHistory.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-txt-muted">
-                    No hay mediciones previas registradas.
-                  </div>
-                ) : (
-                  <div className="flex flex-col divide-y divide-border max-h-64 overflow-y-auto">
-                    {weightHistory.map((rec) => {
-                      const varInfo = formatWeightVariation(rec.variacion_kg);
-                      return (
-                        <div
-                          key={rec.id}
-                          className="py-2.5 flex items-center justify-between gap-3 text-xs"
-                        >
-                          <div>
-                            <span className="font-bold text-txt-primary">
-                              {formatKg(rec.peso_kg)}
-                            </span>
-                            {rec.nota && (
-                              <span className="text-txt-muted ml-2">— {rec.nota}</span>
-                            )}
-                            <span className="block text-[11px] font-mono text-txt-muted">
-                              {rec.fecha_registro}
-                            </span>
+
+                  {isWeightLoading ? (
+                    <div className="py-6 text-center text-xs text-txt-muted">
+                      Cargando historial...
+                    </div>
+                  ) : weightHistory.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-txt-muted">
+                      No hay mediciones previas registradas.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col divide-y divide-border max-h-64 overflow-y-auto">
+                      {weightHistory.map((rec) => {
+                        const varInfo = formatWeightVariation(rec.variacion_kg);
+                        return (
+                          <div
+                            key={rec.id}
+                            className="py-2.5 flex items-center justify-between gap-3 text-xs"
+                          >
+                            <div>
+                              <span className="font-bold text-txt-primary">
+                                {formatKg(rec.peso_kg)}
+                              </span>
+                              {rec.nota && (
+                                <span className="text-txt-muted ml-2">— {rec.nota}</span>
+                              )}
+                              <span className="block text-[11px] font-mono text-txt-muted">
+                                {rec.fecha_registro}
+                              </span>
+                            </div>
+                            <Badge variant={varInfo.variant} size="sm">
+                              {varInfo.text}
+                            </Badge>
                           </div>
-                          <Badge variant={varInfo.variant} size="sm">
-                            {varInfo.text}
-                          </Badge>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

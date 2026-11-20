@@ -28,7 +28,13 @@ import {
   UpdateSupplierInput,
 } from '../../types/entity';
 import { AuthSession, AppError } from '../../types/auth';
-import { formatKg } from '../../domain/entity';
+import {
+  canAccessPersonsTab,
+  canCreateSupplierOrCompany,
+  canEditOrDeactivateSupplierOrCompany,
+  canToggleClientActive,
+  formatKg,
+} from '../../domain/entity';
 import { triggerBase64FileDownload } from '../../domain/printingBackup';
 import { normalizeAppError } from '../../services/ipc/client';
 import { dashboardIpc } from '../../services/ipc/dashboardIpc';
@@ -169,11 +175,26 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
 
   const hook = useEntities(shouldAutoFetch);
 
-  const [activeSubTab, setActiveSubTab] = useState<DirectorySubTab>(initialSubTab);
+  const canAccessPersons = canAccessPersonsTab(currentSession?.rol);
+  const canCreateSupOrComp = canCreateSupplierOrCompany(currentSession?.rol);
+  const canEditOrDeactivateSupOrComp = canEditOrDeactivateSupplierOrCompany(currentSession?.rol);
+  const canToggleClient = canToggleClientActive(currentSession?.rol);
+
+  const normalizeSubTab = (tab: DirectorySubTab): DirectorySubTab => {
+    if (tab === 'persons' && !canAccessPersons) return 'clients';
+    if ((tab === 'suppliers' || tab === 'companies') && !canCreateSupOrComp) return 'clients';
+    return tab;
+  };
+
+  const [activeSubTab, setActiveSubTab] = useState<DirectorySubTab>(
+    normalizeSubTab(initialSubTab)
+  );
 
   useEffect(() => {
-    setActiveSubTab(initialSubTab);
-  }, [initialSubTab]);
+    setActiveSubTab(normalizeSubTab(initialSubTab));
+  }, [initialSubTab, canAccessPersons, canCreateSupOrComp]);
+
+  const effectiveSubTab: DirectorySubTab = normalizeSubTab(activeSubTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [soloActivos, setSoloActivos] = useState(false);
   const [viewMode, setViewMode] = useState<DirectoryViewMode>('cards');
@@ -447,58 +468,68 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
             type="button"
             onClick={() => setActiveSubTab('clients')}
             className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-1.5 ${
-              activeSubTab === 'clients'
+              effectiveSubTab === 'clients'
                 ? 'bg-surface text-txt-primary shadow-sm border border-border'
                 : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
             }`}
           >
             <Icon name="qr" className="w-4 h-4" />
-            <span>Clientes & QR ({filteredClients.length})</span>
+            <span>
+              {canAccessPersons
+                ? `Clientes (${filteredClients.length})`
+                : `Clientes & QR (${filteredClients.length})`}
+            </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('suppliers')}
-            className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-1.5 ${
-              activeSubTab === 'suppliers'
-                ? 'bg-surface text-txt-primary shadow-sm border border-border'
-                : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-            }`}
-          >
-            <Icon name="truck" className="w-4 h-4" />
-            <span>Proveedores & Empresas ({filteredSuppliers.length})</span>
-          </button>
+          {canCreateSupOrComp && (
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('suppliers')}
+              className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-1.5 ${
+                effectiveSubTab === 'suppliers'
+                  ? 'bg-surface text-txt-primary shadow-sm border border-border'
+                  : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
+              }`}
+            >
+              <Icon name="truck" className="w-4 h-4" />
+              <span>Proveedores ({filteredSuppliers.length})</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('persons')}
-            className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-1.5 ${
-              activeSubTab === 'persons'
-                ? 'bg-surface text-txt-primary shadow-sm border border-border'
-                : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-            }`}
-          >
-            <Icon name="users" className="w-4 h-4" />
-            <span>Personas ({filteredPersons.length})</span>
-          </button>
+          {canAccessPersons && (
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('persons')}
+              className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-1.5 ${
+                effectiveSubTab === 'persons'
+                  ? 'bg-surface text-txt-primary shadow-sm border border-border'
+                  : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
+              }`}
+            >
+              <Icon name="users" className="w-4 h-4" />
+              <span>Personas ({filteredPersons.length})</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('companies')}
-            className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-1.5 ${
-              activeSubTab === 'companies'
-                ? 'bg-surface text-txt-primary shadow-sm border border-border'
-                : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-            }`}
-          >
-            <Icon name="building" className="w-4 h-4" />
-            <span>Empresas (RUC 20) ({filteredCompanies.length})</span>
-          </button>
+          {canCreateSupOrComp && (
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('companies')}
+              className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-1.5 ${
+                effectiveSubTab === 'companies'
+                  ? 'bg-surface text-txt-primary shadow-sm border border-border'
+                  : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
+              }`}
+            >
+              <Icon name="building" className="w-4 h-4" />
+              <span>Empresas ({filteredCompanies.length})</span>
+            </button>
+          )}
         </div>
 
         {/* Botón de Creación Contextual */}
         <div>
-          {activeSubTab === 'clients' && (
+          {effectiveSubTab === 'clients' && (
             <Button
               variant="primary"
               size="md"
@@ -517,7 +548,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
             </Button>
           )}
 
-          {activeSubTab === 'suppliers' && (
+          {canCreateSupOrComp && effectiveSubTab === 'suppliers' && (
             <Button
               variant="primary"
               size="md"
@@ -536,7 +567,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
             </Button>
           )}
 
-          {activeSubTab === 'persons' && (
+          {canAccessPersons && effectiveSubTab === 'persons' && (
             <Button
               variant="primary"
               size="md"
@@ -555,7 +586,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
             </Button>
           )}
 
-          {activeSubTab === 'companies' && (
+          {canCreateSupOrComp && effectiveSubTab === 'companies' && (
             <Button
               variant="primary"
               size="md"
@@ -581,11 +612,11 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
         <div className="flex items-center gap-3 flex-1 max-w-md">
           <Input
             placeholder={
-              activeSubTab === 'clients'
+              effectiveSubTab === 'clients'
                 ? 'Buscar por nombre, documento o token QR...'
-                : activeSubTab === 'suppliers'
+                : effectiveSubTab === 'suppliers'
                 ? 'Buscar por razón social, RUC o rubro...'
-                : activeSubTab === 'persons'
+                : effectiveSubTab === 'persons'
                 ? 'Buscar persona por nombre o documento...'
                 : 'Buscar por RUC, razón social o nombre comercial...'
             }
@@ -647,7 +678,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
             </button>
           </div>
 
-          {activeSubTab === 'clients' && (
+          {effectiveSubTab === 'clients' && (
             <div
               role="group"
               aria-label="Exportar Padrón de Clientes"
@@ -715,7 +746,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
       {/* ==================================================================== */}
       {/* SUB-VISTA 1: CLIENTES (FLASH CARDS O TABLA) */}
       {/* ==================================================================== */}
-      {activeSubTab === 'clients' &&
+      {effectiveSubTab === 'clients' &&
         (viewMode === 'cards' ? (
           isLoading ? (
             <EntityFlashCardSkeletonGrid count={6} />
@@ -830,21 +861,23 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                           Editar
                         </Button>
 
-                        <Button
-                          variant={client.estado_activo ? 'outline' : 'secondary'}
-                          size="sm"
-                          disabled={Boolean(isCurrentPerson) || isActionLoading}
-                          onClick={() =>
-                            handleToggleClientActive(client.id, client.estado_activo)
-                          }
-                          className={
-                            client.estado_activo
-                              ? 'text-status-danger border-red-300'
-                              : 'text-status-success border-emerald-300'
-                          }
-                        >
-                          {client.estado_activo ? 'Desactivar' : 'Activar'}
-                        </Button>
+                        {canToggleClient && (
+                          <Button
+                            variant={client.estado_activo ? 'outline' : 'secondary'}
+                            size="sm"
+                            disabled={Boolean(isCurrentPerson) || isActionLoading}
+                            onClick={() =>
+                              handleToggleClientActive(client.id, client.estado_activo)
+                            }
+                            className={
+                              client.estado_activo
+                                ? 'text-status-danger border-red-300'
+                                : 'text-status-success border-emerald-300'
+                            }
+                          >
+                            {client.estado_activo ? 'Desactivar' : 'Activar'}
+                          </Button>
+                        )}
                       </>
                     }
                     onOpenProfile={() =>
@@ -1013,21 +1046,23 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                             Editar
                           </Button>
 
-                          <Button
-                            variant={client.estado_activo ? 'outline' : 'secondary'}
-                            size="sm"
-                            disabled={Boolean(isCurrentPerson) || isActionLoading}
-                            onClick={() =>
-                              handleToggleClientActive(client.id, client.estado_activo)
-                            }
-                            className={
-                              client.estado_activo
-                                ? 'text-status-danger border-red-300'
-                                : 'text-status-success border-emerald-300'
-                            }
-                          >
-                            {client.estado_activo ? 'Desactivar' : 'Activar'}
-                          </Button>
+                          {canToggleClient && (
+                            <Button
+                              variant={client.estado_activo ? 'outline' : 'secondary'}
+                              size="sm"
+                              disabled={Boolean(isCurrentPerson) || isActionLoading}
+                              onClick={() =>
+                                handleToggleClientActive(client.id, client.estado_activo)
+                              }
+                              className={
+                                client.estado_activo
+                                  ? 'text-status-danger border-red-300'
+                                  : 'text-status-success border-emerald-300'
+                              }
+                            >
+                              {client.estado_activo ? 'Desactivar' : 'Activar'}
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1041,7 +1076,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
       {/* ==================================================================== */}
       {/* SUB-VISTA 2: PROVEEDORES & EMPRESAS */}
       {/* ==================================================================== */}
-      {activeSubTab === 'suppliers' &&
+      {canCreateSupOrComp && effectiveSubTab === 'suppliers' &&
         (viewMode === 'cards' ? (
           isLoading ? (
             <EntityFlashCardSkeletonGrid count={6} />
@@ -1113,34 +1148,36 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                       },
                     ]}
                     quickActions={
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setEditingSupplier(supplier);
-                            setIsSupplierModalOpen(true);
-                          }}
-                        >
-                          Editar
-                        </Button>
+                      canEditOrDeactivateSupOrComp ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingSupplier(supplier);
+                              setIsSupplierModalOpen(true);
+                            }}
+                          >
+                            Editar
+                          </Button>
 
-                        <Button
-                          variant={supplier.estado_activo ? 'outline' : 'secondary'}
-                          size="sm"
-                          disabled={isActionLoading}
-                          onClick={() =>
-                            handleToggleSupplierActive(supplier.id, supplier.estado_activo)
-                          }
-                          className={
-                            supplier.estado_activo
-                              ? 'text-status-danger border-red-300'
-                              : 'text-status-success border-emerald-300'
-                          }
-                        >
-                          {supplier.estado_activo ? 'Desactivar' : 'Activar'}
-                        </Button>
-                      </>
+                          <Button
+                            variant={supplier.estado_activo ? 'outline' : 'secondary'}
+                            size="sm"
+                            disabled={isActionLoading}
+                            onClick={() =>
+                              handleToggleSupplierActive(supplier.id, supplier.estado_activo)
+                            }
+                            className={
+                              supplier.estado_activo
+                                ? 'text-status-danger border-red-300'
+                                : 'text-status-success border-emerald-300'
+                            }
+                          >
+                            {supplier.estado_activo ? 'Desactivar' : 'Activar'}
+                          </Button>
+                        </>
+                      ) : undefined
                     }
                     onOpenProfile={() =>
                       setSelectedProfileSubject({ kind: 'supplier', data: supplier })
@@ -1259,32 +1296,36 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                             Ver perfil
                           </Button>
 
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEditingSupplier(supplier);
-                              setIsSupplierModalOpen(true);
-                            }}
-                          >
-                            Editar
-                          </Button>
+                          {canEditOrDeactivateSupOrComp && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingSupplier(supplier);
+                                  setIsSupplierModalOpen(true);
+                                }}
+                              >
+                                Editar
+                              </Button>
 
-                          <Button
-                            variant={supplier.estado_activo ? 'outline' : 'secondary'}
-                            size="sm"
-                            disabled={isActionLoading}
-                            onClick={() =>
-                              handleToggleSupplierActive(supplier.id, supplier.estado_activo)
-                            }
-                            className={
-                              supplier.estado_activo
-                                ? 'text-status-danger border-red-300'
-                                : 'text-status-success border-emerald-300'
-                            }
-                          >
-                            {supplier.estado_activo ? 'Desactivar' : 'Activar'}
-                          </Button>
+                              <Button
+                                variant={supplier.estado_activo ? 'outline' : 'secondary'}
+                                size="sm"
+                                disabled={isActionLoading}
+                                onClick={() =>
+                                  handleToggleSupplierActive(supplier.id, supplier.estado_activo)
+                                }
+                                className={
+                                  supplier.estado_activo
+                                    ? 'text-status-danger border-red-300'
+                                    : 'text-status-success border-emerald-300'
+                                }
+                              >
+                                {supplier.estado_activo ? 'Desactivar' : 'Activar'}
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1298,7 +1339,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
       {/* ==================================================================== */}
       {/* SUB-VISTA 3: BASE MAESTRA DE PERSONAS */}
       {/* ==================================================================== */}
-      {activeSubTab === 'persons' &&
+      {canAccessPersons && effectiveSubTab === 'persons' &&
         (viewMode === 'cards' ? (
           isLoading ? (
             <EntityFlashCardSkeletonGrid count={6} />
@@ -1343,8 +1384,6 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                           variant:
                             person.rol_usuario === 'ADMINISTRADOR'
                               ? ('default' as const)
-                              : person.rol_usuario === 'SUPERVISOR'
-                              ? ('warning' as const)
                               : ('info' as const),
                         },
                       ]
@@ -1522,8 +1561,6 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                               variant={
                                 person.rol_usuario === 'ADMINISTRADOR'
                                   ? 'default'
-                                  : person.rol_usuario === 'SUPERVISOR'
-                                  ? 'warning'
                                   : 'info'
                               }
                               size="sm"
@@ -1603,7 +1640,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
         ))}
 
       {/* SUB-VISTA 4: EMPRESAS JURÍDICAS (RUC 20) */}
-      {activeSubTab === 'companies' &&
+      {canCreateSupOrComp && effectiveSubTab === 'companies' &&
         (viewMode === 'cards' ? (
           isLoading ? (
             <EntityFlashCardSkeletonGrid count={6} />
@@ -1669,34 +1706,36 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                     },
                   ]}
                   quickActions={
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditingCompany(company);
-                          setIsCompanyModalOpen(true);
-                        }}
-                      >
-                        Editar
-                      </Button>
+                    canEditOrDeactivateSupOrComp ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingCompany(company);
+                            setIsCompanyModalOpen(true);
+                          }}
+                        >
+                          Editar
+                        </Button>
 
-                      <Button
-                        variant={company.estado_activo ? 'outline' : 'secondary'}
-                        size="sm"
-                        disabled={isActionLoading}
-                        onClick={() =>
-                          handleToggleCompanyActive(company.id, company.estado_activo)
-                        }
-                        className={
-                          company.estado_activo
-                            ? 'text-status-danger border-red-300'
-                            : 'text-status-success border-emerald-300'
-                        }
-                      >
-                        {company.estado_activo ? 'Desactivar' : 'Activar'}
-                      </Button>
-                    </>
+                        <Button
+                          variant={company.estado_activo ? 'outline' : 'secondary'}
+                          size="sm"
+                          disabled={isActionLoading}
+                          onClick={() =>
+                            handleToggleCompanyActive(company.id, company.estado_activo)
+                          }
+                          className={
+                            company.estado_activo
+                              ? 'text-status-danger border-red-300'
+                              : 'text-status-success border-emerald-300'
+                          }
+                        >
+                          {company.estado_activo ? 'Desactivar' : 'Activar'}
+                        </Button>
+                      </>
+                    ) : undefined
                   }
                   onOpenProfile={() =>
                     setSelectedProfileSubject({ kind: 'company', data: company })
@@ -1796,32 +1835,36 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                           Ver perfil
                         </Button>
 
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setEditingCompany(company);
-                            setIsCompanyModalOpen(true);
-                          }}
-                        >
-                          Editar
-                        </Button>
+                        {canEditOrDeactivateSupOrComp && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditingCompany(company);
+                                setIsCompanyModalOpen(true);
+                              }}
+                            >
+                              Editar
+                            </Button>
 
-                        <Button
-                          variant={company.estado_activo ? 'outline' : 'secondary'}
-                          size="sm"
-                          disabled={isActionLoading}
-                          onClick={() =>
-                            handleToggleCompanyActive(company.id, company.estado_activo)
-                          }
-                          className={
-                            company.estado_activo
-                              ? 'text-status-danger border-red-300'
-                              : 'text-status-success border-emerald-300'
-                          }
-                        >
-                          {company.estado_activo ? 'Desactivar' : 'Activar'}
-                        </Button>
+                            <Button
+                              variant={company.estado_activo ? 'outline' : 'secondary'}
+                              size="sm"
+                              disabled={isActionLoading}
+                              onClick={() =>
+                                handleToggleCompanyActive(company.id, company.estado_activo)
+                              }
+                              className={
+                                company.estado_activo
+                                  ? 'text-status-danger border-red-300'
+                                  : 'text-status-success border-emerald-300'
+                              }
+                            >
+                              {company.estado_activo ? 'Desactivar' : 'Activar'}
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -1842,18 +1885,26 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
         currentSession={currentSession}
         isActionLoading={isActionLoading}
         onUpdateClient={handleUpdateClient}
-        onUpdatePerson={handleUpdatePerson}
-        onUpdateCompany={handleUpdateCompany}
-        onUpdateSupplier={handleUpdateSupplier}
+        onUpdatePerson={canAccessPersons ? handleUpdatePerson : undefined}
+        onUpdateCompany={canEditOrDeactivateSupOrComp ? handleUpdateCompany : undefined}
+        onUpdateSupplier={canEditOrDeactivateSupOrComp ? handleUpdateSupplier : undefined}
         onToggleActive={
           activeProfileSubject?.kind === 'client'
-            ? handleToggleClientActive
+            ? canToggleClient
+              ? handleToggleClientActive
+              : undefined
             : activeProfileSubject?.kind === 'supplier'
-            ? handleToggleSupplierActive
+            ? canEditOrDeactivateSupOrComp
+              ? handleToggleSupplierActive
+              : undefined
             : activeProfileSubject?.kind === 'person'
-            ? handleTogglePersonActive
+            ? canAccessPersons
+              ? handleTogglePersonActive
+              : undefined
             : activeProfileSubject?.kind === 'company'
-            ? handleToggleCompanyActive
+            ? canEditOrDeactivateSupOrComp
+              ? handleToggleCompanyActive
+              : undefined
             : undefined
         }
         onRegenerateQr={handleRegenerateQr}

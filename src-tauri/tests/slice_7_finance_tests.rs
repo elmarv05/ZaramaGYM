@@ -30,44 +30,11 @@ async fn setup_test_env() -> (AppState, tempfile::TempDir) {
     (state, temp_dir)
 }
 
-/// Helper para crear usuarios con diferentes roles para pruebas de RBAC
-async fn create_auxiliary_users(
+/// Helper para crear usuario recepcionista para pruebas de RBAC
+async fn create_auxiliary_receptionist(
     state: &AppState,
     _admin_session: &AuthSession,
-) -> (AuthSession, AuthSession) {
-    // 1. Crear Supervisor
-    let _ = auth_service::create_user(
-        &state.pool(),
-        state,
-        CreateUserInput {
-            persona_id: None,
-            username: "supervisor1".into(),
-            password: "Password123!".into(),
-            tipo_documento: "DNI".into(),
-            numero_documento: "11112222".into(),
-            nombres: "Carlos".into(),
-            apellidos: "Supervisor".into(),
-            telefono: None,
-            email: None,
-            rol: UserRole::Supervisor,
-            foto_perfil_data_url: None,
-        },
-    )
-    .await
-    .unwrap();
-
-    let supervisor_session = auth_service::login(
-        &state.pool(),
-        state,
-        zarama_gym_lib::models::LoginCredentials {
-            username: "supervisor1".into(),
-            password: "Password123!".into(),
-        },
-    )
-    .await
-    .unwrap();
-
-    // 2. Crear Recepcionista
+) -> AuthSession {
     let _ = auth_service::create_user(
         &state.pool(),
         state,
@@ -88,7 +55,7 @@ async fn create_auxiliary_users(
     .await
     .unwrap();
 
-    let recep_session = auth_service::login(
+    auth_service::login(
         &state.pool(),
         state,
         zarama_gym_lib::models::LoginCredentials {
@@ -97,9 +64,7 @@ async fn create_auxiliary_users(
         },
     )
     .await
-    .unwrap();
-
-    (supervisor_session, recep_session)
+    .unwrap()
 }
 
 /// Helper para crear un proveedor polimórfico de tipo EMPRESA
@@ -700,7 +665,7 @@ async fn test_cp_fin_07_rbac_cancel_purchase_restricted_to_admin() {
     .await
     .unwrap();
 
-    let (supervisor_session, recep_session) = create_auxiliary_users(&state, &admin_session).await;
+    let recep_session = create_auxiliary_receptionist(&state, &admin_session).await;
     let prov_id = create_test_supplier(&state, &admin_session).await;
     let prod_id = create_test_product(
         &state,
@@ -737,7 +702,7 @@ async fn test_cp_fin_07_rbac_cancel_purchase_restricted_to_admin() {
     .await
     .unwrap();
 
-    // 1. Recepcionista intenta anular -> Forbidden
+    // 1. Recepcionista puede consultar/crear compras, pero NO anularlas (Exclusivo Admin)
     let res_recep = finance_service::cancel_supplier_purchase(
         &state.pool(),
         &recep_session,
@@ -749,17 +714,37 @@ async fn test_cp_fin_07_rbac_cancel_purchase_restricted_to_admin() {
     .await;
     assert!(matches!(res_recep, Err(AppError::Forbidden(_))));
 
-    // 2. Supervisor intenta anular -> Forbidden (Exclusivo Admin)
-    let res_sup = finance_service::cancel_supplier_purchase(
+    let res_recep_detail = finance_service::get_supplier_purchase_detail(
         &state.pool(),
-        &supervisor_session,
+        &recep_session,
         purchase.purchase.id,
-        CancelSupplierPurchaseDto {
-            motivo_anulacion: "Anulación por supervisor no autorizada".into(),
+    )
+    .await;
+    assert!(res_recep_detail.is_ok(), "Recepcionista debe poder ver detalle de compras");
+
+    let res_recep_create = finance_service::create_supplier_purchase(
+        &state.pool(),
+        &recep_session,
+        CreateSupplierPurchaseDto {
+            proveedor_id: prov_id,
+            turno_caja_id: None,
+            tipo_comprobante: PurchaseInvoiceType::Boleta,
+            numero_comprobante: None,
+            metodo_pago: PaymentMethod::Efectivo,
+            canal_caja: PaymentChannel::Fisica,
+            total_compra: Decimal::from_str("10.00").unwrap(),
+            fecha_compra: None,
+            notas: Some("Compra registrada por recepción".into()),
+            detalles: vec![CreateSupplierPurchaseDetailDto {
+                producto_id: prod_id,
+                cantidad: 1,
+                costo_unitario: Decimal::from_str("10.00").unwrap(),
+                subtotal: Decimal::from_str("10.00").unwrap(),
+            }],
         },
     )
     .await;
-    assert!(matches!(res_sup, Err(AppError::Forbidden(_))));
+    assert!(res_recep_create.is_ok(), "Recepcionista debe poder crear compras a proveedores");
 }
 
 // ============================================================================
@@ -867,7 +852,7 @@ async fn test_cp_fin_09_rbac_shield_operational_expenses() {
     .await
     .unwrap();
 
-    let (supervisor_session, recep_session) = create_auxiliary_users(&state, &admin_session).await;
+    let recep_session = create_auxiliary_receptionist(&state, &admin_session).await;
 
     // Crear un gasto previo por Admin
     let expense = finance_service::create_operational_expense(
@@ -888,7 +873,7 @@ async fn test_cp_fin_09_rbac_shield_operational_expenses() {
     .await
     .unwrap();
 
-    // 1. Recepcionista
+    // Gastos operativos 100% exclusivos de ADMINISTRADOR; bandeja de tachados y dashboard financiero habilitados para RECEPCIONISTA
     assert!(matches!(
         finance_service::create_operational_expense(
             &state.pool(),
@@ -919,41 +904,10 @@ async fn test_cp_fin_09_rbac_shield_operational_expenses() {
         Err(AppError::Forbidden(_))
     ));
 
-    // 2. Supervisor
-    assert!(matches!(
-        finance_service::create_operational_expense(
-            &state.pool(),
-            &supervisor_session,
-            CreateExpenseDto {
-                categoria: ExpenseCategory::Otros,
-                descripcion: "Gasto supervisor".into(),
-                monto: Decimal::from_str("20.00").unwrap(),
-                metodo_pago: PaymentMethod::Efectivo,
-                canal_caja: PaymentChannel::Fisica,
-                turno_caja_id: None,
-                comprobante_referencia: None,
-                fecha_gasto: None,
-                notas: None,
-            }
-        )
-        .await,
-        Err(AppError::Forbidden(_))
-    ));
-
-    assert!(matches!(
-        finance_service::list_operational_expenses(
-            &state.pool(),
-            &supervisor_session,
-            &ExpenseFilter::default()
-        )
-        .await,
-        Err(AppError::Forbidden(_))
-    ));
-
     assert!(matches!(
         finance_service::update_operational_expense(
             &state.pool(),
-            &supervisor_session,
+            &recep_session,
             expense.id,
             UpdateExpenseDto {
                 categoria: ExpenseCategory::LimpiezaInsumos,
@@ -974,12 +928,34 @@ async fn test_cp_fin_09_rbac_shield_operational_expenses() {
     assert!(matches!(
         finance_service::toggle_operational_expense_active(
             &state.pool(),
-            &supervisor_session,
+            &recep_session,
             expense.id
         )
         .await,
         Err(AppError::Forbidden(_))
     ));
+
+    assert!(
+        finance_service::list_struck_sales_tray(
+            &state.pool(),
+            &recep_session,
+            &StruckSaleFilter::default()
+        )
+        .await
+        .is_ok(),
+        "Recepcionista debe poder visualizar la bandeja global de tachados"
+    );
+
+    assert!(
+        finance_service::get_financial_dashboard_summary(
+            &state.pool(),
+            &recep_session,
+            &FinancialReportFilter::default()
+        )
+        .await
+        .is_ok(),
+        "Recepcionista debe poder consultar el dashboard financiero"
+    );
 }
 
 // ============================================================================

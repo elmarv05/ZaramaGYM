@@ -40,7 +40,7 @@ pub async fn update_plan(
     input: UpdatePlanInput,
     state: State<'_, AppState>,
 ) -> Result<PlanListItem, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let id = plan_id
         .or(planId)
         .ok_or_else(|| AppError::Validation("Debe indicar el ID del plan.".into()))?;
@@ -55,7 +55,7 @@ pub async fn toggle_plan_active(
     activo: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<(), AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let id = plan_id
         .or(planId)
         .ok_or_else(|| AppError::Validation("Debe indicar el ID del plan.".into()))?;
@@ -154,7 +154,7 @@ pub async fn toggle_product_active(
     activo: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<(), AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     let id = product_id
         .or(productId)
         .ok_or_else(|| AppError::Validation("Debe indicar el ID del producto.".into()))?;
@@ -169,7 +169,7 @@ pub async fn record_inventory_movement(
     input: RecordInventoryMovementInput,
     state: State<'_, AppState>,
 ) -> Result<InventoryMovementItem, AppError> {
-    let session = state.require_unlocked_session().await?;
+    let session = state.require_admin().await?;
     catalog_service::record_inventory_movement(&state.pool(), &session, input).await
 }
 

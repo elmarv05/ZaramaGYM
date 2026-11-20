@@ -12,6 +12,7 @@ import { Modal } from '../../../components/primitives/Modal';
 import { formatCurrency } from '../../../domain/finance';
 import { StruckSaleTrayItemDto } from '../../../types/finance';
 import { ResolveStruckAction, ResolveStruckSaleInput } from '../../../types/pos';
+import { preventEnterKeySubmit } from '../../../utils/formSafety';
 
 export interface ResolveStruckTrayModalProps {
   isOpen: boolean;
@@ -65,7 +66,7 @@ export const ResolveStruckTrayModal: React.FC<ResolveStruckTrayModalProps> = ({
       description="Dictamen administrativo definitivo con trazabilidad contable inmutable."
       size="md"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-xs">
+      <form noValidate onSubmit={handleSubmit} onKeyDown={preventEnterKeySubmit} className="flex flex-col gap-4 text-xs">
         {errorMsg && (
           <Alert variant="danger" title="Error" onClose={() => setErrorMsg(null)}>
             {errorMsg}

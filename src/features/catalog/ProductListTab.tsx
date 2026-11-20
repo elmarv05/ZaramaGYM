@@ -21,7 +21,9 @@ import {
   TableRow,
 } from '../../components/primitives/Table';
 import {
-  canMutateCatalog,
+  canCreateOrEditProducts,
+  canDeactivateProducts,
+  canRecordInventoryMovement,
   formatPEN,
   formatProductCategory,
 } from '../../domain/catalog';
@@ -57,7 +59,9 @@ export const ProductListTab: React.FC<ProductListTabProps> = ({
   onToggleProductActive,
   onRecordMovement,
 }) => {
-  const canMutate = canMutateCatalog(userRole);
+  const canEditOrCreate = canCreateOrEditProducts(userRole);
+  const canDeactivate = canDeactivateProducts(userRole);
+  const canAdjustKardex = canRecordInventoryMovement(userRole);
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductListItem | null>(null);
@@ -170,7 +174,7 @@ export const ProductListTab: React.FC<ProductListTabProps> = ({
             </Button>
           )}
 
-          {canMutate && (
+          {canEditOrCreate && (
             <Button
               variant="primary"
               size="sm"
@@ -224,7 +228,7 @@ export const ProductListTab: React.FC<ProductListTabProps> = ({
                   : 'Registra los suplementos, bebidas y accesorios que comercializa el gimnasio.'
               }
               action={
-                canMutate ? (
+                canEditOrCreate ? (
                   <Button
                     variant="primary"
                     size="sm"
@@ -331,47 +335,47 @@ export const ProductListTab: React.FC<ProductListTabProps> = ({
 
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      {canMutate && (
-                        <>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => {
-                              setMovementProduct(prod);
-                              setIsMovementModalOpen(true);
-                            }}
-                            className="text-xs"
-                          >
-                            Merma / Ajuste
-                          </Button>
+                      {canAdjustKardex && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setMovementProduct(prod);
+                            setIsMovementModalOpen(true);
+                          }}
+                          className="text-xs"
+                        >
+                          Merma / Ajuste
+                        </Button>
+                      )}
 
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEditingProduct(prod);
-                              setIsProductModalOpen(true);
-                            }}
-                          >
-                            Editar
-                          </Button>
+                      {canEditOrCreate && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingProduct(prod);
+                            setIsProductModalOpen(true);
+                          }}
+                        >
+                          Editar
+                        </Button>
+                      )}
 
-                          {onToggleProductActive && (
-                            <Button
-                              variant={prod.estado_activo ? 'outline' : 'secondary'}
-                              size="sm"
-                              disabled={isActionLoading}
-                              onClick={() => onToggleProductActive(prod.id, prod.estado_activo)}
-                              className={
-                                prod.estado_activo
-                                  ? 'text-status-danger border-red-300'
-                                  : 'text-status-success border-emerald-300'
-                              }
-                            >
-                              {prod.estado_activo ? 'Desactivar' : 'Activar'}
-                            </Button>
-                          )}
-                        </>
+                      {canDeactivate && onToggleProductActive && (
+                        <Button
+                          variant={prod.estado_activo ? 'outline' : 'secondary'}
+                          size="sm"
+                          disabled={isActionLoading}
+                          onClick={() => onToggleProductActive(prod.id, prod.estado_activo)}
+                          className={
+                            prod.estado_activo
+                              ? 'text-status-danger border-red-300'
+                              : 'text-status-success border-emerald-300'
+                          }
+                        >
+                          {prod.estado_activo ? 'Desactivar' : 'Activar'}
+                        </Button>
                       )}
                     </div>
                   </TableCell>
@@ -383,7 +387,7 @@ export const ProductListTab: React.FC<ProductListTabProps> = ({
       </Table>
 
       {/* Modal de Producto */}
-      {canMutate && (
+      {canEditOrCreate && (
         <ProductFormModal
           isOpen={isProductModalOpen}
           onClose={() => {
@@ -406,7 +410,7 @@ export const ProductListTab: React.FC<ProductListTabProps> = ({
       )}
 
       {/* Modal de Movimiento de Inventario / Merma */}
-      {canMutate && (
+      {canAdjustKardex && (
         <InventoryMovementModal
           isOpen={isMovementModalOpen}
           onClose={() => {

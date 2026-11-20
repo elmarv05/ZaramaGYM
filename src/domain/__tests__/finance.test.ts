@@ -8,9 +8,11 @@ import {
   EXPENSE_CATEGORY_LABELS,
   PURCHASE_INVOICE_LABELS,
   calculatePurchaseItemsTotal,
+  canAccessFinance,
   canAccessFinanceModule,
   canCancelSupplierPurchase,
   canManageExpenses,
+  canResolveStruckSales,
   derivePaymentChannel,
   formatCurrency,
   validateCancelPurchaseInput,
@@ -205,23 +207,29 @@ describe('Dominio de Finanzas: Funciones Puras y Reglas de Negocio (Slice 7)', (
   describe('Control de Acceso RBAC', () => {
     it('canManageExpenses es exclusivo para ADMINISTRADOR', () => {
       expect(canManageExpenses('ADMINISTRADOR')).toBe(true);
-      expect(canManageExpenses('SUPERVISOR')).toBe(false);
       expect(canManageExpenses('RECEPCIONISTA')).toBe(false);
       expect(canManageExpenses(undefined)).toBe(false);
     });
 
     it('canCancelSupplierPurchase es exclusivo para ADMINISTRADOR', () => {
       expect(canCancelSupplierPurchase('ADMINISTRADOR')).toBe(true);
-      expect(canCancelSupplierPurchase('SUPERVISOR')).toBe(false);
       expect(canCancelSupplierPurchase('RECEPCIONISTA')).toBe(false);
       expect(canCancelSupplierPurchase(undefined)).toBe(false);
     });
 
-    it('canAccessFinanceModule permite ADMINISTRADOR y SUPERVISOR, pero deniega RECEPCIONISTA', () => {
+    it('canResolveStruckSales es exclusivo para ADMINISTRADOR', () => {
+      expect(canResolveStruckSales('ADMINISTRADOR')).toBe(true);
+      expect(canResolveStruckSales('RECEPCIONISTA')).toBe(false);
+      expect(canResolveStruckSales(undefined)).toBe(false);
+    });
+
+    it('canAccessFinanceModule y canAccessFinance permiten ADMINISTRADOR y RECEPCIONISTA', () => {
       expect(canAccessFinanceModule('ADMINISTRADOR')).toBe(true);
-      expect(canAccessFinanceModule('SUPERVISOR')).toBe(true);
-      expect(canAccessFinanceModule('RECEPCIONISTA')).toBe(false);
+      expect(canAccessFinanceModule('RECEPCIONISTA')).toBe(true);
       expect(canAccessFinanceModule(undefined)).toBe(false);
+      expect(canAccessFinance('ADMINISTRADOR')).toBe(true);
+      expect(canAccessFinance('RECEPCIONISTA')).toBe(true);
+      expect(canAccessFinance(null)).toBe(false);
     });
   });
 

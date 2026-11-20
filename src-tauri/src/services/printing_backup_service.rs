@@ -1196,7 +1196,7 @@ pub async fn list_receipt_series(
     pool: &SqlitePool,
     session: &AuthSession,
 ) -> Result<Vec<ReceiptSeries>, AppError> {
-    session.require_supervisor_or_admin()?;
+    session.require_admin()?;
 
     let rows = sqlx::query(
         r#"
@@ -1621,8 +1621,6 @@ pub async fn generate_financial_report_pdf(
     session: &AuthSession,
     request: GenerateFinancialReportPdfRequest,
 ) -> Result<GeneratePdfResult, AppError> {
-    session.require_supervisor_or_admin()?;
-
     let desde_opt = if request.fecha_desde.trim().is_empty() {
         None
     } else {

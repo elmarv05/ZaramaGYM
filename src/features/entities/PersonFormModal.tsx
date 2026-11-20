@@ -16,6 +16,7 @@ import { Modal } from '../../components/primitives/Modal';
 import { Button } from '../../components/primitives/Button';
 import { Input } from '../../components/primitives/Input';
 import { Select } from '../../components/primitives/Select';
+import { preventEnterKeySubmit } from '../../utils/formSafety';
 
 export interface PersonFormModalProps {
   isOpen: boolean;
@@ -113,7 +114,12 @@ export const PersonFormModal: React.FC<PersonFormModalProps> = ({
       description="Base maestra de personas humanas (socios, trabajadores, clientes, proveedores)."
       size="lg"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form
+        noValidate
+        onSubmit={handleSubmit}
+        onKeyDown={preventEnterKeySubmit}
+        className="flex flex-col gap-4"
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Select
             label="Tipo de Documento"

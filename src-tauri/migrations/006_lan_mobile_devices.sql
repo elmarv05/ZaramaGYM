@@ -42,5 +42,5 @@ CREATE INDEX IF NOT EXISTS idx_disp_creado_por ON dispositivos_moviles(creado_po
 INSERT OR IGNORE INTO configuracion_sistema (clave, valor, descripcion)
 VALUES
     ('LAN_SERVER_PORT', '3443', 'Puerto TCP para el servidor Wi-Fi local de escáneres móviles'),
-    ('LAN_MDNS_HOSTNAME', 'sistema.local', 'Nombre de host mDNS anunciado en la red Wi-Fi local'),
+    ('LAN_MDNS_HOSTNAME', 'zaramagym.local', 'Nombre de host mDNS anunciado en la red Wi-Fi local'),
     ('LAN_SERVER_ENABLED', '1', 'Estado habilitado por defecto del servidor LAN al iniciar');

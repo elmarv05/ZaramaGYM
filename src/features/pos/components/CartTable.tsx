@@ -10,6 +10,11 @@ import { ConfirmDialog } from '../../../components/primitives/ConfirmDialog';
 import { Icon } from '../../../components/primitives/Icon';
 import { formatMoney } from '../../../domain/pos';
 import { PosSaleItemInput } from '../../../types/pos';
+import {
+  formatDecimalOnBlur,
+  sanitizeDecimalInput,
+  selectIfZeroDefault,
+} from '../../../utils/formSafety';
 
 export interface CartTableProps {
   items: PosSaleItemInput[];
@@ -200,21 +205,19 @@ export const CartTable: React.FC<CartTableProps> = ({
             <span className="absolute left-2.5 top-1.5 text-txt-muted text-xs font-bold">S/</span>
             <input
               id="cart-discount-input"
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.01"
-              min="0"
-              max={subtotal}
               value={descuento}
-              onChange={(e) => onDescuentoChange(e.target.value)}
+              onFocus={selectIfZeroDefault}
+              onChange={(e) => onDescuentoChange(sanitizeDecimalInput(e.target.value))}
               onBlur={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!isNaN(v) && v >= 0) {
-                  const clamped = Math.min(v, subtotal);
-                  onDescuentoChange(clamped.toFixed(2));
-                } else {
-                  onDescuentoChange('0.00');
-                }
+                onDescuentoChange(
+                  formatDecimalOnBlur(e.target.value, {
+                    min: 0,
+                    max: subtotal,
+                    fallback: '0.00',
+                  })
+                );
               }}
               disabled={disabled}
               className="w-full text-right text-xs font-bold pl-7 pr-2 py-1 rounded-md border border-border bg-surface text-txt-primary focus:outline-none focus:ring-1 focus:ring-brand"

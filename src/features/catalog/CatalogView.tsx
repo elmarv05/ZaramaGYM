@@ -1,7 +1,7 @@
 // ============================================================================
 // VISTA PRINCIPAL: CATÁLOGO DE PLANES, INVENTARIO Y KARDEX (SLICE 3)
 // 3 Pestañas accesibles: Planes & Simulador, Inventario y Kardex de Mermas.
-// Respeta RBAC estricto: RECEPCIONISTA (Consulta) vs SUPERVISOR/ADMIN (Edición).
+// Respeta RBAC estricto: RECEPCIONISTA (Planes lectura / Productos crear-editar) vs ADMIN (Total).
 // Ubicación: src/features/catalog/CatalogView.tsx
 // ============================================================================
 
@@ -157,9 +157,9 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
         <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl p-3.5 flex items-center gap-3 text-blue-900 dark:text-blue-200 text-xs">
           <Icon name="info" className="w-4 h-4 shrink-0" aria-hidden="true" />
           <div>
-            <span className="font-bold">Modo Consulta de Precios y Simulador:</span>
+            <span className="font-bold">Modo Operativo de Recepción:</span>
             <span className="ml-1 text-txt-secondary">
-              Como recepcionista puedes simular vencimientos y consultar stock en tiempo real. La creación y modificación de planes, productos o registro de mermas está reservada para Supervisores y Administradores.
+              Puedes consultar y crear nuevas tarifas o planes, usar el Simulador Day Overflow, y registrar o modificar productos del inventario. Editar o dar de baja planes existentes, desactivar productos y registrar mermas o ajustes en Kardex están reservados al Administrador.
             </span>
           </div>
         </div>

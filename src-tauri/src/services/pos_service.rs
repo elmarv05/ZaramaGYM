@@ -4,7 +4,7 @@ use crate::models::{
     ClientCreditFilter, ClientMembershipDto, ClientMembershipFilter, CloseCashShiftInput,
     CreatePosSaleInput, CreditOrigin, DigitalBreakdownDto, OpenCashShiftInput,
     PaymentDetailDto, PaymentMethod, PosItemType, ResolveStruckAction, ResolveStruckSaleInput,
-    SaleDetailDto, SaleFilter, SaleItemDetailDto, SaleListItemDto, StrikeSaleInput, UserRole,
+    SaleDetailDto, SaleFilter, SaleItemDetailDto, SaleListItemDto, StrikeSaleInput,
 };
 use crate::services::audit_service::record_audit;
 use crate::services::catalog_service::calcular_fecha_vencimiento;
@@ -14,17 +14,8 @@ use serde::Deserialize;
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool};
 
 // ============================================================================
-// HELPERS RBAC & JSON BREAKDOWN
+// HELPERS JSON BREAKDOWN
 // ============================================================================
-
-fn require_supervisor_or_admin(session: &AuthSession) -> Result<(), AppError> {
-    if session.rol == UserRole::Recepcionista {
-        return Err(AppError::Forbidden(
-            "Acceso denegado: se requieren privilegios de SUPERVISOR o ADMINISTRADOR.".into(),
-        ));
-    }
-    Ok(())
-}
 
 fn parse_digital_breakdown(json_str: &str) -> DigitalBreakdownDto {
     #[derive(Deserialize)]
@@ -247,6 +238,8 @@ pub async fn open_cash_shift(
     )
     .await;
 
+    let _ = crate::services::lifecycle_service::record_runtime_heartbeat(pool).await;
+
     let shift = get_active_cash_shift(pool, session)
         .await?
         .ok_or_else(|| AppError::Internal("Error recuperando turno recién abierto.".into()))?;
@@ -310,6 +303,8 @@ pub async fn close_cash_shift(
         None,
     )
     .await;
+
+    let _ = crate::services::lifecycle_service::record_runtime_heartbeat(pool).await;
 
     // Recuperar el turno cerrado recién actualizado
     let row = sqlx::query(
@@ -391,7 +386,7 @@ pub async fn list_cash_shifts(
     session: &AuthSession,
     filter: &CashShiftFilter,
 ) -> Result<Vec<CashShiftDto>, AppError> {
-    require_supervisor_or_admin(session)?;
+    session.require_admin()?;
 
     let mut builder: QueryBuilder<Sqlite> = QueryBuilder::new(
         r#"
@@ -1298,7 +1293,7 @@ pub async fn create_pos_sale(
 // 3. FLUJO DE TACHADO EN 2 PASOS
 // ============================================================================
 
-/// Paso 1: Tachado en Turno Abierto (Operadores: Recepcionista, Supervisor, Administrador)
+/// Paso 1: Tachado en Turno Abierto (Operadores: Recepcionista, Administrador)
 pub async fn strike_sale(
     pool: &SqlitePool,
     session: &AuthSession,
@@ -1595,11 +1590,7 @@ pub async fn resolve_struck_sale(
     sale_id: i64,
     input: ResolveStruckSaleInput,
 ) -> Result<SaleDetailDto, AppError> {
-    if session.rol != UserRole::Administrador {
-        return Err(AppError::Forbidden(
-            "Acceso denegado: solo un ADMINISTRADOR puede resolver ventas tachadas.".into(),
-        ));
-    }
+    session.require_admin()?;
 
     let row = sqlx::query(
         r#"

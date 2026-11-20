@@ -26,13 +26,13 @@ CREATE INDEX IF NOT EXISTS idx_personas_documento ON personas(numero_documento);
 CREATE INDEX IF NOT EXISTS idx_personas_apellidos_nombres ON personas(apellidos COLLATE NOCASE, nombres COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS idx_personas_estado ON personas(estado_activo);
 
--- 3. TABLA: USUARIOS_SISTEMA (Hija 1:1 de personas con Foto de Perfil y 3 niveles de rol)
+-- 3. TABLA: USUARIOS_SISTEMA (Hija 1:1 de personas con Foto de Perfil y 2 niveles de rol)
 CREATE TABLE IF NOT EXISTS usuarios_sistema (
     id                      INTEGER PRIMARY KEY AUTOINCREMENT,
     persona_id              INTEGER NOT NULL UNIQUE REFERENCES personas(id) ON DELETE RESTRICT,
     username                TEXT NOT NULL UNIQUE COLLATE NOCASE,
     password_hash           TEXT NOT NULL, -- Argon2id
-    rol_principal           TEXT NOT NULL CHECK(rol_principal IN ('ADMINISTRADOR', 'SUPERVISOR', 'RECEPCIONISTA')),
+    rol_principal           TEXT NOT NULL CHECK(rol_principal IN ('ADMINISTRADOR', 'RECEPCIONISTA')),
     foto_perfil_data_url    TEXT,          -- Data URL base64 de imagen de perfil optimizada o avatar
     estado_activo           INTEGER NOT NULL DEFAULT 1 CHECK(estado_activo IN (0, 1)),
     ultimo_login            TEXT,

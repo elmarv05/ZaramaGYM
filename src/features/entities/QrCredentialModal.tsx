@@ -36,6 +36,12 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
   const [qrError, setQrError] = useState<string | null>(null);
   const [whatsAppError, setWhatsAppError] = useState<string | null>(null);
   const [isOpeningWhatsApp, setIsOpeningWhatsApp] = useState(false);
+  const [downloadedPng, setDownloadedPng] = useState(false);
+  const [feedbackToast, setFeedbackToast] = useState<{
+    variant: 'success' | 'info' | 'warning' | 'danger';
+    title: string;
+    message: string;
+  } | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showConfirmRegenerate, setShowConfirmRegenerate] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -91,6 +97,11 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
     setIsOpeningWhatsApp(true);
     try {
       await openExternalUrl(whatsAppLink);
+      setFeedbackToast({
+        variant: 'info',
+        title: 'Abriendo WhatsApp',
+        message: `Iniciando conversación con ${fullName}...`,
+      });
     } catch (err) {
       setWhatsAppError(normalizeAppError(err).message);
     } finally {
@@ -100,6 +111,14 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
 
   const handleDownloadPng = () => {
     if (!qrDataUrl) return;
+    const fileName = `Credencial_${activeClient.numero_documento}_${qrToken.replace(/[^a-zA-Z0-9_-]/g, '')}.png`;
+    setDownloadedPng(true);
+    setFeedbackToast({
+      variant: 'success',
+      title: 'Credencial QR Descargada',
+      message: `El archivo ${fileName} se guardó en tu carpeta de Descargas.`,
+    });
+    window.setTimeout(() => setDownloadedPng(false), 3000);
 
     // Crear un canvas para armar la tarjeta física completa
     const canvas = document.createElement('canvas');
@@ -172,6 +191,11 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
       setIsRegenerating(true);
       await onRegenerateQr(activeClient.id);
       setShowConfirmRegenerate(false);
+      setFeedbackToast({
+        variant: 'success',
+        title: 'Token QR Regenerado',
+        message: 'Se emitió una nueva credencial QR y la anterior quedó invalidada.',
+      });
     } finally {
       setIsRegenerating(false);
     }
@@ -186,6 +210,16 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
       size="md"
     >
       <div className="flex flex-col items-center gap-5">
+        {feedbackToast && (
+          <Alert
+            variant={feedbackToast.variant}
+            title={feedbackToast.title}
+            onClose={() => setFeedbackToast(null)}
+          >
+            {feedbackToast.message}
+          </Alert>
+        )}
+
         {qrError && (
           <Alert variant="danger" title="Error de renderizado">
             {qrError}
@@ -301,18 +335,27 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
 
           <div className="flex items-center justify-between gap-3">
             <Button
-              variant="secondary"
+              variant={downloadedPng ? 'primary' : 'secondary'}
               size="md"
               onClick={handleDownloadPng}
               disabled={!qrDataUrl || isLoading}
               className="flex-1"
               leftIcon={
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d={
+                      downloadedPng
+                        ? 'M5 13l4 4L19 7'
+                        : 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4'
+                    }
+                  />
                 </svg>
               }
             >
-              Descargar PNG
+              {downloadedPng ? '¡PNG Descargado!' : 'Descargar PNG'}
             </Button>
 
             {whatsAppLink ? (

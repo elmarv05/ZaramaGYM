@@ -21,6 +21,7 @@ import {
   validateIssueReceiptInput,
 } from '../../../domain/printingBackup';
 import { ThermalTicketPreview } from '../../printing_backup/components/ThermalTicketPreview';
+import { entityIpc } from '../../../services/ipc/entityIpc';
 import { printingBackupIpc } from '../../../services/ipc/printingBackupIpc';
 import { SaleDetailDto } from '../../../types/pos';
 import {
@@ -28,6 +29,7 @@ import {
   PrintTicketResult,
   ReceiptType,
 } from '../../../types/printingBackup';
+import { preventEnterKeySubmit } from '../../../utils/formSafety';
 
 export interface SaleDetailModalProps {
   isOpen: boolean;
@@ -263,6 +265,46 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
       setDocError(msg);
     } finally {
       setDocLoading(false);
+    }
+  };
+
+  // Handler: Enviar resumen de venta/comprobante por WhatsApp en 1 clic
+  const handleSendWhatsApp = async () => {
+    setDocError(null);
+    setDocSuccess(null);
+    const comprobanteLabel = issuedReceipt
+      ? `${issuedReceipt.tipo_comprobante} ${issuedReceipt.numero_formateado}`
+      : `Venta #${sale.id}`;
+    const clienteLabel = sale.cliente_nombre_completo || 'Cliente';
+    const itemsText =
+      sale.items && sale.items.length > 0
+        ? sale.items
+            .map((it) => `- ${it.cantidad}x ${it.descripcion} (S/ ${formatMoney(it.subtotal)})`)
+            .join('\n')
+        : '';
+    const summaryLines = [
+      `Hola ${clienteLabel}, gracias por tu compra en *ZaramaGYM*.`,
+      `Comprobante: *${comprobanteLabel}*`,
+      `Fecha: ${sale.created_at}`,
+      ...(itemsText ? [`Detalle:\n${itemsText}`] : []),
+      `Total: *S/ ${formatMoney(sale.total_venta)}*`,
+      ...(parseFloat(sale.saldo_credito_generado) > 0
+        ? [`Saldo pendiente: S/ ${formatMoney(sale.saldo_credito_generado)}`]
+        : []),
+    ];
+    const url = `https://wa.me/?text=${encodeURIComponent(summaryLines.join('\n'))}`;
+
+    try {
+      await entityIpc.openExternalUrl(url);
+      setDocSuccess('Resumen de compra abierto en WhatsApp.');
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'No se pudo abrir WhatsApp.';
+      setDocError(msg);
     }
   };
 
@@ -539,12 +581,24 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
             >
               Enviar PDF por Correo
             </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void handleSendWhatsApp()}
+              leftIcon={<Icon name="smartphone" className="w-4 h-4 text-status-success" aria-hidden="true" />}
+            >
+              Enviar por WhatsApp
+            </Button>
           </div>
 
           {/* Formulario rápido de Envío de Email */}
           {emailOpen && (
             <form
+              noValidate
               onSubmit={handleSendEmail}
+              onKeyDown={preventEnterKeySubmit}
               className="p-3 bg-canvas-subtle rounded-lg border border-border flex flex-col sm:flex-row items-center gap-2"
             >
               <div className="flex-1 w-full">

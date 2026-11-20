@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
+  ROLE_HIERARCHY,
+  canAccessAdminDirectoryTabs,
+  canAccessPersonsTab,
+  canCreateSupplierOrCompany,
+  canEditOrDeactivateSupplierOrCompany,
+  canModifyLinkedPersonData,
+  canToggleClientActive,
   validatePersonDocument,
   validatePersonForm,
   validateClientForm,
@@ -219,6 +226,37 @@ describe('Domain: Entity Validations & Helpers (Slice 2)', () => {
     it('respeta número con prefijo de país si ya tiene más de 9 dígitos', () => {
       const link = buildWhatsAppWelcomeLink('+51 987 654 321', 'Ana', 'ZG-TEST');
       expect(link).toContain('https://wa.me/51987654321?text=');
+    });
+  });
+
+  describe('RBAC de Entidades (2 Roles)', () => {
+    it('ROLE_HIERARCHY consolida el sistema a RECEPCIONISTA (1) y ADMINISTRADOR (2)', () => {
+      expect(ROLE_HIERARCHY).toEqual({ RECEPCIONISTA: 1, ADMINISTRADOR: 2 });
+    });
+
+    it('canModifyLinkedPersonData respeta ADMINISTRADOR y Caso Juan Pérez para RECEPCIONISTA', () => {
+      expect(canModifyLinkedPersonData('ADMINISTRADOR', 'ADMINISTRADOR')).toBe(true);
+      expect(canModifyLinkedPersonData('ADMINISTRADOR', 'RECEPCIONISTA')).toBe(true);
+      expect(canModifyLinkedPersonData('RECEPCIONISTA', null)).toBe(true);
+      expect(canModifyLinkedPersonData('RECEPCIONISTA', 'RECEPCIONISTA')).toBe(false);
+      expect(canModifyLinkedPersonData('RECEPCIONISTA', 'ADMINISTRADOR')).toBe(false);
+    });
+
+    it('aplica la matriz de permisos de Directorio para ADMINISTRADOR y RECEPCIONISTA', () => {
+      expect(canToggleClientActive('ADMINISTRADOR')).toBe(true);
+      expect(canToggleClientActive('RECEPCIONISTA')).toBe(false);
+      expect(canAccessAdminDirectoryTabs('ADMINISTRADOR')).toBe(true);
+      expect(canAccessAdminDirectoryTabs('RECEPCIONISTA')).toBe(false);
+
+      expect(canCreateSupplierOrCompany('ADMINISTRADOR')).toBe(true);
+      expect(canCreateSupplierOrCompany('RECEPCIONISTA')).toBe(true);
+      expect(canCreateSupplierOrCompany(null)).toBe(false);
+
+      expect(canEditOrDeactivateSupplierOrCompany('ADMINISTRADOR')).toBe(true);
+      expect(canEditOrDeactivateSupplierOrCompany('RECEPCIONISTA')).toBe(false);
+
+      expect(canAccessPersonsTab('ADMINISTRADOR')).toBe(true);
+      expect(canAccessPersonsTab('RECEPCIONISTA')).toBe(false);
     });
   });
 });

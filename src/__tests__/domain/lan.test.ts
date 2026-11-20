@@ -102,9 +102,8 @@ describe('Dominio LAN: Validaciones, Normalizaciones y Reglas de Negocio', () =>
   });
 
   describe('canManageLanDevices (RBAC)', () => {
-    it('permite a ADMINISTRADOR y SUPERVISOR gestionar servidor y dispositivos LAN', () => {
+    it('permite exclusivamente a ADMINISTRADOR gestionar servidor y dispositivos LAN', () => {
       expect(canManageLanDevices('ADMINISTRADOR')).toBe(true);
-      expect(canManageLanDevices('SUPERVISOR')).toBe(true);
       expect(canManageLanDevices('administrador')).toBe(true);
     });
 
@@ -121,9 +120,9 @@ describe('Dominio LAN: Validaciones, Normalizaciones y Reglas de Negocio', () =>
       port: 3443,
       localIps: ['192.168.1.45'],
       primaryIp: '192.168.1.45',
-      httpsUrl: 'https://192.168.1.45:3443/scanner',
-      httpUrl: 'http://192.168.1.45:3443/scanner',
-      mdnsHostname: 'sistema.local',
+      httpsUrl: 'https://zaramagym.local:3443/scanner',
+      httpUrl: 'http://zaramagym.local:3443/scanner',
+      mdnsHostname: 'zaramagym.local',
       mdnsActive: true,
       caCertPem: '---CERT---',
       caCertFingerprintSha256: 'ABCD1234',
@@ -132,13 +131,25 @@ describe('Dominio LAN: Validaciones, Normalizaciones y Reglas de Negocio', () =>
       totalScansToday: 45,
     };
 
-    it('retorna la URL base cuando no se proporciona código de emparejamiento', () => {
-      expect(formatScannerUrl(mockStatus)).toBe('https://192.168.1.45:3443/scanner');
+    it('prioriza la URL mDNS cuando mdnsActive está activo y no se proporciona código', () => {
+      expect(formatScannerUrl(mockStatus)).toBe('https://zaramagym.local:3443/scanner');
     });
 
-    it('agrega el parámetro ?pair= con el código normalizado', () => {
+    it('agrega el parámetro ?pair= con el código normalizado sobre mDNS', () => {
       expect(formatScannerUrl(mockStatus, 'zg-4821')).toBe(
-        'https://192.168.1.45:3443/scanner?pair=ZG4821'
+        'https://zaramagym.local:3443/scanner?pair=ZG4821'
+      );
+    });
+
+    it('hace fallback a IP local cuando mDNS está inactivo o preferMdns es false', () => {
+      const noMdnsStatus: LanServerStatusDto = {
+        ...mockStatus,
+        mdnsActive: false,
+        httpsUrl: 'https://192.168.1.45:3443/scanner',
+      };
+      expect(formatScannerUrl(noMdnsStatus)).toBe('https://192.168.1.45:3443/scanner');
+      expect(formatScannerUrl(noMdnsStatus, 'K9M2PX')).toBe(
+        'https://192.168.1.45:3443/scanner?pair=K9M2PX'
       );
     });
 

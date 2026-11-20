@@ -6,6 +6,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   canManageBackupsAndPrinterConfig,
+  canManagePrintingAndBackups,
+  canViewPrintingAndBackups,
   canViewPrintingBackupModule,
   formatBytes,
   getLocalDateISO,
@@ -168,18 +170,20 @@ describe('Dominio: Impresión Térmica, Documentos y Respaldos (Slice 8)', () =>
   });
 
   describe('Permisos RBAC', () => {
-    it('canManageBackupsAndPrinterConfig solo permite ADMINISTRADOR', () => {
+    it('canManageBackupsAndPrinterConfig y canManagePrintingAndBackups solo permiten ADMINISTRADOR', () => {
       expect(canManageBackupsAndPrinterConfig('ADMINISTRADOR')).toBe(true);
-      expect(canManageBackupsAndPrinterConfig('SUPERVISOR')).toBe(false);
       expect(canManageBackupsAndPrinterConfig('RECEPCIONISTA')).toBe(false);
       expect(canManageBackupsAndPrinterConfig(undefined)).toBe(false);
+      expect(canManagePrintingAndBackups('ADMINISTRADOR')).toBe(true);
+      expect(canManagePrintingAndBackups('RECEPCIONISTA')).toBe(false);
     });
 
-    it('canViewPrintingBackupModule permite ADMINISTRADOR y SUPERVISOR', () => {
+    it('canViewPrintingBackupModule y canViewPrintingAndBackups solo permiten ADMINISTRADOR', () => {
       expect(canViewPrintingBackupModule('ADMINISTRADOR')).toBe(true);
-      expect(canViewPrintingBackupModule('SUPERVISOR')).toBe(true);
       expect(canViewPrintingBackupModule('RECEPCIONISTA')).toBe(false);
       expect(canViewPrintingBackupModule(undefined)).toBe(false);
+      expect(canViewPrintingAndBackups('ADMINISTRADOR')).toBe(true);
+      expect(canViewPrintingAndBackups('RECEPCIONISTA')).toBe(false);
     });
   });
 
