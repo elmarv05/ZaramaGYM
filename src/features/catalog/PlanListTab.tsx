@@ -7,6 +7,7 @@
 import React, { useState } from 'react';
 import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
+import { CheckboxField } from '../../components/primitives/Checkbox';
 import { Icon } from '../../components/primitives/Icon';
 import { Input } from '../../components/primitives/Input';
 import {
@@ -190,76 +191,38 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
 
           {/* Duración rápida */}
           <div className="md:col-span-4 flex flex-col gap-2">
-            <label className="text-xs font-semibold text-txt-secondary uppercase tracking-wider select-none">
+            <span className="text-xs font-semibold text-txt-secondary uppercase tracking-wider select-none">
               Tipo / Duración a Cotizar
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleQuickDuration('PASE_DIARIO', 0)}
-                className={`text-xs py-1.5 px-2 rounded-md font-medium border transition-colors ${
-                  simTipoPlan === 'PASE_DIARIO'
-                    ? 'bg-brand text-brand-text border-brand shadow-xs'
-                    : 'bg-surface hover:bg-canvas-subtle text-txt-secondary border-border'
-                }`}
-              >
-                Pase Día
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDuration('MENSUALIDAD', 1)}
-                className={`text-xs py-1.5 px-2 rounded-md font-medium border transition-colors ${
-                  simTipoPlan === 'MENSUALIDAD' && simDuracionMeses === 1
-                    ? 'bg-brand text-brand-text border-brand shadow-xs'
-                    : 'bg-surface hover:bg-canvas-subtle text-txt-secondary border-border'
-                }`}
-              >
-                1 Mes
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDuration('MENSUALIDAD', 2)}
-                className={`text-xs py-1.5 px-2 rounded-md font-medium border transition-colors ${
-                  simTipoPlan === 'MENSUALIDAD' && simDuracionMeses === 2
-                    ? 'bg-brand text-brand-text border-brand shadow-xs'
-                    : 'bg-surface hover:bg-canvas-subtle text-txt-secondary border-border'
-                }`}
-              >
-                2 Meses
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDuration('MENSUALIDAD', 3)}
-                className={`text-xs py-1.5 px-2 rounded-md font-medium border transition-colors ${
-                  simTipoPlan === 'MENSUALIDAD' && simDuracionMeses === 3
-                    ? 'bg-brand text-brand-text border-brand shadow-xs'
-                    : 'bg-surface hover:bg-canvas-subtle text-txt-secondary border-border'
-                }`}
-              >
-                3 Meses
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDuration('MENSUALIDAD', 6)}
-                className={`text-xs py-1.5 px-2 rounded-md font-medium border transition-colors ${
-                  simTipoPlan === 'MENSUALIDAD' && simDuracionMeses === 6
-                    ? 'bg-brand text-brand-text border-brand shadow-xs'
-                    : 'bg-surface hover:bg-canvas-subtle text-txt-secondary border-border'
-                }`}
-              >
-                6 Meses
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDuration('MENSUALIDAD', 12)}
-                className={`text-xs py-1.5 px-2 rounded-md font-medium border transition-colors ${
-                  simTipoPlan === 'MENSUALIDAD' && simDuracionMeses === 12
-                    ? 'bg-brand text-brand-text border-brand shadow-xs'
-                    : 'bg-surface hover:bg-canvas-subtle text-txt-secondary border-border'
-                }`}
-              >
-                12 Meses
-              </button>
+            </span>
+            <div role="group" aria-label="Tipo y duración a cotizar" className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              {(
+                [
+                  { tipo: 'PASE_DIARIO' as TipoPlan, duracion: 0, label: 'Pase Día' },
+                  { tipo: 'MENSUALIDAD' as TipoPlan, duracion: 1, label: '1 Mes' },
+                  { tipo: 'MENSUALIDAD' as TipoPlan, duracion: 2, label: '2 Meses' },
+                  { tipo: 'MENSUALIDAD' as TipoPlan, duracion: 3, label: '3 Meses' },
+                  { tipo: 'MENSUALIDAD' as TipoPlan, duracion: 6, label: '6 Meses' },
+                  { tipo: 'MENSUALIDAD' as TipoPlan, duracion: 12, label: '12 Meses' },
+                ] as const
+              ).map((preset) => {
+                const isSelected =
+                  preset.tipo === 'PASE_DIARIO'
+                    ? simTipoPlan === 'PASE_DIARIO'
+                    : simTipoPlan === 'MENSUALIDAD' && simDuracionMeses === preset.duracion;
+                return (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    size="sm"
+                    variant={isSelected ? 'primary' : 'secondary'}
+                    aria-pressed={isSelected}
+                    onClick={() => handleQuickDuration(preset.tipo, preset.duracion)}
+                    className="min-h-[30px] px-2 py-1.5 text-xs"
+                  >
+                    {preset.label}
+                  </Button>
+                );
+              })}
             </div>
             <span className="text-[11px] text-txt-muted">
               Selecciona la duración de la membresía para la simulación.
@@ -308,15 +271,12 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-xs text-txt-secondary cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={soloActivos}
-              onChange={(e) => setSoloActivos(e.target.checked)}
-              className="rounded border-border text-brand focus:ring-brand"
-            />
-            <span>Solo activos</span>
-          </label>
+          <CheckboxField
+            label="Solo activos"
+            checked={soloActivos}
+            onCheckedChange={(checked) => setSoloActivos(checked === true)}
+            className="min-h-[32px] py-0 items-center [&_span]:text-xs [&_span]:text-txt-secondary"
+          />
 
           {onRefresh && (
             <Button
@@ -351,7 +311,7 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
       </div>
 
       {/* Tabla de Planes */}
-      <Table>
+      <Table containerLabel="Catálogo de planes y membresías">
         <TableHeader>
           <TableRow>
             <TableHead>Código</TableHead>
@@ -484,8 +444,8 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
                               onClick={() => onTogglePlanActive(plan.id, plan.estado_activo)}
                               className={
                                 plan.estado_activo
-                                  ? 'text-status-danger border-red-300'
-                                  : 'text-status-success border-emerald-300'
+                                  ? 'text-status-danger border-status-danger-border'
+                                  : 'text-status-success border-status-success-border'
                               }
                             >
                               {plan.estado_activo ? 'Desactivar' : 'Activar'}

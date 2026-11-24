@@ -5,10 +5,7 @@
 // ============================================================================
 
 import React, { useState } from 'react';
-import { Alert } from '../../../components/primitives/Alert';
-import { Button } from '../../../components/primitives/Button';
-import { Input } from '../../../components/primitives/Input';
-import { Modal } from '../../../components/primitives/Modal';
+import { Alert, Button, Input, Modal, Textarea } from '../../../components/primitives';
 import { OpenCashShiftInput } from '../../../types/pos';
 import {
   formatDecimalOnBlur,
@@ -105,31 +102,28 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({
           <div className="flex items-center gap-2 pt-1">
             <span className="text-[11px] text-txt-muted">Frecuentes:</span>
             {[20, 50, 100, 200].map((v) => (
-              <button
+              <Button
                 key={v}
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => handleShortcut(v)}
-                className="text-xs font-semibold px-2.5 py-1 rounded-md bg-canvas-subtle hover:bg-surface-hover text-txt-primary border border-border transition-colors"
+                className="min-h-[28px] px-2.5 py-1 text-xs font-semibold"
               >
                 S/ {v}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="open-shift-notes" className="text-xs font-bold text-txt-primary">
-            Notas u Observaciones (Opcional)
-          </label>
-          <textarea
-            id="open-shift-notes"
-            rows={2}
-            value={notas}
-            onChange={(e) => setNotas(e.target.value)}
-            placeholder="Ej. Billetes fraccionados y monedas de 1, 2 y 5 soles para dar cambio..."
-            className="w-full text-xs rounded-lg border border-border bg-surface px-3 py-2 text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
-          />
-        </div>
+        <Textarea
+          id="open-shift-notes"
+          label="Notas u Observaciones (Opcional)"
+          rows={2}
+          value={notas}
+          onChange={(e) => setNotas(e.target.value)}
+          placeholder="Ej. Billetes fraccionados y monedas de 1, 2 y 5 soles para dar cambio..."
+        />
 
         <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
           <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>

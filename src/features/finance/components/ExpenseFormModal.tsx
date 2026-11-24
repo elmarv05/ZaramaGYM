@@ -4,12 +4,15 @@
 // Ubicación: src/features/finance/components/ExpenseFormModal.tsx
 // ============================================================================
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { Alert } from '../../../components/primitives/Alert';
 import { Badge } from '../../../components/primitives/Badge';
 import { Button } from '../../../components/primitives/Button';
 import { Input } from '../../../components/primitives/Input';
+import { Label } from '../../../components/primitives/Label';
 import { Modal } from '../../../components/primitives/Modal';
+import { Select, SelectOption } from '../../../components/primitives/Select';
+import { Textarea } from '../../../components/primitives/Textarea';
 import {
   EXPENSE_CATEGORY_LABELS,
   derivePaymentChannel,
@@ -38,6 +41,21 @@ export interface ExpenseFormModalProps {
   isLoading?: boolean;
 }
 
+const EXPENSE_CATEGORY_OPTIONS: SelectOption[] = (
+  Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[]
+).map((cat) => ({
+  value: cat,
+  label: EXPENSE_CATEGORY_LABELS[cat],
+}));
+
+const PAYMENT_METHOD_OPTIONS: SelectOption[] = [
+  { value: 'EFECTIVO', label: 'EFECTIVO (Caja Física)' },
+  { value: 'YAPE', label: 'YAPE (Digital)' },
+  { value: 'PLIN', label: 'PLIN (Digital)' },
+  { value: 'TRANSFERENCIA', label: 'TRANSFERENCIA (Digital)' },
+  { value: 'TARJETA', label: 'TARJETA POS (Digital)' },
+];
+
 export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
   isOpen,
   onClose,
@@ -46,6 +64,7 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
   isLoading = false,
 }) => {
   const isEditing = Boolean(initialData);
+  const metodoPagoId = useId();
 
   const [categoria, setCategoria] = useState<ExpenseCategory>('SERVICIOS_BASICOS');
   const [descripcion, setDescripcion] = useState<string>('');
@@ -133,116 +152,88 @@ export const ExpenseFormModal: React.FC<ExpenseFormModalProps> = ({
           </Alert>
         )}
 
-        <div>
-          <label className="font-bold text-txt-primary block mb-1">
-            Categoría del Gasto: <span className="text-rose-500">*</span>
-          </label>
-          <select
-            value={categoria}
-            onChange={(e) => setCategoria(e.target.value as ExpenseCategory)}
-            aria-label="Categoría del Gasto"
-            required
-            className="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-          >
-            {(Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[]).map((cat) => (
-              <option key={cat} value={cat}>
-                {EXPENSE_CATEGORY_LABELS[cat]}
-              </option>
-            ))}
-          </select>
-        </div>
+        <Select
+          label="Categoría del Gasto"
+          selectSize="sm"
+          value={categoria}
+          onChange={(e) => setCategoria(e.target.value as ExpenseCategory)}
+          required
+          options={EXPENSE_CATEGORY_OPTIONS}
+        />
 
-        <div>
-          <label className="font-bold text-txt-primary block mb-1">
-            Descripción: <span className="text-rose-500">*</span>
-          </label>
-          <Input
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-            placeholder="Ej. Recibo de luz mes de octubre / Compra de jabón y desinfectante..."
-            aria-label="Descripción del gasto"
-            required
-          />
-        </div>
+        <Input
+          label="Descripción del gasto"
+          inputSize="sm"
+          value={descripcion}
+          onChange={(e) => setDescripcion(e.target.value)}
+          placeholder="Ej. Recibo de luz mes de octubre / Compra de jabón y desinfectante..."
+          required
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="font-bold text-txt-primary block mb-1">
-              Monto (S/): <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={monto}
-              onFocus={selectIfZeroDefault}
-              onChange={(e) => setMonto(sanitizeDecimalInput(e.target.value))}
-              onBlur={(e) => {
-                setMonto(formatDecimalOnBlur(e.target.value, { min: 0.01, fallback: '' }));
-              }}
-              placeholder="0.00"
-              aria-label="Monto del gasto"
-              required
-              className="w-full px-2.5 py-1.5 rounded-md border border-border bg-canvas text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-            />
-          </div>
+          <Input
+            label="Monto del gasto (S/)"
+            inputSize="sm"
+            type="text"
+            inputMode="decimal"
+            value={monto}
+            onFocus={selectIfZeroDefault}
+            onChange={(e) => setMonto(sanitizeDecimalInput(e.target.value))}
+            onBlur={(e) => {
+              setMonto(formatDecimalOnBlur(e.target.value, { min: 0.01, fallback: '' }));
+            }}
+            placeholder="0.00"
+            required
+            className="bg-canvas"
+          />
 
-          <div>
-            <label className="font-bold text-txt-primary block mb-1">
-              Método de Pago: <span className="text-rose-500">*</span>
-              <Badge variant={canalCaja === 'FISICA' ? 'success' : 'info'} className="ml-1.5">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-1">
+              <Label htmlFor={metodoPagoId} required className="normal-case">
+                Método de pago del gasto
+              </Label>
+              <Badge variant={canalCaja === 'FISICA' ? 'success' : 'info'} size="sm">
                 {canalCaja}
               </Badge>
-            </label>
-            <select
+            </div>
+            <Select
+              id={metodoPagoId}
+              selectSize="sm"
               value={metodoPago}
               onChange={(e) => setMetodoPago(e.target.value as PaymentMethod)}
-              aria-label="Método de pago del gasto"
               required
-              className="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-            >
-              <option value="EFECTIVO">EFECTIVO (Caja Física)</option>
-              <option value="YAPE">YAPE (Digital)</option>
-              <option value="PLIN">PLIN (Digital)</option>
-              <option value="TRANSFERENCIA">TRANSFERENCIA (Digital)</option>
-              <option value="TARJETA">TARJETA POS (Digital)</option>
-            </select>
+              options={PAYMENT_METHOD_OPTIONS}
+            />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="font-bold text-txt-primary block mb-1">
-              Comprobante / N° Operación (Opcional):
-            </label>
-            <Input
-              value={comprobanteReferencia}
-              onChange={(e) => setComprobanteReferencia(e.target.value)}
-              placeholder="Ej. Recibo 01248 / Op 884729"
-            />
-          </div>
+          <Input
+            label="Comprobante / N° Operación (Opcional)"
+            inputSize="sm"
+            value={comprobanteReferencia}
+            onChange={(e) => setComprobanteReferencia(e.target.value)}
+            placeholder="Ej. Recibo 01248 / Op 884729"
+          />
 
-          <div>
-            <label className="font-bold text-txt-primary block mb-1">Fecha de Gasto (Opcional):</label>
-            <input
-              type="date"
-              value={fechaGasto}
-              onChange={(e) => setFechaGasto(e.target.value)}
-              aria-label="Fecha del gasto"
-              className="w-full px-2.5 py-1.5 rounded-md border border-border bg-canvas text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="font-bold text-txt-primary block mb-1">Notas u Observaciones (Opcional):</label>
-          <textarea
-            value={notas}
-            onChange={(e) => setNotas(e.target.value)}
-            placeholder="Información adicional del egreso..."
-            rows={2}
-            className="w-full px-2.5 py-1.5 rounded-md border border-border bg-canvas text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
+          <Input
+            label="Fecha del gasto (Opcional)"
+            inputSize="sm"
+            type="date"
+            value={fechaGasto}
+            onChange={(e) => setFechaGasto(e.target.value)}
+            className="bg-canvas"
           />
         </div>
+
+        <Textarea
+          label="Notas u Observaciones (Opcional)"
+          value={notas}
+          onChange={(e) => setNotas(e.target.value)}
+          placeholder="Información adicional del egreso..."
+          rows={2}
+          className="text-xs bg-canvas"
+        />
 
         <div className="flex justify-end items-center gap-2 pt-2 border-t border-border">
           <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={isLoading}>

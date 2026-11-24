@@ -24,7 +24,6 @@ export interface LoginFormProps {
 }
 
 const CURRENT_APP_VERSION = '0.1.0';
-const WATERMARK_CELLS = Array.from({ length: 24 });
 
 export const LoginForm: React.FC<LoginFormProps> = ({
   onLogin,
@@ -72,21 +71,23 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   };
 
   return (
-    <div className="w-full h-full min-h-dvh relative overflow-hidden flex flex-col text-white bg-gradient-to-br from-[#05AD52] via-[#047857] to-[#0D9488] zg-view-enter">
-      {/* Patrón de marca de agua en todo el fondo */}
+    <div className="w-full h-full min-h-dvh relative overflow-hidden flex flex-col text-white zg-login-backdrop bg-gradient-to-br from-[var(--login-bg-from)] via-[var(--login-bg-via)] to-[var(--login-bg-to)] zg-view-enter">
+      {/* Textura ambiental ligera en 1 sola capa GPU (se atenúa automáticamente en modo oscuro) */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 grid grid-cols-4 sm:grid-cols-6 grid-rows-4 gap-6 p-6 opacity-[0.08] pointer-events-none select-none rotate-[-12deg] scale-110"
+        className="zg-login-ambient absolute inset-0 pointer-events-none select-none"
+      />
+
+      {/* Sutil emblema de marca de agua centrado sin sobrecarga de 24 nodos <img> */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden"
       >
-        {WATERMARK_CELLS.map((_, index) => (
-          <div key={index} className="flex items-center justify-center">
-            <img
-              src="/zaramagym-logo.png"
-              alt=""
-              className="w-16 h-16 object-contain"
-            />
-          </div>
-        ))}
+        <img
+          src="/zaramagym-logo.png"
+          alt=""
+          className="w-[460px] h-[460px] object-contain opacity-[0.06] dark:opacity-[0.035] scale-105"
+        />
       </div>
 
       {/* Capa scrollable que centra el emblema + formulario y respeta pantallas pequeñas */}
@@ -94,11 +95,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         {/* Barra superior: Área recepción + versión y Selector Claro / Oscuro */}
         <header className="flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-xs font-semibold tracking-wide text-white">
-              <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" aria-hidden="true" />
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 dark:bg-white/[0.06] border border-white/20 dark:border-white/[0.06] text-xs font-semibold tracking-wide text-white/95">
+              <span className="w-2 h-2 rounded-full bg-status-success-border dark:bg-brand animate-pulse" aria-hidden="true" />
               Área recepción
             </span>
-            <span className="hidden sm:inline text-white/85 font-mono text-[11px]">
+            <span className="hidden sm:inline text-white/80 dark:text-white/55 font-mono text-[11px]">
               v{CURRENT_APP_VERSION}
             </span>
           </div>
@@ -106,44 +107,48 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           <div
             role="group"
             aria-label="Selector de modo de color"
-            className="inline-flex items-center p-1 rounded-full bg-surface/95 backdrop-blur-md border border-white/25 dark:border-border shadow-md"
+            className="inline-flex items-center p-1 rounded-full bg-surface/95 dark:bg-surface/90 border border-white/25 dark:border-border shadow-md gap-0.5"
           >
-            <button
+            <Button
               type="button"
+              variant={theme === 'light' ? 'primary' : 'ghost'}
+              size="sm"
               onClick={() => setTheme('light')}
               aria-label="Modo claro"
               aria-pressed={theme === 'light'}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+              leftIcon={<Icon name="sun" className="w-3.5 h-3.5" aria-hidden="true" />}
+              className={`rounded-full h-7 min-h-0 px-3 py-1 text-xs font-semibold ${
                 theme === 'light'
-                  ? 'bg-brand text-brand-text shadow-xs'
+                  ? 'shadow-xs'
                   : 'text-txt-secondary hover:text-txt-primary'
               }`}
             >
-              <Icon name="sun" className="w-3.5 h-3.5" />
-              <span>Claro</span>
-            </button>
-            <button
+              Claro
+            </Button>
+            <Button
               type="button"
+              variant={theme === 'dark' ? 'primary' : 'ghost'}
+              size="sm"
               onClick={() => setTheme('dark')}
               aria-label="Modo oscuro"
               aria-pressed={theme === 'dark'}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+              leftIcon={<Icon name="moon" className="w-3.5 h-3.5" aria-hidden="true" />}
+              className={`rounded-full h-7 min-h-0 px-3 py-1 text-xs font-semibold ${
                 theme === 'dark'
-                  ? 'bg-brand text-brand-text shadow-xs'
+                  ? 'shadow-xs'
                   : 'text-txt-secondary hover:text-txt-primary'
               }`}
             >
-              <Icon name="moon" className="w-3.5 h-3.5" />
-              <span>Oscuro</span>
-            </button>
+              Oscuro
+            </Button>
           </div>
         </header>
 
         {/* Bloque Central: Logo + Título centrados encima de la Tarjeta de Inicio de Sesión */}
-        <div className="w-full max-w-md mx-auto my-auto py-4 flex flex-col items-center gap-5">
+        <div className="w-full max-w-[420px] mx-auto my-auto py-4 flex flex-col items-center gap-5">
           {/* Logo y Título encima del formulario */}
           <div className="flex flex-col items-center text-center gap-3">
-            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-white/15 backdrop-blur-md p-2 border border-white/30 shadow-xl flex items-center justify-center">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white/15 dark:bg-white/[0.06] p-2 border border-white/25 dark:border-white/[0.06] shadow-lg flex items-center justify-center ring-4 ring-white/10 dark:ring-brand/10">
               <img
                 src="/zaramagym-logo.png"
                 alt="Logo ZaramaGYM"
@@ -155,17 +160,22 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-sm">
                 ZaramaGYM
               </h1>
-              <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
+              <p className="text-xs sm:text-sm text-white/90 dark:text-white/75 leading-relaxed">
                 Fuerza, disciplina y gestión inteligente para tu gimnasio.
               </p>
             </div>
           </div>
 
           {/* Tarjeta de Inicio de Sesión */}
-          <div className="w-full bg-surface text-txt-primary border border-white/20 dark:border-border rounded-2xl p-6 sm:p-7 shadow-2xl flex flex-col gap-5">
-            <h2 id={headingId} className="text-2xl font-bold tracking-tight text-txt-primary">
-              Iniciar Sesión
-            </h2>
+          <div className="w-full bg-surface text-txt-primary border border-white/25 dark:border-border rounded-2xl p-6 sm:p-7 shadow-lg dark:shadow-[0_24px_64px_-12px_rgba(0,0,0,0.75),inset_0_1px_0_0_rgba(255,255,255,0.025)] flex flex-col gap-5">
+            <div className="flex flex-col gap-1">
+              <h2 id={headingId} className="text-xl sm:text-2xl font-bold tracking-tight text-txt-primary">
+                Iniciar Sesión
+              </h2>
+              <p className="text-xs text-txt-muted">
+                Ingresa tus credenciales de operador para acceder al sistema.
+              </p>
+            </div>
 
             {error && (
               <Alert
@@ -229,16 +239,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 enterKeyHint="done"
                 leftIcon={<Icon name="lock" className="w-4 h-4" />}
                 rightIcon={
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setShowPassword((prev) => !prev)}
                     aria-label="Mostrar u ocultar contraseña"
                     aria-pressed={showPassword}
                     disabled={isLoading}
-                    className="p-1 rounded text-txt-muted hover:text-txt-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    className="size-7 p-0 text-txt-muted hover:text-txt-primary"
                   >
-                    <Icon name={showPassword ? 'eye-off' : 'eye'} className="w-4 h-4" />
-                  </button>
+                    <Icon name={showPassword ? 'eye-off' : 'eye'} className="w-4 h-4" aria-hidden="true" />
+                  </Button>
                 }
                 required
               />
@@ -260,9 +272,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         </div>
 
         {/* Pie de página unificado */}
-        <footer className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-white/85 border-t border-white/15 pt-3.5 shrink-0">
+        <footer className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-white/90 dark:text-white/70 border-t border-white/15 dark:border-white/[0.06] pt-3.5 shrink-0">
           <span>Max Rios • Consultoría y desarrollo freelance</span>
-          <span className="font-semibold text-white">Sincronización: 100%</span>
+          <span className="font-semibold text-white dark:text-white/90">Sincronización: 100%</span>
         </footer>
       </div>
     </div>

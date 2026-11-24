@@ -229,7 +229,7 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
       {/* Cabecera de Bienvenida y Estado Operativo */}
       <section
         aria-label="Centro de operaciones ZaramaGYM"
-        className="bg-surface border border-border rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col gap-4"
+        className="bg-surface border border-border/90 rounded-2xl p-5 sm:p-6 shadow-xs dark:shadow-[0_1px_2px_0_rgb(0_0_0/0.45),inset_0_1px_0_0_rgba(255,255,255,0.02)] flex flex-col gap-4"
       >
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex-1 min-w-0 flex flex-col gap-1.5">
@@ -375,20 +375,20 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
             className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
           >
             {/* KPI 1: Socios & Membresías Activas */}
-            <article className="bg-surface border border-border rounded-xl p-4 shadow-xs flex flex-col justify-between gap-3">
+            <article className="bg-surface border border-border/90 hover:border-border-elevated rounded-xl p-4 sm:p-5 shadow-xs dark:shadow-[0_1px_2px_0_rgb(0_0_0/0.45),inset_0_1px_0_0_rgba(255,255,255,0.02)] transition-[border-color,box-shadow] duration-150 flex flex-col justify-between gap-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">
+                <span className="text-xs font-medium text-txt-secondary">
                   Socios &amp; Membresías Activas
                 </span>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-status-success bg-status-success-bg">
+                <div className="w-8 h-8 rounded-lg border border-status-success-border/60 flex items-center justify-center text-status-success bg-status-success-bg/85">
                   <Icon name="users" className="w-4 h-4" />
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-extrabold text-txt-primary tabular-nums">
+                <span className="text-2xl sm:text-[26px] font-bold tracking-tight text-txt-primary tabular-nums">
                   {metrics.clientes_activos}
                 </span>
-                <span className="text-xs font-semibold text-txt-secondary tabular-nums">
+                <span className="text-xs font-medium text-txt-secondary tabular-nums">
                   / {metrics.membresias_activas} vigentes
                 </span>
               </div>
@@ -398,16 +398,16 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
             </article>
 
             {/* KPI 2: Asistencias Hoy */}
-            <article className="bg-surface border border-border rounded-xl p-4 shadow-xs flex flex-col justify-between gap-3">
+            <article className="bg-surface border border-border/90 hover:border-border-elevated rounded-xl p-4 sm:p-5 shadow-xs dark:shadow-[0_1px_2px_0_rgb(0_0_0/0.45),inset_0_1px_0_0_rgba(255,255,255,0.02)] transition-[border-color,box-shadow] duration-150 flex flex-col justify-between gap-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">
+                <span className="text-xs font-medium text-txt-secondary">
                   Asistencias Hoy
                 </span>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-status-info bg-status-info-bg">
+                <div className="w-8 h-8 rounded-lg border border-status-info-border/60 flex items-center justify-center text-status-info bg-status-info-bg/85">
                   <Icon name="activity" className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-extrabold text-txt-primary tabular-nums">
+              <div className="text-2xl sm:text-[26px] font-bold tracking-tight text-txt-primary tabular-nums">
                 {metrics.asistencias_hoy_total}
               </div>
               <p className="text-[11px] text-txt-muted">
@@ -418,18 +418,18 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
             </article>
 
             {/* KPI 3: Ingresos (RBAC: Mensual Administrador vs Diario Recepcionista) */}
-            <article className="bg-surface border border-border rounded-xl p-4 shadow-xs flex flex-col justify-between gap-3">
+            <article className="bg-surface border border-border/90 hover:border-border-elevated rounded-xl p-4 sm:p-5 shadow-xs dark:shadow-[0_1px_2px_0_rgb(0_0_0/0.45),inset_0_1px_0_0_rgba(255,255,255,0.02)] transition-[border-color,box-shadow] duration-150 flex flex-col justify-between gap-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">
+                <span className="text-xs font-medium text-txt-secondary">
                   {canViewMonthly
                     ? 'Ingresos del Mes (Físico vs Digital)'
                     : 'Recaudación del Día (Físico vs Digital)'}
                 </span>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-brand bg-status-success-bg">
+                <div className="w-8 h-8 rounded-lg border border-status-success-border/60 flex items-center justify-center text-brand bg-status-success-bg/85">
                   <Icon name="cash" className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-extrabold text-txt-primary tabular-nums">
+              <div className="text-2xl sm:text-[26px] font-bold tracking-tight text-txt-primary tabular-nums">
                 S/ {canViewMonthly ? metrics.ingresos_mes_total : metrics.ingresos_hoy_total}
               </div>
               <div className="flex flex-col gap-0.5 text-[11px] text-txt-muted tabular-nums">
@@ -448,16 +448,16 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
             </article>
 
             {/* KPI 4: Cartera Pendiente */}
-            <article className="bg-surface border border-border rounded-xl p-4 shadow-xs flex flex-col justify-between gap-3">
+            <article className="bg-surface border border-border/90 hover:border-border-elevated rounded-xl p-4 sm:p-5 shadow-xs dark:shadow-[0_1px_2px_0_rgb(0_0_0/0.45),inset_0_1px_0_0_rgba(255,255,255,0.02)] transition-[border-color,box-shadow] duration-150 flex flex-col justify-between gap-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">
+                <span className="text-xs font-medium text-txt-secondary">
                   Cartera Pendiente
                 </span>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-status-warning bg-status-warning-bg">
+                <div className="w-8 h-8 rounded-lg border border-status-warning-border/60 flex items-center justify-center text-status-warning bg-status-warning-bg/85">
                   <Icon name="credit-card" className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-extrabold text-txt-primary tabular-nums">
+              <div className="text-2xl sm:text-[26px] font-bold tracking-tight text-txt-primary tabular-nums">
                 S/ {metrics.saldo_creditos_pendiente}
               </div>
               <p className="text-[11px] text-txt-muted tabular-nums">
@@ -471,7 +471,7 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
             {/* Gráfica Visual de Afluencia por Franja Horaria (05:00 - 22:00) */}
             <section
               aria-labelledby="attendance-chart-heading"
-              className="lg:col-span-2 bg-surface border border-border rounded-2xl p-5 shadow-xs flex flex-col justify-between gap-4"
+              className="lg:col-span-2 bg-surface border border-border/90 rounded-2xl p-5 shadow-xs dark:shadow-[0_1px_2px_0_rgb(0_0_0/0.45),inset_0_1px_0_0_rgba(255,255,255,0.02)] flex flex-col justify-between gap-4"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
                 <div className="flex items-center gap-2">
@@ -596,7 +596,7 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
             {/* Widget de Alerta: Membresías Próximas a Vencer (<= 3 días) */}
             <section
               aria-labelledby="expiring-memberships-heading"
-              className="bg-surface border border-border rounded-2xl p-5 shadow-xs flex flex-col justify-between gap-4"
+              className="bg-surface border border-border/90 rounded-2xl p-5 shadow-xs dark:shadow-[0_1px_2px_0_rgb(0_0_0/0.45),inset_0_1px_0_0_rgba(255,255,255,0.02)] flex flex-col justify-between gap-4"
             >
               <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
                 <div className="flex items-center gap-2">
@@ -698,7 +698,7 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
       {/* Centro Rápido de Exportaciones (CSV / Excel .xlsx / PDF) */}
       <section
         aria-labelledby="quick-exports-heading"
-        className="bg-surface border border-border rounded-2xl p-5 shadow-xs flex flex-col gap-4"
+        className="bg-surface border border-border/90 rounded-2xl p-5 shadow-xs dark:shadow-[0_1px_2px_0_rgb(0_0_0/0.45),inset_0_1px_0_0_rgba(255,255,255,0.02)] flex flex-col gap-4"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
           <div className="flex items-center gap-2">
@@ -769,7 +769,7 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
       {/* Tarjeta de Atajos Rápidos de Operador */}
       <section
         aria-labelledby="operator-fast-keys-heading"
-        className="bg-surface border border-border rounded-2xl p-5 shadow-xs flex flex-col gap-4"
+        className="bg-surface border border-border/90 rounded-2xl p-5 shadow-xs dark:shadow-[0_1px_2px_0_rgb(0_0_0/0.45),inset_0_1px_0_0_rgba(255,255,255,0.02)] flex flex-col gap-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
           <div className="flex items-center gap-2">
@@ -787,13 +787,13 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
               key={sc.keys}
               type="button"
               onClick={sc.onClick}
-              className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-canvas-subtle/60 hover:bg-surface-hover hover:border-brand/50 transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/90 bg-canvas-subtle/60 hover:bg-surface-hover hover:border-brand/50 transition-[background-color,border-color,box-shadow] duration-150 text-left focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <Icon name={sc.icon} className="w-4 h-4 text-brand shrink-0" />
                 <span className="text-xs font-semibold text-txt-primary truncate">{sc.label}</span>
               </div>
-              <kbd className="px-2 py-0.5 rounded bg-surface border border-border font-mono text-[11px] font-bold text-txt-secondary shrink-0">
+              <kbd className="px-2 py-0.5 rounded-md bg-surface border border-border-elevated shadow-2xs font-mono text-[11px] font-semibold text-txt-secondary shrink-0">
                 {sc.keys}
               </kbd>
             </button>

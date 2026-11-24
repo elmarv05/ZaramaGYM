@@ -1,9 +1,80 @@
-import React, { useEffect, useState } from 'react';
+import * as React from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
+import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../utils/cn';
 import { Icon, IconName } from './Icon';
 
-export interface AlertProps {
+export const alertVariants = cva(
+  'w-full flex items-start gap-3 p-3.5 rounded-xl border border-l-4 text-sm transition-colors duration-150',
+  {
+    variants: {
+      variant: {
+        danger: '',
+        warning: '',
+        info: '',
+        success: '',
+      },
+      floating: {
+        true: 'pointer-events-auto bg-surface text-txt-primary shadow-xl zg-toast-enter border-border',
+        false: '',
+      },
+    },
+    compoundVariants: [
+      {
+        variant: 'danger',
+        floating: true,
+        className: 'border-l-status-danger',
+      },
+      {
+        variant: 'danger',
+        floating: false,
+        className:
+          'bg-status-danger-bg text-status-danger border-status-danger-border border-l-status-danger',
+      },
+      {
+        variant: 'warning',
+        floating: true,
+        className: 'border-l-status-warning',
+      },
+      {
+        variant: 'warning',
+        floating: false,
+        className:
+          'bg-status-warning-bg text-status-warning border-status-warning-border border-l-status-warning',
+      },
+      {
+        variant: 'info',
+        floating: true,
+        className: 'border-l-status-info',
+      },
+      {
+        variant: 'info',
+        floating: false,
+        className:
+          'bg-status-info-bg text-status-info border-status-info-border border-l-status-info',
+      },
+      {
+        variant: 'success',
+        floating: true,
+        className: 'border-l-status-success',
+      },
+      {
+        variant: 'success',
+        floating: false,
+        className:
+          'bg-status-success-bg text-status-success border-status-success-border border-l-status-success',
+      },
+    ],
+    defaultVariants: {
+      variant: 'danger',
+      floating: true,
+    },
+  }
+);
+
+export interface AlertProps extends VariantProps<typeof alertVariants> {
   variant?: 'danger' | 'warning' | 'info' | 'success';
   title?: string;
   children: React.ReactNode;
@@ -17,57 +88,48 @@ export interface AlertProps {
   className?: string;
 }
 
-const VARIANT_STYLES: Record<
+const VARIANT_META: Record<
   NonNullable<AlertProps['variant']>,
   {
-    inlineContainer: string;
-    floatingBorder: string;
     iconBadge: string;
     titleColor: string;
     dot: string;
     icon: IconName;
     defaultTitle: string;
+    isUrgent: boolean;
   }
 > = {
   danger: {
-    inlineContainer:
-      'bg-status-danger-bg text-status-danger border-status-danger/30 border-l-status-danger',
-    floatingBorder: 'border-border border-l-status-danger',
-    iconBadge: 'bg-status-danger-bg text-status-danger border border-status-danger/25',
+    iconBadge: 'bg-status-danger-bg text-status-danger border border-status-danger-border',
     titleColor: 'text-status-danger',
     dot: 'bg-status-danger shadow-[0_0_8px_var(--color-status-danger)]',
     icon: 'danger',
     defaultTitle: 'Atención Requerida',
+    isUrgent: true,
   },
   warning: {
-    inlineContainer:
-      'bg-status-warning-bg text-status-warning border-status-warning/30 border-l-status-warning',
-    floatingBorder: 'border-border border-l-status-warning',
-    iconBadge: 'bg-status-warning-bg text-status-warning border border-status-warning/25',
+    iconBadge: 'bg-status-warning-bg text-status-warning border border-status-warning-border',
     titleColor: 'text-status-warning',
     dot: 'bg-status-warning shadow-[0_0_8px_var(--color-status-warning)]',
     icon: 'warning',
     defaultTitle: 'Aviso Preventivo',
+    isUrgent: true,
   },
   info: {
-    inlineContainer:
-      'bg-status-info-bg text-status-info border-status-info/30 border-l-status-info',
-    floatingBorder: 'border-border border-l-status-info',
-    iconBadge: 'bg-status-info-bg text-status-info border border-status-info/25',
+    iconBadge: 'bg-status-info-bg text-status-info border border-status-info-border',
     titleColor: 'text-status-info',
     dot: 'bg-status-info shadow-[0_0_8px_var(--color-status-info)]',
     icon: 'info',
     defaultTitle: 'Notificación',
+    isUrgent: false,
   },
   success: {
-    inlineContainer:
-      'bg-status-success-bg text-status-success border-status-success/30 border-l-status-success',
-    floatingBorder: 'border-border border-l-status-success',
-    iconBadge: 'bg-status-success-bg text-status-success border border-status-success/25',
+    iconBadge: 'bg-status-success-bg text-status-success border border-status-success-border',
     titleColor: 'text-status-success',
     dot: 'bg-status-success shadow-[0_0_8px_var(--color-status-success)]',
     icon: 'check',
     defaultTitle: 'Operación Exitosa',
+    isUrgent: false,
   },
 };
 
@@ -84,7 +146,7 @@ function getOrCreateToastStack(): HTMLElement | null {
   return stack;
 }
 
-export const Alert: React.FC<AlertProps> = ({
+export function Alert({
   variant = 'danger',
   title,
   children,
@@ -94,9 +156,9 @@ export const Alert: React.FC<AlertProps> = ({
   floating = true,
   autoHideDuration,
   className,
-}) => {
+}: AlertProps) {
   const [isDismissed, setIsDismissed] = useState(false);
-  const styles = VARIANT_STYLES[variant];
+  const meta = VARIANT_META[variant];
 
   useEffect(() => {
     setIsDismissed(false);
@@ -131,29 +193,24 @@ export const Alert: React.FC<AlertProps> = ({
     }
   };
 
-  const resolvedTitle = title || (floating ? styles.defaultTitle : undefined);
+  const resolvedTitle = title || (floating ? meta.defaultTitle : undefined);
 
   const alertNode = (
     <div
-      role="alert"
-      className={cn(
-        'w-full flex items-start gap-3 p-3.5 rounded-xl border border-l-4 text-sm transition-colors duration-150',
-        floating
-          ? cn(
-              'pointer-events-auto bg-surface text-txt-primary shadow-xl zg-toast-enter',
-              styles.floatingBorder
-            )
-          : styles.inlineContainer,
-        className
-      )}
+      data-slot="alert"
+      data-variant={variant}
+      role={meta.isUrgent ? 'alert' : 'status'}
+      aria-live={meta.isUrgent ? 'assertive' : 'polite'}
+      className={cn(alertVariants({ variant, floating }), className)}
     >
       <div
+        aria-hidden="true"
         className={cn(
           'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
-          floating ? styles.iconBadge : ''
+          floating ? meta.iconBadge : ''
         )}
       >
-        <Icon name={styles.icon} className="w-4 h-4" />
+        <Icon name={meta.icon} className="w-4 h-4" />
       </div>
 
       <div className="flex-1 flex flex-col gap-1 min-w-0">
@@ -161,12 +218,13 @@ export const Alert: React.FC<AlertProps> = ({
           <div className="flex items-center gap-2">
             <span
               aria-hidden="true"
-              className={cn('w-2 h-2 rounded-full shrink-0', styles.dot)}
+              className={cn('w-2 h-2 rounded-full shrink-0', meta.dot)}
             />
             <h4
+              data-slot="alert-title"
               className={cn(
                 'text-xs font-bold tracking-wide',
-                floating ? styles.titleColor : 'font-semibold'
+                floating ? meta.titleColor : 'font-semibold'
               )}
             >
               {resolvedTitle}
@@ -174,6 +232,7 @@ export const Alert: React.FC<AlertProps> = ({
           </div>
         )}
         <div
+          data-slot="alert-description"
           className={cn(
             'text-xs leading-relaxed break-words',
             floating ? 'text-txt-primary' : ''
@@ -188,7 +247,7 @@ export const Alert: React.FC<AlertProps> = ({
               onClick={onAction}
               className={cn(
                 'text-xs font-bold underline hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-current rounded',
-                floating ? styles.titleColor : ''
+                floating ? meta.titleColor : ''
               )}
             >
               {actionText}
@@ -199,25 +258,13 @@ export const Alert: React.FC<AlertProps> = ({
 
       {(onClose || floating) && (
         <button
+          data-slot="alert-close"
           type="button"
           onClick={handleClose}
           aria-label="Cerrar alerta"
           className="text-txt-muted hover:text-txt-primary p-1 rounded-md hover:bg-canvas-subtle transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <X className="w-4 h-4" aria-hidden="true" />
         </button>
       )}
     </div>
@@ -231,4 +278,4 @@ export const Alert: React.FC<AlertProps> = ({
   }
 
   return alertNode;
-};
+}

@@ -470,6 +470,9 @@ describe('Component: EntityDirectoryView & Modales Especializados (Slice 2)', ()
       );
     });
 
+    // Cerrar el modal accesible antes de interactuar con controles del fondo
+    await user.click(screen.getByRole('button', { name: /^cerrar$/i }));
+
     // Alternar a vista Tabla
     await user.click(screen.getByRole('button', { name: /^tabla$/i }));
     expect(screen.getByRole('button', { name: /^tabla$/i })).toHaveAttribute(

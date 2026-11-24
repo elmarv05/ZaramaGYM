@@ -4,14 +4,25 @@
 // Ubicación: src/features/lan/LanServerView.tsx
 // ============================================================================
 
-import React, { useEffect, useState } from 'react';
-import { ModuleSkeleton } from '../../components/primitives/Skeleton';
+import React, { useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
-import { Alert } from '../../components/primitives/Alert';
-import { Badge } from '../../components/primitives/Badge';
-import { Button } from '../../components/primitives/Button';
-import { Icon } from '../../components/primitives/Icon';
-import { Modal } from '../../components/primitives/Modal';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Icon,
+  Input,
+  Modal,
+  ModuleSkeleton,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/primitives';
 import {
   canManageLanDevices,
   formatScannerUrl,
@@ -251,6 +262,31 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
       ? overrideQrDataUrl
       : activePairing?.qrDataUrl || '';
 
+  const hostSelectOptions = useMemo(() => {
+    const opts = availableIps.map((ip) => ({
+      value: ip,
+      label: `${ip}${
+        ip === serverStatus?.primaryIp
+          ? ' (IP Wi-Fi / Hotspot Recomendada)'
+          : ' (IP Alternativa)'
+      }`,
+    }));
+    if (mdnsHost) {
+      opts.push({ value: mdnsHost, label: `${mdnsHost} (mDNS Local - Opcional)` });
+    }
+    return opts;
+  }, [availableIps, serverStatus?.primaryIp, mdnsHost]);
+
+  const deviceStatusFilterOptions = useMemo(
+    () => [
+      { value: '', label: 'Todos los Estados' },
+      { value: 'VINCULADO', label: 'Vinculados' },
+      { value: 'PENDIENTE_VINCULACION', label: 'Pendientes' },
+      { value: 'REVOCADO', label: 'Revocados' },
+    ],
+    []
+  );
+
   return (
     <div className="w-full flex flex-col gap-6">
       {lanToast && (
@@ -266,14 +302,19 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
       {/* ==================================================================== */}
       {/* 1. BANNER DE ESTADO DEL SERVIDOR LAN (:3443 + mDNS)                 */}
       {/* ==================================================================== */}
-      <section
+      <Card
+        padding="lg"
+        className="gap-5"
+        role="region"
         aria-labelledby="lan-server-status-title"
-        className="bg-surface border border-border rounded-xl p-6 shadow-xs flex flex-col gap-5"
       >
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 flex items-center justify-center font-bold border border-indigo-200 dark:border-indigo-800">
-              <Icon name="wifi" className="w-6 h-6" />
+            <div
+              aria-hidden="true"
+              className="w-11 h-11 rounded-lg bg-canvas-subtle text-brand flex items-center justify-center font-bold border border-border"
+            >
+              <Icon name="wifi" className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -304,46 +345,51 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
 
           {/* Botones de Acción Rápida de Servidor */}
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => setIsFirewallGuideOpen(true)}
-              className="text-xs font-bold text-txt-primary bg-canvas-subtle hover:bg-surface-hover border border-border px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+              leftIcon={<Icon name="shield" className="w-4 h-4 text-brand" />}
             >
-              <Icon name="shield" className="w-4 h-4 text-brand" />
-              <span>Guía Firewall Windows</span>
-            </button>
+              Guía Firewall Windows
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => {
                 setSimulatorInitialCode('');
                 setSimulatorOpen(true);
               }}
-              className="text-xs font-bold text-brand bg-brand/10 hover:bg-brand/20 border border-brand/30 px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+              leftIcon={<Icon name="smartphone" className="w-4 h-4" />}
+              className="text-brand border-brand/40 hover:bg-brand/10"
             >
-              <Icon name="smartphone" className="w-4 h-4" />
-              <span>Simular Vista Móvil</span>
-            </button>
+              Simular Vista Móvil
+            </Button>
 
             {isManager ? (
               serverStatus?.isRunning ? (
-                <button
+                <Button
                   type="button"
+                  variant="danger"
+                  size="sm"
                   disabled={isActionLoading}
                   onClick={() => toggleServer(false)}
-                  className="text-xs font-bold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 border border-red-300 dark:border-red-800 px-3.5 py-2 rounded-lg transition-colors disabled:opacity-50"
                 >
                   {isActionLoading ? 'Deteniendo...' : 'Detener Servidor'}
-                </button>
+                </Button>
               ) : (
-                <button
+                <Button
                   type="button"
+                  variant="primary"
+                  size="sm"
                   disabled={isActionLoading}
                   onClick={() => toggleServer(true)}
-                  className="text-xs font-bold text-emerald-800 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-800 px-3.5 py-2 rounded-lg transition-colors disabled:opacity-50"
                 >
                   {isActionLoading ? 'Iniciando...' : 'Iniciar Servidor'}
-                </button>
+                </Button>
               )
             ) : (
               <span className="text-[11px] text-txt-muted bg-canvas-subtle px-2.5 py-1.5 rounded border border-border">
@@ -355,19 +401,9 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
 
         {/* Notificación de Error Global */}
         {error && (
-          <div
-            role="alert"
-            className="p-3 bg-red-50 dark:bg-red-950/50 border border-red-300 dark:border-red-800 rounded-lg text-xs text-red-700 dark:text-red-300 flex items-center justify-between"
-          >
-            <span>{error}</span>
-            <button
-              type="button"
-              onClick={clearError}
-              className="font-bold hover:underline text-xs"
-            >
-              Cerrar
-            </button>
-          </div>
+          <Alert variant="danger" floating={false} onClose={clearError}>
+            {error}
+          </Alert>
         )}
 
         {/* Grilla de Datos de Conexión LAN */}
@@ -378,23 +414,16 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
               {primaryIp}:{activePort}
             </span>
             {serverStatus && (
-              <select
-                aria-label="Seleccionar adaptador de red LAN"
-                value={activeTargetHost}
-                onChange={(e) => setSelectedHost(e.target.value)}
-                className="mt-1.5 w-full bg-surface border border-border rounded px-2 py-1 text-[11px] font-mono text-txt-primary"
-              >
-                {availableIps.map((ip) => (
-                  <option key={ip} value={ip}>
-                    {ip}{ip === serverStatus.primaryIp ? ' (IP Wi-Fi / Hotspot Recomendada)' : ' (IP Alternativa)'}
-                  </option>
-                ))}
-                {mdnsHost && (
-                  <option value={mdnsHost}>
-                    {mdnsHost} (mDNS Local - Opcional)
-                  </option>
-                )}
-              </select>
+              <div className="mt-1.5">
+                <Select
+                  selectSize="sm"
+                  aria-label="Seleccionar adaptador de red LAN"
+                  value={activeTargetHost}
+                  onChange={(e) => setSelectedHost(e.target.value)}
+                  options={hostSelectOptions}
+                  className="text-[11px] font-mono py-1"
+                />
+              </div>
             )}
           </div>
 
@@ -404,8 +433,8 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
               {mdnsHost}:{activePort}
             </span>
             {serverStatus?.mdnsActive && (
-              <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+              <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-status-success">
+                <span className="w-1.5 h-1.5 rounded-full bg-status-success" aria-hidden="true" />
                 <span>Activo (Conserva sesión en Hotspot)</span>
               </span>
             )}
@@ -415,29 +444,29 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] uppercase font-bold text-txt-muted block">URL Escáner Móvil</span>
               {serverStatus && (
-                <div className="inline-flex rounded border border-border bg-surface p-0.5 text-[10px]">
-                  <button
+                <div className="inline-flex rounded border border-border bg-surface p-0.5 text-[10px] gap-0.5">
+                  <Button
                     type="button"
+                    size="sm"
+                    variant={pairingProtocol === 'https' ? 'primary' : 'ghost'}
                     onClick={() => setPairingProtocol('https')}
-                    className={`px-1.5 py-0.5 rounded font-bold transition-colors ${
-                      pairingProtocol === 'https'
-                        ? 'bg-emerald-600 text-white'
-                        : 'text-txt-secondary hover:text-txt-primary'
-                    }`}
+                    className="min-h-0 h-6 px-2 py-0.5 text-[10px] font-bold"
                   >
                     HTTPS (Cámara)
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    size="sm"
+                    variant={pairingProtocol === 'http' ? 'secondary' : 'ghost'}
                     onClick={() => setPairingProtocol('http')}
-                    className={`px-1.5 py-0.5 rounded font-bold transition-colors ${
+                    className={
                       pairingProtocol === 'http'
-                        ? 'bg-amber-600 text-white'
-                        : 'text-txt-secondary hover:text-txt-primary'
-                    }`}
+                        ? 'min-h-0 h-6 px-2 py-0.5 text-[10px] font-bold bg-status-warning text-txt-inverse border-transparent hover:opacity-90'
+                        : 'min-h-0 h-6 px-2 py-0.5 text-[10px] font-bold'
+                    }
                   >
                     HTTP
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -446,14 +475,16 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
                 {mobileScannerDisplayUrl}
               </span>
               {serverStatus && (
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => handleCopyUrl(mobileScannerDisplayUrl)}
-                  className="shrink-0 text-[11px] bg-surface hover:bg-slate-200 dark:hover:bg-slate-700 border border-border px-2 py-0.5 rounded transition-colors inline-flex items-center gap-1"
+                  leftIcon={<Icon name={copiedUrl ? 'check' : 'audit'} className="w-3.5 h-3.5" />}
+                  className="shrink-0 min-h-0 h-7 px-2 py-0.5 text-[11px]"
                 >
-                  <Icon name={copiedUrl ? 'check' : 'audit'} className="w-3.5 h-3.5" />
-                  <span>{copiedUrl ? '¡Copiado!' : 'Copiar'}</span>
-                </button>
+                  {copiedUrl ? '¡Copiado!' : 'Copiar'}
+                </Button>
               )}
             </div>
             {serverStatus && (
@@ -472,36 +503,36 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
               SHA256: {formatSha256Fingerprint(serverStatus?.caCertFingerprintSha256 || '')}
             </span>
           </div>
-          <button
+          <Button
             type="button"
+            variant="link"
+            size="sm"
             onClick={handleDownloadCaCert}
             disabled={!serverStatus?.caCertPem}
-            className={`text-xs font-semibold flex items-center gap-1 shrink-0 disabled:opacity-50 ${
+            leftIcon={<Icon name={downloadedCert ? 'check' : 'download'} className="w-4 h-4" />}
+            className={
               downloadedCert
-                ? 'text-emerald-700 dark:text-emerald-300'
-                : 'text-indigo-700 dark:text-indigo-300 hover:underline'
-            }`}
+                ? 'shrink-0 text-status-success text-xs font-semibold'
+                : 'shrink-0 text-brand text-xs font-semibold'
+            }
           >
-            <Icon name={downloadedCert ? 'check' : 'download'} className="w-4 h-4" />
-            <span>
-              {downloadedCert
-                ? '¡Certificado Descargado!'
-                : 'Descargar Certificado zaramagym-root-ca.crt'}
-            </span>
-          </button>
+            {downloadedCert
+              ? '¡Certificado Descargado!'
+              : 'Descargar Certificado zaramagym-root-ca.crt'}
+          </Button>
         </div>
 
         {/* Mini KPIs Operacionales */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-border/60">
           <div className="bg-surface border border-border rounded-lg p-3 text-center">
             <span className="text-[10px] uppercase font-bold text-txt-muted block">Vinculados</span>
-            <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+            <span className="text-xl font-black text-status-success">
               {serverStatus?.totalDevicesLinked ?? 0}
             </span>
           </div>
           <div className="bg-surface border border-border rounded-lg p-3 text-center">
             <span className="text-[10px] uppercase font-bold text-txt-muted block">Pendientes</span>
-            <span className="text-xl font-black text-amber-600 dark:text-amber-400">
+            <span className="text-xl font-black text-status-warning">
               {serverStatus?.totalDevicesPending ?? 0}
             </span>
           </div>
@@ -512,19 +543,21 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
             </span>
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* ==================================================================== */}
       {/* 2. PANEL DE VINCULACIÓN DE NUEVO DISPOSITIVO (SOLO ADMINISTRADOR) */}
       {/* ==================================================================== */}
       {isManager && (
-        <section
+        <Card
+          padding="lg"
+          className="gap-4"
+          role="region"
           aria-labelledby="pair-new-device-title"
-          className="bg-surface border border-border rounded-xl p-6 shadow-xs flex flex-col gap-4"
         >
           <div>
             <h3 id="pair-new-device-title" className="text-base font-bold text-txt-primary flex items-center gap-2">
-              <Icon name="plus" className="w-4 h-4 text-brand" />
+              <Icon name="plus" className="w-4 h-4 text-brand" aria-hidden="true" />
               <span>Vincular Nuevo Dispositivo Móvil</span>
             </h3>
             <p className="text-xs text-txt-muted">
@@ -536,42 +569,48 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
             noValidate
             onSubmit={handleCreatePairingSubmit}
             onKeyDown={preventEnterKeySubmit}
-            className="flex flex-col sm:flex-row gap-3"
+            className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center"
           >
-            <input
-              type="text"
-              required
-              placeholder="Nombre del dispositivo (ej. iPhone Recepción Puerta 2)"
-              value={newDeviceName}
-              onChange={(e) => setNewDeviceName(e.target.value)}
-              className="flex-1 bg-canvas border border-border rounded-lg px-3.5 py-2 text-sm text-txt-primary focus:outline-hidden focus:border-brand"
-            />
-            <button
+            <div className="flex-1 min-w-0">
+              <Input
+                type="text"
+                required
+                aria-label="Nombre del dispositivo móvil"
+                placeholder="Nombre del dispositivo (ej. iPhone Recepción Puerta 2)"
+                value={newDeviceName}
+                onChange={(e) => setNewDeviceName(e.target.value)}
+              />
+            </div>
+            <Button
               type="submit"
+              variant="primary"
+              size="md"
               disabled={isActionLoading || newDeviceName.trim().length < 3}
-              className="bg-brand hover:bg-brand/90 text-brand-text font-bold text-xs px-5 py-2 rounded-lg transition-colors shadow-xs disabled:opacity-50 shrink-0"
+              className="shrink-0"
             >
               {isActionLoading ? 'Generando...' : 'Generar Código de Enlace'}
-            </button>
+            </Button>
           </form>
 
           {/* Tarjeta Destacada de Emparejamiento Generado */}
           {activePairing && (
-            <div className="mt-2 p-5 bg-gradient-to-r from-indigo-50 to-emerald-50 dark:from-indigo-950/30 dark:to-emerald-950/30 border-2 border-brand/50 rounded-xl flex flex-col sm:flex-row items-center gap-6 shadow-md relative">
+            <div className="mt-2 p-4 sm:p-5 bg-canvas-subtle border border-brand/40 rounded-lg flex flex-col sm:flex-row items-center gap-5 shadow-xs relative">
               {/* Botón para descartar tarjeta */}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={clearActivePairing}
                 aria-label="Cerrar tarjeta de vinculación"
-                className="absolute top-2 right-2 text-txt-muted hover:text-txt-primary text-xs p-1"
                 title="Cerrar tarjeta de vinculación"
+                className="absolute top-2 right-2 min-h-[28px] min-w-[28px] p-1"
               >
                 <Icon name="x" className="w-4 h-4" />
-              </button>
+              </Button>
 
               {/* Imagen del Código QR */}
               {effectivePairingQrSrc && (
-                <div className="bg-white p-2.5 rounded-xl shadow-xs shrink-0 border border-slate-200">
+                <div className="bg-white p-2.5 rounded-xl shadow-xs shrink-0 border border-border">
                   <img
                     src={effectivePairingQrSrc}
                     alt={`QR de Vinculación para ${activePairing.nombreDispositivo}`}
@@ -601,38 +640,42 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
                 </p>
 
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <button
+                  <Button
                     type="button"
+                    variant="primary"
+                    size="sm"
                     onClick={() => handleOpenSimulatorWithCode(activePairing.codigoVinculacion)}
-                    className="text-xs font-bold bg-brand text-brand-text px-3.5 py-1.5 rounded-lg hover:bg-brand/90 transition-colors shadow-xs"
                   >
                     Probar en Simulador Móvil con este Código
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={() => handleCopyUrl(effectivePairingUrl)}
-                    className="text-xs font-semibold bg-surface hover:bg-canvas-subtle border border-border px-3 py-1.5 rounded-lg transition-colors"
                   >
                     Copiar URL Directa
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
           )}
-        </section>
+        </Card>
       )}
 
       {/* ==================================================================== */}
       {/* 3. TABLA DE DISPOSITIVOS MÓVILES REGISTRADOS                         */}
       {/* ==================================================================== */}
-      <section
+      <Card
+        padding="lg"
+        className="gap-4"
+        role="region"
         aria-labelledby="registered-devices-title"
-        className="bg-surface border border-border rounded-xl p-6 shadow-xs flex flex-col gap-4"
       >
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h3 id="registered-devices-title" className="text-base font-bold text-txt-primary flex items-center gap-2">
-              <Icon name="smartphone" className="w-4 h-4 text-brand" />
+              <Icon name="smartphone" className="w-4 h-4 text-brand" aria-hidden="true" />
               <span>Dispositivos Móviles Registrados</span>
             </h3>
             <p className="text-xs text-txt-muted">
@@ -642,41 +685,46 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
 
           {/* Filtros de Tabla */}
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <input
-              type="text"
-              placeholder="Buscar por nombre, código o IP..."
-              value={filter.busqueda || ''}
-              onChange={(e) => setFilter((prev) => ({ ...prev, busqueda: e.target.value }))}
-              className="bg-canvas border border-border rounded-lg px-3 py-1.5 text-xs text-txt-primary focus:outline-hidden focus:border-brand w-full sm:w-56"
-            />
+            <div className="w-full sm:w-56">
+              <Input
+                type="text"
+                inputSize="sm"
+                aria-label="Buscar dispositivos por nombre, código o IP"
+                placeholder="Buscar por nombre, código o IP..."
+                value={filter.busqueda || ''}
+                onChange={(e) => setFilter((prev) => ({ ...prev, busqueda: e.target.value }))}
+              />
+            </div>
 
-            <select
-              value={filter.estadoVinculacion || ''}
-              onChange={(e) =>
-                setFilter((prev) => ({
-                  ...prev,
-                  estadoVinculacion: (e.target.value || undefined) as DevicePairingStatus | undefined,
-                }))
-              }
-              className="bg-canvas border border-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-hidden"
-            >
-              <option value="">Todos los Estados</option>
-              <option value="VINCULADO">Vinculados</option>
-              <option value="PENDIENTE_VINCULACION">Pendientes</option>
-              <option value="REVOCADO">Revocados</option>
-            </select>
+            <div className="w-full sm:w-40">
+              <Select
+                selectSize="sm"
+                aria-label="Filtrar dispositivos por estado"
+                value={filter.estadoVinculacion || ''}
+                onChange={(e) =>
+                  setFilter((prev) => ({
+                    ...prev,
+                    estadoVinculacion: (e.target.value || undefined) as
+                      | DevicePairingStatus
+                      | undefined,
+                  }))
+                }
+                options={deviceStatusFilterOptions}
+              />
+            </div>
 
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 fetchDevices();
                 fetchServerStatus();
               }}
-              className="text-xs bg-canvas-subtle hover:bg-slate-200 dark:hover:bg-slate-700 border border-border px-3 py-1.5 rounded-lg transition-colors text-txt-primary font-medium inline-flex items-center gap-1.5"
+              leftIcon={<Icon name="refresh" className="w-3.5 h-3.5" />}
             >
-              <Icon name="refresh" className="w-3.5 h-3.5" />
-              <span>Actualizar</span>
-            </button>
+              Actualizar
+            </Button>
           </div>
         </div>
 
@@ -685,7 +733,7 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
           <ModuleSkeleton rows={4} label="Cargando dispositivos móviles LAN..." />
         ) : filteredDevices.length === 0 ? (
           <div className="py-12 border border-dashed border-border rounded-xl flex flex-col items-center justify-center text-center p-6 gap-2">
-            <Icon name="smartphone" className="w-8 h-8 text-txt-muted" />
+            <Icon name="smartphone" className="w-8 h-8 text-txt-muted" aria-hidden="true" />
             <h4 className="font-bold text-txt-primary text-sm">No se encontraron dispositivos móviles</h4>
             <p className="text-xs text-txt-muted max-w-md">
               {filter.busqueda || filter.estadoVinculacion
@@ -694,126 +742,135 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-canvas-subtle text-txt-secondary uppercase tracking-wider font-bold border-b border-border">
-                <tr>
-                  <th className="py-3 px-4">Dispositivo</th>
-                  <th className="py-3 px-4">Código Enlace</th>
-                  <th className="py-3 px-4">Estado</th>
-                  <th className="py-3 px-4">IP / User-Agent</th>
-                  <th className="py-3 px-4">Último Acceso</th>
-                  <th className="py-3 px-4 text-center">Escaneos</th>
-                  <th className="py-3 px-4 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredDevices.map((dev) => {
-                  const badge = getDeviceStatusBadge(dev.estadoVinculacion);
-                  const isRevoked = dev.estadoVinculacion === 'REVOCADO';
+          <Table
+            containerLabel="Dispositivos móviles registrados"
+            containerClassName="rounded-lg"
+            className="text-xs"
+          >
+            <TableHeader stickyHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Dispositivo</TableHead>
+                <TableHead>Código Enlace</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>IP / User-Agent</TableHead>
+                <TableHead>Último Acceso</TableHead>
+                <TableHead className="text-center">Escaneos</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredDevices.map((dev) => {
+                const badge = getDeviceStatusBadge(dev.estadoVinculacion);
+                const isRevoked = dev.estadoVinculacion === 'REVOCADO';
 
-                  return (
-                    <tr key={dev.id} className="hover:bg-canvas-subtle/50 transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-txt-primary">{dev.nombreDispositivo}</div>
-                        <div className="text-[10px] text-txt-muted">
-                          Registrado por {dev.creadoPorNombre} • {dev.createdAt}
+                return (
+                  <TableRow key={dev.id}>
+                    <TableCell>
+                      <div className="font-bold text-txt-primary">{dev.nombreDispositivo}</div>
+                      <div className="text-[10px] text-txt-muted">
+                        Registrado por {dev.creadoPorNombre} • {dev.createdAt}
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="font-mono font-bold">
+                      {dev.codigoVinculacion}
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge variant={badge.variant} size="sm">
+                        {badge.label}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell className="font-mono text-[11px] text-txt-secondary">
+                      <div>{dev.ipUltimaConexion || 'Sin conexión'}</div>
+                      {dev.userAgent && (
+                        <div className="text-[10px] text-txt-muted truncate max-w-xs" title={dev.userAgent}>
+                          {dev.userAgent}
                         </div>
-                      </td>
+                      )}
+                    </TableCell>
 
-                      <td className="py-3 px-4 font-mono font-bold text-txt-primary">
-                        {dev.codigoVinculacion}
-                      </td>
+                    <TableCell className="text-txt-secondary">
+                      {dev.ultimoAccesoAt || 'Nunca'}
+                    </TableCell>
 
-                      <td className="py-3 px-4">
-                        <Badge variant={badge.variant} size="sm">
-                          {badge.label}
-                        </Badge>
-                      </td>
+                    <TableCell className="text-center font-bold">
+                      {dev.totalEscaneos}
+                    </TableCell>
 
-                      <td className="py-3 px-4 font-mono text-[11px] text-txt-secondary">
-                        <div>{dev.ipUltimaConexion || 'Sin conexión'}</div>
-                        {dev.userAgent && (
-                          <div className="text-[10px] text-txt-muted truncate max-w-xs" title={dev.userAgent}>
-                            {dev.userAgent}
-                          </div>
-                        )}
-                      </td>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          onClick={() => handleOpenSimulatorWithCode(dev.codigoVinculacion)}
+                          className="text-[11px] font-semibold px-2 py-1"
+                          title="Abrir simulador con este dispositivo"
+                        >
+                          Simular
+                        </Button>
 
-                      <td className="py-3 px-4 text-txt-secondary">
-                        {dev.ultimoAccesoAt || 'Nunca'}
-                      </td>
-
-                      <td className="py-3 px-4 text-center font-bold text-txt-primary">
-                        {dev.totalEscaneos}
-                      </td>
-
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Botón para abrir simulador con este código si está pendiente */}
-                          <button
+                        {isManager && dev.estadoVinculacion === 'VINCULADO' && (
+                          <Button
                             type="button"
-                            onClick={() => handleOpenSimulatorWithCode(dev.codigoVinculacion)}
-                            className="text-[11px] font-semibold text-brand hover:underline px-2 py-1"
-                            title="Abrir simulador con este dispositivo"
+                            variant="link"
+                            size="sm"
+                            disabled={isActionLoading}
+                            onClick={() => handleReLinkDevice(dev.id, dev.nombreDispositivo)}
+                            className="text-[11px] font-semibold text-accent-sky px-2 py-1"
+                            title="Revocar sesión previa y generar un nuevo código QR para este celular"
                           >
-                            Simular
-                          </button>
+                            Re-vincular
+                          </Button>
+                        )}
 
-                          {/* Botón de Re-vinculación rápida cuando se perdió sesión en el móvil */}
-                          {isManager && dev.estadoVinculacion === 'VINCULADO' && (
-                            <button
-                              type="button"
-                              disabled={isActionLoading}
-                              onClick={() => handleReLinkDevice(dev.id, dev.nombreDispositivo)}
-                              className="text-[11px] font-semibold text-accent-sky hover:underline px-2 py-1"
-                              title="Revocar sesión previa y generar un nuevo código QR para este celular"
-                            >
-                              Re-vincular
-                            </button>
-                          )}
-
-                          {/* Botón de Revocación (Solo Administrador) */}
-                          {isManager && !isRevoked && (
-                            revokeConfirmId === dev.id ? (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  disabled={isActionLoading}
-                                  onClick={() => handleConfirmRevoke(dev.id)}
-                                  className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-300 px-2 py-1 rounded"
-                                >
-                                  ¿Confirmar?
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setRevokeConfirmId(null)}
-                                  aria-label="Cancelar revocación"
-                                  className="text-[10px] text-txt-muted hover:text-txt-primary px-1 py-1"
-                                >
-                                  <Icon name="x" className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ) : (
-                              <button
+                        {isManager &&
+                          !isRevoked &&
+                          (revokeConfirmId === dev.id ? (
+                            <div className="flex items-center gap-1">
+                              <Button
                                 type="button"
-                                onClick={() => setRevokeConfirmId(dev.id)}
-                                className="text-[11px] font-bold text-red-600 hover:text-red-700 hover:underline px-2 py-1"
+                                variant="danger"
+                                size="sm"
+                                disabled={isActionLoading}
+                                onClick={() => handleConfirmRevoke(dev.id)}
+                                className="min-h-0 h-7 text-[10px] font-bold px-2 py-1"
                               >
-                                Revocar
-                              </button>
-                            )
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                                ¿Confirmar?
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setRevokeConfirmId(null)}
+                                aria-label="Cancelar revocación"
+                                className="min-h-[28px] min-w-[28px] p-1"
+                              >
+                                <Icon name="x" className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="link"
+                              size="sm"
+                              onClick={() => setRevokeConfirmId(dev.id)}
+                              className="text-[11px] font-bold text-status-danger px-2 py-1"
+                            >
+                              Revocar
+                            </Button>
+                          ))}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
-      </section>
+      </Card>
 
       {/* ==================================================================== */}
       {/* 4. MODAL DEL SIMULADOR MÓVIL INTERACTIVO                             */}

@@ -9,6 +9,7 @@ import { Alert } from '../../../components/primitives/Alert';
 import { Button } from '../../../components/primitives/Button';
 import { Icon } from '../../../components/primitives/Icon';
 import { Modal } from '../../../components/primitives/Modal';
+import { Textarea } from '../../../components/primitives/Textarea';
 import { validateCancelPurchaseInput } from '../../../domain/finance';
 import { CancelSupplierPurchaseDto } from '../../../types/finance';
 import { preventEnterKeySubmit } from '../../../utils/formSafety';
@@ -70,7 +71,7 @@ export const CancelPurchaseModal: React.FC<CancelPurchaseModalProps> = ({
           </Alert>
         )}
 
-        <div className="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-300 dark:border-rose-900 rounded-lg text-rose-800 dark:text-rose-300">
+        <div className="p-3 bg-status-danger-bg border border-status-danger-border rounded-lg text-status-danger">
           <span className="font-bold flex items-center gap-1.5 mb-1">
             <Icon name="danger" className="w-4 h-4 shrink-0" aria-hidden="true" />
             ADVERTENCIA DE CONTROL DE STOCK:
@@ -85,23 +86,17 @@ export const CancelPurchaseModal: React.FC<CancelPurchaseModalProps> = ({
           </p>
         </div>
 
-        <div>
-          <label className="font-bold text-txt-primary block mb-1">
-            Motivo de Anulación: <span className="text-rose-500">*</span>
-          </label>
-          <textarea
-            value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
-            placeholder="Indique detalladamente el motivo (mínimo 5 caracteres: error de factura, devolución de mercadería al proveedor, etc.)..."
-            rows={3}
-            required
-            aria-label="Motivo de Anulación"
-            className="w-full px-2.5 py-1.5 rounded-md border border-border bg-canvas text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-          />
-          <span className="text-[11px] text-txt-muted mt-1 block">
-            Mínimo 5 caracteres. Este motivo quedará registrado inmutablemente en la bitácora de auditoría.
-          </span>
-        </div>
+        <Textarea
+          label="Motivo de Anulación"
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+          placeholder="Indique detalladamente el motivo (mínimo 5 caracteres: error de factura, devolución de mercadería al proveedor, etc.)..."
+          rows={3}
+          required
+          minLength={5}
+          hint="Mínimo 5 caracteres. Este motivo quedará registrado inmutablemente en la bitácora de auditoría."
+          className="text-xs bg-canvas"
+        />
 
         <div className="flex justify-end items-center gap-2 pt-2 border-t border-border">
           <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={isLoading}>

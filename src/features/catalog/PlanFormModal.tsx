@@ -3,11 +3,14 @@
 // Ubicación: src/features/catalog/PlanFormModal.tsx
 // ============================================================================
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { Button } from '../../components/primitives/Button';
 import { Input } from '../../components/primitives/Input';
+import { Label } from '../../components/primitives/Label';
 import { Modal } from '../../components/primitives/Modal';
 import { Select } from '../../components/primitives/Select';
+import { Switch } from '../../components/primitives/Switch';
+import { Textarea } from '../../components/primitives/Textarea';
 import { validatePlanForm } from '../../domain/catalog';
 import { CreatePlanInput, PlanListItem, TipoPlan, UpdatePlanInput } from '../../types/catalog';
 import {
@@ -34,6 +37,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
   isLoading = false,
 }) => {
   const isEditing = Boolean(planToEdit);
+  const recuperacionId = useId();
 
   const [codigo, setCodigo] = useState('');
   const [nombre, setNombre] = useState('');
@@ -159,18 +163,13 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
           required
         />
 
-        <div className="flex flex-col gap-1.5 text-left">
-          <label className="text-xs font-semibold text-txt-secondary uppercase tracking-wider select-none">
-            Descripción de Beneficios (Opcional)
-          </label>
-          <textarea
-            rows={2}
-            className="w-full bg-surface border border-border rounded-md text-sm text-txt-primary p-2.5 focus:border-border-focus focus:ring-1 focus:ring-border-focus outline-none"
-            placeholder="Detalles de disciplinas incluidas, horario libre, etc."
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-          />
-        </div>
+        <Textarea
+          label="Descripción de Beneficios (Opcional)"
+          rows={2}
+          placeholder="Detalles de disciplinas incluidas, horario libre, etc."
+          value={descripcion}
+          onChange={(e) => setDescripcion(e.target.value)}
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Select
@@ -231,21 +230,20 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
           leftIcon={<span className="text-xs font-bold text-txt-muted">S/</span>}
         />
 
-        <div className="bg-canvas-subtle p-3 rounded-lg border border-border flex items-center justify-between">
+        <div className="bg-canvas-subtle p-3 rounded-lg border border-border flex items-center justify-between gap-3">
           <div className="flex flex-col">
-            <span className="text-xs font-semibold text-txt-primary">
+            <Label htmlFor={recuperacionId} className="normal-case text-xs font-semibold text-txt-primary">
               Recuperación de Días por Justificación
-            </span>
+            </Label>
             <span className="text-[11px] text-txt-muted">
               Permite congelamiento y reposición en el slice de asistencias
             </span>
           </div>
-          <input
-            type="checkbox"
+          <Switch
+            id={recuperacionId}
             checked={permiteRecuperacion}
-            onChange={(e) => setPermiteRecuperacion(e.target.checked)}
+            onCheckedChange={setPermiteRecuperacion}
             disabled={tipoPlan === 'PASE_DIARIO'}
-            className="h-4 w-4 rounded border-border text-brand focus:ring-brand cursor-pointer"
           />
         </div>
 

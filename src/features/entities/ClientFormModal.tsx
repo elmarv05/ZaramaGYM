@@ -289,67 +289,79 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         {/* En Creación: Selector de Modo (Nueva Persona vs Existente) */}
         {!isEditing ? (
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-txt-muted uppercase tracking-wider">
+            <span className="text-xs font-bold text-txt-muted uppercase tracking-wider">
               Fase 1: Entidad Base (Persona Natural)
-            </label>
-            <div className="flex rounded-lg bg-canvas-subtle p-1 border border-border">
-              <button
+            </span>
+            <div className="flex rounded-lg bg-canvas-subtle p-1 border border-border gap-1">
+              <Button
                 type="button"
+                variant={creationMode === 'new' ? 'secondary' : 'ghost'}
+                size="sm"
+                aria-pressed={creationMode === 'new'}
                 onClick={() => {
                   setCreationMode('new');
                   setErrors({});
                 }}
-                className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
+                leftIcon={<Icon name="plus" className="w-3.5 h-3.5" aria-hidden="true" />}
+                className={`flex-1 min-h-[30px] text-xs ${
                   creationMode === 'new'
-                    ? 'bg-surface text-txt-primary shadow-xs font-bold'
-                    : 'text-txt-muted hover:text-txt-primary'
+                    ? 'shadow-xs font-bold'
+                    : 'text-txt-muted hover:text-txt-primary border border-transparent'
                 }`}
               >
-                <Icon name="plus" className="w-3.5 h-3.5" />
-                <span>Crear Nueva Persona</span>
-              </button>
-              <button
+                Crear Nueva Persona
+              </Button>
+              <Button
                 type="button"
+                variant={creationMode === 'existing' ? 'secondary' : 'ghost'}
+                size="sm"
+                aria-pressed={creationMode === 'existing'}
                 onClick={() => {
                   setCreationMode('existing');
                   setErrors({});
                 }}
-                className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
+                leftIcon={<Icon name="search" className="w-3.5 h-3.5" aria-hidden="true" />}
+                className={`flex-1 min-h-[30px] text-xs ${
                   creationMode === 'existing'
-                    ? 'bg-surface text-txt-primary shadow-xs font-bold'
-                    : 'text-txt-muted hover:text-txt-primary'
+                    ? 'shadow-xs font-bold'
+                    : 'text-txt-muted hover:text-txt-primary border border-transparent'
                 }`}
               >
-                <Icon name="search" className="w-3.5 h-3.5" />
-                <span>Elegir Persona Existente</span>
-              </button>
+                Elegir Persona Existente
+              </Button>
             </div>
           </div>
         ) : (
           /* En Edición: Selector de Pestañas (Salud/Emergencia vs Persona) */
-          <div className="flex border-b border-border">
-            <button
+          <div className="flex border-b border-border gap-1">
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
+              aria-pressed={editTab === 'client_data'}
               onClick={() => setEditTab('client_data')}
-              className={`py-2 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
+              className={`rounded-none border-b-2 py-2 px-4 text-xs font-bold uppercase tracking-wider hover:bg-transparent ${
                 editTab === 'client_data'
-                  ? 'border-brand text-brand'
+                  ? 'border-brand text-brand hover:text-brand'
                   : 'border-transparent text-txt-muted hover:text-txt-primary'
               }`}
             >
               1. Salud y Contacto de Emergencia
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
+              aria-pressed={editTab === 'person_data'}
               onClick={() => setEditTab('person_data')}
-              className={`py-2 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
+              className={`rounded-none border-b-2 py-2 px-4 text-xs font-bold uppercase tracking-wider hover:bg-transparent ${
                 editTab === 'person_data'
-                  ? 'border-brand text-brand'
+                  ? 'border-brand text-brand hover:text-brand'
                   : 'border-transparent text-txt-muted hover:text-txt-primary'
               }`}
             >
               2. Datos Personales
-            </button>
+            </Button>
           </div>
         )}
 
@@ -406,14 +418,16 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                   </div>
                 ) : (
                   availablePersons.map((p) => (
-                    <button
+                    <Button
                       key={p.id}
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => {
                         setSelectedPersonId(p.id);
                         setErrors({});
                       }}
-                      className="p-2 text-left rounded hover:bg-canvas-subtle flex items-center justify-between transition-colors"
+                      className="w-full h-auto p-2 text-left justify-between font-normal"
                     >
                       <div>
                         <span className="text-xs font-bold text-txt-primary block">
@@ -424,7 +438,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                         </span>
                       </div>
                       <span className="text-xs text-brand font-semibold">Seleccionar</span>
-                    </button>
+                    </Button>
                   ))
                 )}
               </div>
@@ -462,7 +476,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
             </div>
 
             {isEditing && !canUnlockPersonalData && (
-              <div className="p-2.5 bg-status-warning-bg border border-amber-300 rounded text-xs text-status-warning">
+              <div className="p-2.5 bg-status-warning-bg border border-status-warning-border rounded text-xs text-status-warning">
                 Protegido por jerarquía RBAC: este socio cuenta con credenciales de usuario del sistema y tus permisos no permiten alterar sus datos personales.
               </div>
             )}

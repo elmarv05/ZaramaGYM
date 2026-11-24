@@ -7,7 +7,10 @@
 
 import React from 'react';
 import { Badge } from '../../components/primitives/Badge';
+import { Button } from '../../components/primitives/Button';
+import { Card } from '../../components/primitives/Card';
 import { Icon, IconName } from '../../components/primitives/Icon';
+import { Skeleton } from '../../components/primitives/Skeleton';
 import { cn } from '../../utils/cn';
 
 export interface FlashCardBadgeItem {
@@ -126,26 +129,30 @@ export const EntityFlashCard: React.FC<EntityFlashCardProps> = ({
             </div>
 
             {onAvatarClick && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={onAvatarClick}
                 title={avatarActionTitle || 'Cambiar foto'}
                 aria-label={avatarActionTitle || `Cambiar foto de ${title}`}
-                className="absolute inset-0 bg-black/45 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
+                className="absolute inset-0 min-h-0 min-w-0 p-0 bg-black/45 hover:bg-black/60 text-white hover:text-white rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
               >
-                <Icon name="camera" className="w-3.5 h-3.5" />
-              </button>
+                <Icon name="camera" className="w-3.5 h-3.5" aria-hidden="true" />
+              </Button>
             )}
           </div>
 
           <div className="flex flex-col gap-1 min-w-0 flex-1">
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="sm"
               onClick={onOpenProfile}
-              className="text-left text-base font-bold text-txt-primary hover:text-brand transition-colors truncate focus:outline-none focus-visible:underline"
+              className="justify-start h-auto min-h-0 p-0 text-left text-base font-bold text-txt-primary hover:text-brand hover:no-underline truncate"
             >
-              {title}
-            </button>
+              <span className="truncate">{title}</span>
+            </Button>
 
             {subtitleTag && <div className="text-xs">{subtitleTag}</div>}
 
@@ -201,18 +208,23 @@ export const EntityFlashCard: React.FC<EntityFlashCardProps> = ({
       <div className="pt-2.5 border-t border-border flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-1.5 flex-wrap">{quickActions}</div>
 
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={onOpenProfile}
           aria-label={`${openProfileLabel} de ${title}`}
-          className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:text-brand-hover py-1 px-2 rounded-md hover:bg-status-success-bg/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ml-auto"
+          rightIcon={
+            <Icon
+              name="arrow-right"
+              className="w-3.5 h-3.5 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0"
+              aria-hidden="true"
+            />
+          }
+          className="min-h-0 py-1 px-2 text-xs font-bold text-brand hover:text-brand-hover hover:bg-status-success-bg/50 ml-auto"
         >
-          <span>{openProfileLabel}</span>
-          <Icon
-            name="arrow-right"
-            className="w-3.5 h-3.5 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0"
-          />
-        </button>
+          {openProfileLabel}
+        </Button>
       </div>
     </article>
   );
@@ -239,34 +251,31 @@ export const EntityFlashCardSkeletonGrid: React.FC<{ count?: number }> = ({ coun
     className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
   >
     {Array.from({ length: count }).map((_, idx) => (
-      <div
-        key={idx}
-        className="bg-surface border border-border rounded-xl p-4 flex flex-col justify-between gap-3.5 animate-pulse"
-      >
+      <Card key={idx} padding="sm" className="justify-between gap-3.5">
         <div className="flex items-center justify-between">
-          <div className="h-5 w-20 rounded-full bg-canvas-subtle" />
-          <div className="h-5 w-16 rounded-full bg-canvas-subtle" />
+          <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-5 w-16 rounded-full" />
         </div>
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-canvas-subtle shrink-0" />
+          <Skeleton className="w-11 h-11 rounded-full shrink-0" />
           <div className="flex flex-col gap-2 flex-1">
-            <div className="h-4 w-3/4 rounded bg-canvas-subtle" />
-            <div className="h-3.5 w-1/2 rounded bg-canvas-subtle" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3.5 w-1/2" />
           </div>
         </div>
         <div className="flex flex-col gap-2">
-          <div className="h-3 w-2/3 rounded bg-canvas-subtle" />
-          <div className="h-3 w-1/2 rounded bg-canvas-subtle" />
+          <Skeleton className="h-3 w-2/3" />
+          <Skeleton className="h-3 w-1/2" />
         </div>
-        <div className="h-14 w-full rounded-lg bg-canvas-subtle" />
+        <Skeleton className="h-14 w-full rounded-lg" />
         <div className="pt-2.5 border-t border-border flex items-center justify-between">
           <div className="flex gap-1.5">
-            <div className="h-7 w-14 rounded bg-canvas-subtle" />
-            <div className="h-7 w-16 rounded bg-canvas-subtle" />
+            <Skeleton className="h-7 w-14" />
+            <Skeleton className="h-7 w-16" />
           </div>
-          <div className="h-6 w-20 rounded bg-canvas-subtle" />
+          <Skeleton className="h-6 w-20" />
         </div>
-      </div>
+      </Card>
     ))}
   </div>
 );
@@ -288,14 +297,14 @@ export const EntityFlashCardEmptyState: React.FC<EntityFlashCardEmptyStateProps>
   action,
   icon = 'directory',
 }) => (
-  <div className="bg-surface border border-border rounded-xl p-8 text-center flex flex-col items-center justify-center gap-3 shadow-xs">
+  <Card className="p-8 text-center items-center justify-center gap-3">
     <div className="w-11 h-11 rounded-full bg-canvas-subtle border border-border flex items-center justify-center text-txt-muted">
-      <Icon name={icon} className="w-5 h-5" />
+      <Icon name={icon} className="w-5 h-5" aria-hidden="true" />
     </div>
     <div className="max-w-md flex flex-col gap-1">
       <h3 className="text-sm font-bold text-txt-primary">{title}</h3>
       <p className="text-xs text-txt-muted">{description}</p>
     </div>
     {action && <div className="mt-1">{action}</div>}
-  </div>
+  </Card>
 );

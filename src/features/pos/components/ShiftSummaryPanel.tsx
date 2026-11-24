@@ -5,8 +5,7 @@
 // ============================================================================
 
 import React from 'react';
-import { Badge } from '../../../components/primitives/Badge';
-import { Icon } from '../../../components/primitives/Icon';
+import { Badge, Card, Icon } from '../../../components/primitives';
 import { formatMoney } from '../../../domain/pos';
 import { CashShiftDto, CashShiftSummaryDto } from '../../../types/pos';
 import { ShiftViewMode } from './ShiftStatusHeader';
@@ -28,7 +27,7 @@ export const ShiftSummaryPanel: React.FC<ShiftSummaryPanelProps> = ({
   const tarjeta = parseFloat(shift.desglose_digital.tarjeta) || 0;
 
   return (
-    <div className="w-full bg-surface border border-border rounded-xl p-4 sm:p-5 shadow-xs flex flex-col gap-4">
+    <Card padding="md" className="w-full gap-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
         <div className="flex items-center gap-2">
           <h3 className="font-bold text-txt-primary text-base flex items-center gap-2">
@@ -83,14 +82,14 @@ export const ShiftSummaryPanel: React.FC<ShiftSummaryPanelProps> = ({
             </span>
           </div>
 
-          <div className="bg-emerald-50 dark:bg-emerald-950/40 p-4 rounded-xl border border-emerald-300 dark:border-emerald-800">
-            <span className="text-xs text-emerald-800 dark:text-emerald-300 font-bold uppercase tracking-wider block">
+          <div className="bg-status-success-bg p-4 rounded-xl border border-status-success-border">
+            <span className="text-xs text-status-success font-bold uppercase tracking-wider block">
               Efectivo Esperado en Gaveta
             </span>
-            <span className="text-xl font-black text-emerald-700 dark:text-emerald-400 mt-1 block">
+            <span className="text-xl font-black text-status-success mt-1 block">
               S/ {formatMoney(shift.total_efectivo_esperado)}
             </span>
-            <span className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 mt-0.5 block">
+            <span className="text-[11px] text-txt-secondary mt-0.5 block">
               Monto a cotejar en el arqueo
             </span>
           </div>
@@ -101,38 +100,38 @@ export const ShiftSummaryPanel: React.FC<ShiftSummaryPanelProps> = ({
       {activeViewMode === 'DIGITAL' && (
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-purple-50 dark:bg-purple-950/30 p-3.5 rounded-xl border border-purple-200 dark:border-purple-900 flex flex-col">
-              <span className="text-xs font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0" aria-hidden="true" /> Yape
+            <div className="bg-canvas-subtle p-3.5 rounded-xl border border-accent-indigo/35 flex flex-col">
+              <span className="text-xs font-bold text-accent-indigo flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-accent-indigo shrink-0" aria-hidden="true" /> Yape
               </span>
-              <span className="text-lg font-black text-purple-700 dark:text-purple-400 mt-1">
+              <span className="text-lg font-black text-accent-indigo mt-1">
                 S/ {formatMoney(yape)}
               </span>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-950/30 p-3.5 rounded-xl border border-blue-200 dark:border-blue-900 flex flex-col">
-              <span className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" aria-hidden="true" /> Plin
+            <div className="bg-status-info-bg/70 p-3.5 rounded-xl border border-status-info-border flex flex-col">
+              <span className="text-xs font-bold text-status-info flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-status-info shrink-0" aria-hidden="true" /> Plin
               </span>
-              <span className="text-lg font-black text-blue-700 dark:text-blue-400 mt-1">
+              <span className="text-lg font-black text-status-info mt-1">
                 S/ {formatMoney(plin)}
               </span>
             </div>
 
-            <div className="bg-amber-50 dark:bg-amber-950/30 p-3.5 rounded-xl border border-amber-200 dark:border-amber-900 flex flex-col">
-              <span className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+            <div className="bg-status-warning-bg/70 p-3.5 rounded-xl border border-status-warning-border flex flex-col">
+              <span className="text-xs font-bold text-status-warning flex items-center gap-1.5">
                 <Icon name="bank" className="w-4 h-4 shrink-0" aria-hidden="true" /> Transferencias
               </span>
-              <span className="text-lg font-black text-amber-700 dark:text-amber-400 mt-1">
+              <span className="text-lg font-black text-status-warning mt-1">
                 S/ {formatMoney(transfer)}
               </span>
             </div>
 
-            <div className="bg-sky-50 dark:bg-sky-950/30 p-3.5 rounded-xl border border-sky-200 dark:border-sky-900 flex flex-col">
-              <span className="text-xs font-bold text-sky-900 dark:text-sky-300 flex items-center gap-1.5">
+            <div className="bg-status-info-bg/70 p-3.5 rounded-xl border border-status-info-border flex flex-col">
+              <span className="text-xs font-bold text-accent-sky flex items-center gap-1.5">
                 <Icon name="credit-card" className="w-4 h-4 shrink-0" aria-hidden="true" /> Tarjetas POS
               </span>
-              <span className="text-lg font-black text-sky-700 dark:text-sky-400 mt-1">
+              <span className="text-lg font-black text-accent-sky mt-1">
                 S/ {formatMoney(tarjeta)}
               </span>
             </div>
@@ -140,7 +139,7 @@ export const ShiftSummaryPanel: React.FC<ShiftSummaryPanelProps> = ({
 
           <div className="p-3 bg-canvas-subtle rounded-xl border border-border flex justify-between items-center text-xs">
             <span className="font-bold text-txt-secondary">Total Electrónico Recaudado:</span>
-            <span className="font-black text-base text-sky-700 dark:text-sky-400">
+            <span className="font-black text-base text-status-info">
               S/ {formatMoney(shift.total_ventas_digital)}
             </span>
           </div>
@@ -184,7 +183,7 @@ export const ShiftSummaryPanel: React.FC<ShiftSummaryPanelProps> = ({
             <span className="text-[11px] font-bold text-txt-muted uppercase">
               Créditos Emitidos
             </span>
-            <span className="text-base font-extrabold text-amber-700 dark:text-amber-400 mt-1">
+            <span className="text-base font-extrabold text-status-warning mt-1">
               S/ {formatMoney(summary ? summary.total_creditos_emitidos : '0.00')}
             </span>
           </div>
@@ -197,6 +196,6 @@ export const ShiftSummaryPanel: React.FC<ShiftSummaryPanelProps> = ({
           )}
         </div>
       )}
-    </div>
+    </Card>
   );
 };

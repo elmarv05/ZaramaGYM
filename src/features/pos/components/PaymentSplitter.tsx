@@ -5,9 +5,7 @@
 // ============================================================================
 
 import React from 'react';
-import { Badge } from '../../../components/primitives/Badge';
-import { Button } from '../../../components/primitives/Button';
-import { Icon, IconName } from '../../../components/primitives/Icon';
+import { Alert, Badge, Button, Card, Icon, IconName, Input } from '../../../components/primitives';
 import { formatMoney, PaymentSplitResult } from '../../../domain/pos';
 import { PaymentMethod, PosPaymentInput } from '../../../types/pos';
 import {
@@ -107,10 +105,10 @@ export const PaymentSplitter: React.FC<PaymentSplitterProps> = ({
     (!splitResult.isCredito || hasCliente);
 
   return (
-    <div className="w-full bg-surface border border-border rounded-xl p-4 sm:p-5 shadow-xs flex flex-col gap-4">
+    <Card padding="md" className="w-full gap-4">
       <div className="flex items-center justify-between border-b border-border pb-3">
         <h3 className="font-bold text-txt-primary text-sm sm:text-base flex items-center gap-2">
-          <Icon name="credit-card" className="w-4 h-4 text-brand" />
+          <Icon name="credit-card" className="w-4 h-4 text-brand" aria-hidden="true" />
           <span>Medios de Pago y Split</span>
         </h3>
         <span className="text-xs text-txt-muted">
@@ -135,7 +133,7 @@ export const PaymentSplitter: React.FC<PaymentSplitterProps> = ({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Icon name={m.icon} className={`w-4 h-4 ${m.iconClassName}`} />
+                  <Icon name={m.icon} className={`w-4 h-4 ${m.iconClassName}`} aria-hidden="true" />
                   <span className="font-semibold text-xs text-txt-primary">{m.label}</span>
                   {m.canal === 'DIGITAL' && (
                     <Badge variant="info" size="sm">
@@ -147,62 +145,65 @@ export const PaymentSplitter: React.FC<PaymentSplitterProps> = ({
                 {/* Atajo: Pagar Total y Quitar */}
                 <div className="flex items-center gap-2">
                   {active && (
-                    <button
+                    <Button
                       type="button"
+                      variant="link"
+                      size="sm"
                       disabled={disabled}
                       onClick={() => onRemovePayment(m.id)}
-                      className="text-[10px] font-semibold text-status-danger hover:underline disabled:opacity-40"
+                      className="text-[10px] font-semibold text-status-danger"
                     >
                       Quitar
-                    </button>
+                    </Button>
                   )}
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="sm"
                     disabled={disabled || totalVenta <= 0}
                     onClick={() => handlePayFull(m.id)}
-                    className="text-[11px] font-semibold text-brand hover:underline disabled:opacity-40"
+                    className="text-[11px] font-semibold"
                   >
                     Pagar 100%
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {/* Input de Monto */}
-                <div className="relative flex items-center">
-                  <span className="absolute left-2.5 inset-y-0 flex items-center text-txt-muted text-xs font-bold pointer-events-none select-none z-10">S/</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    disabled={disabled}
-                    value={pago ? pago.monto : ''}
-                    onFocus={selectIfZeroDefault}
-                    onChange={(e) => handleMontoChange(m.id, sanitizeDecimalInput(e.target.value))}
-                    onBlur={(e) => {
-                      const formatted = formatDecimalOnBlur(e.target.value, { min: 0 });
-                      const v = parseFloat(formatted);
-                      if (!isNaN(v) && v > 0) {
-                        handleMontoChange(m.id, formatted);
-                      } else {
-                        onRemovePayment(m.id);
-                      }
-                    }}
-                    placeholder="0.00"
-                    aria-label={`Monto en ${m.label}`}
-                    className="w-full text-xs font-bold pl-7 pr-3 py-1.5 rounded-md border border-border bg-surface text-txt-primary focus:outline-none focus:ring-1 focus:ring-brand"
-                  />
-                </div>
+                <Input
+                  type="text"
+                  inputSize="sm"
+                  inputMode="decimal"
+                  disabled={disabled}
+                  value={pago ? pago.monto : ''}
+                  onFocus={selectIfZeroDefault}
+                  onChange={(e) => handleMontoChange(m.id, sanitizeDecimalInput(e.target.value))}
+                  onBlur={(e) => {
+                    const formatted = formatDecimalOnBlur(e.target.value, { min: 0 });
+                    const v = parseFloat(formatted);
+                    if (!isNaN(v) && v > 0) {
+                      handleMontoChange(m.id, formatted);
+                    } else {
+                      onRemovePayment(m.id);
+                    }
+                  }}
+                  placeholder="0.00"
+                  aria-label={`Monto en ${m.label}`}
+                  leftIcon={<span className="text-xs font-bold">S/</span>}
+                  className="font-bold pl-8"
+                />
 
                 {/* Referencia si es Digital */}
                 {m.canal === 'DIGITAL' ? (
-                  <input
+                  <Input
                     type="text"
+                    inputSize="sm"
                     disabled={disabled}
                     value={pago?.referencia_operacion || ''}
                     onChange={(e) => handleRefChange(m.id, e.target.value)}
                     placeholder="Nº Operación / Voucher (Opcional)"
                     aria-label={`Referencia para ${m.label}`}
-                    className="w-full text-xs pl-3 pr-3 py-1.5 rounded-md border border-border bg-surface text-txt-primary focus:outline-none focus:ring-1 focus:ring-brand"
                   />
                 ) : (
                   <div className="flex items-center text-[11px] text-txt-muted px-2">
@@ -223,21 +224,15 @@ export const PaymentSplitter: React.FC<PaymentSplitterProps> = ({
 
       {/* Alertas de Validación */}
       {splitResult.isOverpaidDigital && (
-        <div className="p-3 bg-status-danger-bg border border-status-danger/30 border-l-4 border-l-status-danger rounded-lg text-xs text-status-danger flex items-start gap-2">
-          <Icon name="warning" className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>
-            El pago digital excede el total de la venta. Ajusta el monto transferido o registrado con tarjeta.
-          </span>
-        </div>
+        <Alert variant="danger" floating={false}>
+          El pago digital excede el total de la venta. Ajusta el monto transferido o registrado con tarjeta.
+        </Alert>
       )}
 
       {splitResult.isCredito && !hasCliente && (
-        <div className="p-3 bg-status-warning-bg border border-status-warning/30 border-l-4 border-l-status-warning rounded-lg text-xs text-status-warning flex items-start gap-2">
-          <Icon name="warning" className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>
-            El pago parcial generará una deuda por <strong>S/ {splitResult.saldoCreditoGeneradoStr}</strong>. Debes seleccionar un cliente registrado para emitir el crédito.
-          </span>
-        </div>
+        <Alert variant="warning" floating={false}>
+          El pago parcial generará una deuda por <strong>S/ {splitResult.saldoCreditoGeneradoStr}</strong>. Debes seleccionar un cliente registrado para emitir el crédito.
+        </Alert>
       )}
 
       {/* Resumen Final de Transacción */}
@@ -276,6 +271,6 @@ export const PaymentSplitter: React.FC<PaymentSplitterProps> = ({
       >
         Registrar Venta (POS)
       </Button>
-    </div>
+    </Card>
   );
 };

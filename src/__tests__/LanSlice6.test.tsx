@@ -531,4 +531,30 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
     fireEvent.click(screen.getByRole('button', { name: /Desvincular/i }));
     expect(await screen.findByRole('heading', { name: /Vincular Celular/i })).toBeInTheDocument();
   });
+
+  // --------------------------------------------------------------------------
+  // CP-10: ALTERNANCIA MODO CLARO / OSCURO EN SIMULADOR DEL ESCÁNER MÓVIL
+  // --------------------------------------------------------------------------
+  it('10. Permite alternar entre Modo Claro y Modo Oscuro en la vista del escáner móvil', () => {
+    document.documentElement.classList.remove('dark');
+
+    render(
+      <MobileScannerSimulatorModal
+        isOpen={true}
+        onClose={vi.fn()}
+        initialPairingCode="ZG9988"
+        clients={mockClients}
+      />
+    );
+
+    const preview = screen.getByTestId('mobile-scanner-preview');
+    expect(preview).toHaveAttribute('data-scanner-theme', 'light');
+
+    const toggleBtn = screen.getByRole('button', { name: /Alternar tema de vista móvil/i });
+    fireEvent.click(toggleBtn);
+    expect(preview).toHaveAttribute('data-scanner-theme', 'dark');
+
+    fireEvent.click(toggleBtn);
+    expect(preview).toHaveAttribute('data-scanner-theme', 'light');
+  });
 });

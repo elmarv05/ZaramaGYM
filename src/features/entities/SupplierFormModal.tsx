@@ -363,82 +363,86 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
         {!isEditing ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-txt-muted uppercase tracking-wider">
+              <span className="text-xs font-bold text-txt-muted uppercase tracking-wider">
                 Tipo de Proveedor
-              </label>
+              </span>
               <div className="grid grid-cols-2 gap-3">
-                <button
+                <Button
                   type="button"
+                  variant={tipoProveedor === 'EMPRESA' ? 'primary' : 'secondary'}
+                  size="md"
+                  aria-pressed={tipoProveedor === 'EMPRESA'}
                   onClick={() => {
                     setTipoProveedor('EMPRESA');
                     setSelectedCompanyId(null);
                     setErrors({});
                   }}
-                  className={`py-2.5 px-3 rounded-lg border text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    tipoProveedor === 'EMPRESA'
-                      ? 'bg-brand text-brand-text border-brand shadow-xs'
-                      : 'bg-surface text-txt-secondary border-border hover:bg-canvas-subtle'
-                  }`}
+                  leftIcon={<Icon name="building" className="w-4 h-4" aria-hidden="true" />}
+                  className="py-2.5 px-3 rounded-lg font-semibold"
                 >
-                  <Icon name="building" className="w-4 h-4" />
-                  <span>Empresa (RUC 20)</span>
-                </button>
+                  Empresa (RUC 20)
+                </Button>
 
-                <button
+                <Button
                   type="button"
+                  variant={tipoProveedor === 'PERSONA_NATURAL' ? 'primary' : 'secondary'}
+                  size="md"
+                  aria-pressed={tipoProveedor === 'PERSONA_NATURAL'}
                   onClick={() => {
                     setTipoProveedor('PERSONA_NATURAL');
                     setSelectedPersonId(null);
                     setErrors({});
                   }}
-                  className={`py-2.5 px-3 rounded-lg border text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    tipoProveedor === 'PERSONA_NATURAL'
-                      ? 'bg-brand text-brand-text border-brand shadow-xs'
-                      : 'bg-surface text-txt-secondary border-border hover:bg-canvas-subtle'
-                  }`}
+                  leftIcon={<Icon name="user" className="w-4 h-4" aria-hidden="true" />}
+                  className="py-2.5 px-3 rounded-lg font-semibold"
                 >
-                  <Icon name="user" className="w-4 h-4" />
-                  <span>Persona Natural</span>
-                </button>
+                  Persona Natural
+                </Button>
               </div>
             </div>
 
             {/* Fase 1: Modo de Selección de Entidad Base (Nueva vs Existente) */}
             <div className="flex flex-col gap-1.5 pt-2 border-t border-border">
-              <label className="text-xs font-bold text-txt-muted uppercase tracking-wider">
+              <span className="text-xs font-bold text-txt-muted uppercase tracking-wider">
                 Fase 1: Selección de Entidad Base
-              </label>
-              <div className="flex rounded-lg bg-canvas-subtle p-1 border border-border">
-                <button
+              </span>
+              <div className="flex rounded-lg bg-canvas-subtle p-1 border border-border gap-1">
+                <Button
                   type="button"
+                  variant={creationMode === 'new' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  aria-pressed={creationMode === 'new'}
                   onClick={() => {
                     setCreationMode('new');
                     setErrors({});
                   }}
-                  className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
+                  leftIcon={<Icon name="plus" className="w-3.5 h-3.5" aria-hidden="true" />}
+                  className={`flex-1 min-h-[30px] text-xs ${
                     creationMode === 'new'
-                      ? 'bg-surface text-txt-primary shadow-xs font-bold'
-                      : 'text-txt-muted hover:text-txt-primary'
+                      ? 'shadow-xs font-bold'
+                      : 'text-txt-muted hover:text-txt-primary border border-transparent'
                   }`}
                 >
-                  <Icon name="plus" className="w-3.5 h-3.5" />
-                  <span>Crear Nueva {tipoProveedor === 'EMPRESA' ? 'Empresa' : 'Persona'}</span>
-                </button>
-                <button
+                  Crear Nueva {tipoProveedor === 'EMPRESA' ? 'Empresa' : 'Persona'}
+                </Button>
+                <Button
                   type="button"
+                  variant={creationMode === 'existing' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  aria-pressed={creationMode === 'existing'}
                   onClick={() => {
                     setCreationMode('existing');
                     setErrors({});
                   }}
-                  className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
+                  leftIcon={<Icon name="search" className="w-3.5 h-3.5" aria-hidden="true" />}
+                  className={`flex-1 min-h-[30px] text-xs ${
                     creationMode === 'existing'
-                      ? 'bg-surface text-txt-primary shadow-xs font-bold'
-                      : 'text-txt-muted hover:text-txt-primary'
+                      ? 'shadow-xs font-bold'
+                      : 'text-txt-muted hover:text-txt-primary border border-transparent'
                   }`}
                 >
-                  <Icon name="search" className="w-3.5 h-3.5" />
-                  <span>Elegir {tipoProveedor === 'EMPRESA' ? 'Empresa' : 'Persona'} Existente</span>
-                </button>
+                  Elegir {tipoProveedor === 'EMPRESA' ? 'Empresa' : 'Persona'} Existente
+                </Button>
               </div>
             </div>
           </div>
@@ -451,6 +455,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
                 <Icon
                   name={editingSupplier?.tipo_proveedor === 'EMPRESA' ? 'building' : 'user'}
                   className="w-4 h-4 text-brand"
+                  aria-hidden="true"
                 />
                 <span>
                   {editingSupplier?.tipo_proveedor === 'EMPRESA'
@@ -460,29 +465,35 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
               </span>
             </div>
 
-            <div className="flex border-b border-border">
-              <button
+            <div className="flex border-b border-border gap-1">
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
+                aria-pressed={editTab === 'supplier'}
                 onClick={() => setEditTab('supplier')}
-                className={`py-2 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
+                className={`rounded-none border-b-2 py-2 px-4 text-xs font-bold uppercase tracking-wider hover:bg-transparent ${
                   editTab === 'supplier'
-                    ? 'border-brand text-brand'
+                    ? 'border-brand text-brand hover:text-brand'
                     : 'border-transparent text-txt-muted hover:text-txt-primary'
                 }`}
               >
                 1. Datos del Proveedor
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
+                aria-pressed={editTab === 'linked'}
                 onClick={() => setEditTab('linked')}
-                className={`py-2 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
+                className={`rounded-none border-b-2 py-2 px-4 text-xs font-bold uppercase tracking-wider hover:bg-transparent ${
                   editTab === 'linked'
-                    ? 'border-brand text-brand'
+                    ? 'border-brand text-brand hover:text-brand'
                     : 'border-transparent text-txt-muted hover:text-txt-primary'
                 }`}
               >
                 2. Datos de la {editingSupplier?.tipo_proveedor === 'EMPRESA' ? 'Empresa' : 'Persona'}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -568,14 +579,16 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
                   </div>
                 ) : (
                   filteredAvailableCompanies.map((c) => (
-                    <button
+                    <Button
                       key={c.id}
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => {
                         setSelectedCompanyId(c.id);
                         setErrors({});
                       }}
-                      className="p-2 text-left rounded hover:bg-canvas-subtle flex items-center justify-between transition-colors"
+                      className="w-full h-auto p-2 text-left justify-between font-normal"
                     >
                       <div>
                         <span className="text-xs font-bold text-txt-primary block">
@@ -586,7 +599,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
                         </span>
                       </div>
                       <span className="text-xs text-brand font-semibold">Seleccionar</span>
-                    </button>
+                    </Button>
                   ))
                 )}
               </div>
@@ -600,14 +613,16 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
                   </div>
                 ) : (
                   filteredAvailablePersons.map((p) => (
-                    <button
+                    <Button
                       key={p.id}
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => {
                         setSelectedPersonId(p.id);
                         setErrors({});
                       }}
-                      className="p-2 text-left rounded hover:bg-canvas-subtle flex items-center justify-between transition-colors"
+                      className="w-full h-auto p-2 text-left justify-between font-normal"
                     >
                       <div>
                         <span className="text-xs font-bold text-txt-primary block">
@@ -618,7 +633,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
                         </span>
                       </div>
                       <span className="text-xs text-brand font-semibold">Seleccionar</span>
-                    </button>
+                    </Button>
                   ))
                 )}
               </div>
@@ -747,7 +762,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
             </div>
 
             {isEditing && !canUnlockLinkedData && (
-              <div className="p-2.5 bg-status-warning-bg border border-amber-300 rounded text-xs text-status-warning">
+              <div className="p-2.5 bg-status-warning-bg border border-status-warning-border rounded text-xs text-status-warning">
                 Protegido por jerarquía RBAC: la persona vinculada tiene credenciales de sistema y no tienes permisos para alterar sus datos personales.
               </div>
             )}

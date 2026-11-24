@@ -5,9 +5,7 @@
 // ============================================================================
 
 import React from 'react';
-import { Badge } from '../../../components/primitives/Badge';
-import { Button } from '../../../components/primitives/Button';
-import { Icon } from '../../../components/primitives/Icon';
+import { Badge, Button, Card, Icon, Skeleton } from '../../../components/primitives';
 import { formatMoney } from '../../../domain/pos';
 import { CashShiftDto } from '../../../types/pos';
 
@@ -35,37 +33,45 @@ export const ShiftStatusHeader: React.FC<ShiftStatusHeaderProps> = ({
   // 1. Estado Loading
   if (isLoading && !shift) {
     return (
-      <div className="w-full bg-surface border border-border rounded-xl p-4 flex items-center justify-between animate-pulse">
+      <Card
+        padding="sm"
+        role="status"
+        aria-label="Consultando estado de caja"
+        className="w-full flex-row items-center justify-between"
+      >
         <div className="flex items-center gap-3">
-          <div className="w-4 h-4 rounded-full bg-slate-300 dark:bg-slate-700" />
+          <Skeleton className="w-4 h-4 rounded-full" />
           <span className="text-sm text-txt-secondary">Consultando estado de caja...</span>
         </div>
-      </div>
+      </Card>
     );
   }
 
   // 2. Estado Caja Cerrada (Alerta Roja con borde fuerte y fondo sutil)
   if (!shift || shift.estado === 'CERRADO') {
     return (
-      <div
+      <Card
         role="region"
         aria-label="Estado de Caja"
-        className="w-full bg-rose-500/[0.04] dark:bg-rose-500/[0.06] border-2 border-rose-500/80 dark:border-rose-500/70 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all"
+        className="w-full bg-status-danger-bg/40 border-2 border-status-danger/80 p-4 sm:p-5 sm:flex-row items-start sm:items-center justify-between gap-4"
       >
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+          <div
+            aria-hidden="true"
+            className="mt-0.5 p-2 rounded-lg bg-status-danger-bg text-status-danger border border-status-danger-border"
+          >
             <Icon name="lock" className="w-5 h-5" aria-hidden="true" />
           </div>
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-rose-700 dark:text-rose-300 text-sm sm:text-base">
+              <span className="font-bold text-status-danger text-sm sm:text-base">
                 Caja Cerrada — Abre un turno para operar el Punto de Venta
               </span>
               <Badge variant="danger" size="sm">
                 Sin Turno Activo
               </Badge>
             </div>
-            <p className="text-xs text-rose-700/85 dark:text-rose-300/85">
+            <p className="text-xs text-txt-secondary">
               Para registrar ventas de productos, planes o amortizaciones de deuda física y digital, primero debes asignar el fondo inicial en gaveta.
             </p>
           </div>
@@ -80,16 +86,17 @@ export const ShiftStatusHeader: React.FC<ShiftStatusHeaderProps> = ({
         >
           Abrir Turno de Caja
         </Button>
-      </div>
+      </Card>
     );
   }
 
   // 3. Estado Caja Abierta (Badge Verde y Métricas en Vivo)
   return (
-    <div
+    <Card
       role="region"
       aria-label="Estado de Caja Activa"
-      className="w-full bg-surface border border-border rounded-xl p-4 sm:p-5 shadow-xs flex flex-col gap-4"
+      padding="md"
+      className="w-full gap-4"
     >
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Identificación de Turno */}
@@ -114,61 +121,56 @@ export const ShiftStatusHeader: React.FC<ShiftStatusHeaderProps> = ({
         <div
           role="group"
           aria-label="Vistas de Caja"
-          className="flex items-center bg-canvas-subtle p-1 rounded-lg border border-border text-xs font-semibold self-start lg:self-auto"
+          className="flex items-center bg-canvas-subtle p-1 rounded-lg border border-border text-xs font-semibold self-start lg:self-auto gap-1"
         >
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant={activeViewMode === 'FISICA' ? 'secondary' : 'ghost'}
             aria-pressed={activeViewMode === 'FISICA'}
             onClick={() => onViewModeChange('FISICA')}
-            className={`px-3 py-1.5 rounded-md transition-all inline-flex items-center gap-1.5 ${
-              activeViewMode === 'FISICA'
-                ? 'bg-surface text-txt-primary shadow-xs font-bold border border-border'
-                : 'text-txt-muted hover:text-txt-primary'
-            }`}
+            leftIcon={<Icon name="cash" className="w-4 h-4" aria-hidden="true" />}
+            className="min-h-[30px] py-1"
           >
-            <Icon name="cash" className="w-4 h-4" aria-hidden="true" />
-            <span>Caja Física</span>
-          </button>
-          <button
+            Caja Física
+          </Button>
+          <Button
             type="button"
+            size="sm"
+            variant={activeViewMode === 'DIGITAL' ? 'secondary' : 'ghost'}
             aria-pressed={activeViewMode === 'DIGITAL'}
             onClick={() => onViewModeChange('DIGITAL')}
-            className={`px-3 py-1.5 rounded-md transition-all inline-flex items-center gap-1.5 ${
-              activeViewMode === 'DIGITAL'
-                ? 'bg-surface text-txt-primary shadow-xs font-bold border border-border'
-                : 'text-txt-muted hover:text-txt-primary'
-            }`}
+            leftIcon={<Icon name="smartphone" className="w-4 h-4" aria-hidden="true" />}
+            className="min-h-[30px] py-1"
           >
-            <Icon name="smartphone" className="w-4 h-4" aria-hidden="true" />
-            <span>Caja Digital</span>
-          </button>
-          <button
+            Caja Digital
+          </Button>
+          <Button
             type="button"
+            size="sm"
+            variant={activeViewMode === 'MIXTA' ? 'secondary' : 'ghost'}
             aria-pressed={activeViewMode === 'MIXTA'}
             onClick={() => onViewModeChange('MIXTA')}
-            className={`px-3 py-1.5 rounded-md transition-all inline-flex items-center gap-1.5 ${
-              activeViewMode === 'MIXTA'
-                ? 'bg-surface text-txt-primary shadow-xs font-bold border border-border'
-                : 'text-txt-muted hover:text-txt-primary'
-            }`}
+            leftIcon={<Icon name="bar-chart" className="w-4 h-4" aria-hidden="true" />}
+            className="min-h-[30px] py-1"
           >
-            <Icon name="bar-chart" className="w-4 h-4" aria-hidden="true" />
-            <span>Vista Mixta</span>
-          </button>
+            Vista Mixta
+          </Button>
         </div>
 
         {/* Acciones de Caja */}
         <div className="flex items-center gap-2 self-end lg:self-auto">
           {onRefreshClick && (
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="icon"
               onClick={onRefreshClick}
               title="Refrescar estado de caja"
               aria-label="Refrescar estado de caja"
-              className="p-2 rounded-lg border border-border bg-canvas-subtle hover:bg-slate-200 dark:hover:bg-slate-700 text-txt-secondary hover:text-txt-primary transition-colors text-xs"
             >
               <Icon name="refresh" className="w-4 h-4" aria-hidden="true" />
-            </button>
+            </Button>
           )}
           <Button
             type="button"
@@ -184,7 +186,6 @@ export const ShiftStatusHeader: React.FC<ShiftStatusHeaderProps> = ({
 
       {/* Tarjetas de Saldos en Vivo según vista */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-border">
-        {/* Fondo Inicial */}
         <div className="bg-canvas-subtle p-3 rounded-lg border border-border/60">
           <span className="text-[11px] uppercase tracking-wider text-txt-muted font-bold block">
             Fondo Inicial
@@ -194,39 +195,36 @@ export const ShiftStatusHeader: React.FC<ShiftStatusHeaderProps> = ({
           </span>
         </div>
 
-        {/* Efectivo Esperado en Gaveta */}
         <div
           className={`p-3 rounded-lg border transition-all ${
             activeViewMode === 'FISICA' || activeViewMode === 'MIXTA'
-              ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
+              ? 'bg-status-success-bg border-status-success-border'
               : 'bg-canvas-subtle border-border/60'
           }`}
         >
-          <span className="text-[11px] uppercase tracking-wider text-emerald-800 dark:text-emerald-300 font-bold block">
+          <span className="text-[11px] uppercase tracking-wider text-status-success font-bold block">
             Efectivo Esperado
           </span>
-          <span className="text-sm sm:text-base font-extrabold text-emerald-700 dark:text-emerald-400">
+          <span className="text-sm sm:text-base font-extrabold text-status-success">
             S/ {formatMoney(shift.total_efectivo_esperado)}
           </span>
         </div>
 
-        {/* Total Digital Recaudado */}
         <div
           className={`p-3 rounded-lg border transition-all ${
             activeViewMode === 'DIGITAL' || activeViewMode === 'MIXTA'
-              ? 'bg-sky-50 dark:bg-sky-950/30 border-sky-300 dark:border-sky-800'
+              ? 'bg-status-info-bg border-status-info-border'
               : 'bg-canvas-subtle border-border/60'
           }`}
         >
-          <span className="text-[11px] uppercase tracking-wider text-sky-800 dark:text-sky-300 font-bold block">
+          <span className="text-[11px] uppercase tracking-wider text-status-info font-bold block">
             Total Digital
           </span>
-          <span className="text-sm sm:text-base font-extrabold text-sky-700 dark:text-sky-400">
+          <span className="text-sm sm:text-base font-extrabold text-status-info">
             S/ {formatMoney(shift.total_ventas_digital)}
           </span>
         </div>
 
-        {/* Recaudación Total Consolidada */}
         <div className="bg-canvas-subtle p-3 rounded-lg border border-border/60">
           <span className="text-[11px] uppercase tracking-wider text-txt-muted font-bold block">
             Ventas Turno
@@ -239,6 +237,6 @@ export const ShiftStatusHeader: React.FC<ShiftStatusHeaderProps> = ({
           </span>
         </div>
       </div>
-    </div>
+    </Card>
   );
 };

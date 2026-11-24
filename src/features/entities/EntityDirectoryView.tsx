@@ -41,6 +41,7 @@ import { dashboardIpc } from '../../services/ipc/dashboardIpc';
 import { ExportFormat } from '../../types/dashboard';
 import { Button } from '../../components/primitives/Button';
 import { Badge } from '../../components/primitives/Badge';
+import { CheckboxField } from '../../components/primitives/Checkbox';
 import { Icon } from '../../components/primitives/Icon';
 import { Input } from '../../components/primitives/Input';
 import { Alert } from '../../components/primitives/Alert';
@@ -463,65 +464,75 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
     <div className="w-full flex flex-col gap-5">
       {/* Pestañas de Sub-Vistas Segmentadas */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
-        <div className="flex items-center gap-2">
-          <button
+        <div role="group" aria-label="Sub-vistas del directorio" className="flex items-center gap-2 flex-wrap">
+          <Button
             type="button"
+            variant={effectiveSubTab === 'clients' ? 'secondary' : 'ghost'}
+            size="md"
+            aria-pressed={effectiveSubTab === 'clients'}
             onClick={() => setActiveSubTab('clients')}
-            className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-1.5 ${
+            leftIcon={<Icon name="qr" className="w-4 h-4" aria-hidden="true" />}
+            className={`text-sm font-semibold ${
               effectiveSubTab === 'clients'
-                ? 'bg-surface text-txt-primary shadow-sm border border-border'
+                ? 'shadow-sm'
                 : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
             }`}
           >
-            <Icon name="qr" className="w-4 h-4" />
-            <span>
-              {canAccessPersons ? 'Clientes' : 'Clientes & QR'}
-            </span>
-          </button>
+            {canAccessPersons ? 'Clientes' : 'Clientes & QR'}
+          </Button>
 
           {canCreateSupOrComp && (
-            <button
+            <Button
               type="button"
+              variant={effectiveSubTab === 'suppliers' ? 'secondary' : 'ghost'}
+              size="md"
+              aria-pressed={effectiveSubTab === 'suppliers'}
               onClick={() => setActiveSubTab('suppliers')}
-              className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-1.5 ${
+              leftIcon={<Icon name="truck" className="w-4 h-4" aria-hidden="true" />}
+              className={`text-sm font-semibold ${
                 effectiveSubTab === 'suppliers'
-                  ? 'bg-surface text-txt-primary shadow-sm border border-border'
+                  ? 'shadow-sm'
                   : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
               }`}
             >
-              <Icon name="truck" className="w-4 h-4" />
-              <span>Proveedores</span>
-            </button>
+              Proveedores
+            </Button>
           )}
 
           {canAccessPersons && (
-            <button
+            <Button
               type="button"
+              variant={effectiveSubTab === 'persons' ? 'secondary' : 'ghost'}
+              size="md"
+              aria-pressed={effectiveSubTab === 'persons'}
               onClick={() => setActiveSubTab('persons')}
-              className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-1.5 ${
+              leftIcon={<Icon name="users" className="w-4 h-4" aria-hidden="true" />}
+              className={`text-sm font-semibold ${
                 effectiveSubTab === 'persons'
-                  ? 'bg-surface text-txt-primary shadow-sm border border-border'
+                  ? 'shadow-sm'
                   : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
               }`}
             >
-              <Icon name="users" className="w-4 h-4" />
-              <span>Personas</span>
-            </button>
+              Personas
+            </Button>
           )}
 
           {canCreateSupOrComp && (
-            <button
+            <Button
               type="button"
+              variant={effectiveSubTab === 'companies' ? 'secondary' : 'ghost'}
+              size="md"
+              aria-pressed={effectiveSubTab === 'companies'}
               onClick={() => setActiveSubTab('companies')}
-              className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-1.5 ${
+              leftIcon={<Icon name="building" className="w-4 h-4" aria-hidden="true" />}
+              className={`text-sm font-semibold ${
                 effectiveSubTab === 'companies'
-                  ? 'bg-surface text-txt-primary shadow-sm border border-border'
+                  ? 'shadow-sm'
                   : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
               }`}
             >
-              <Icon name="building" className="w-4 h-4" />
-              <span>Empresas</span>
-            </button>
+              Empresas
+            </Button>
           )}
         </div>
 
@@ -630,15 +641,12 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <label className="flex items-center gap-2 text-xs text-txt-secondary cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={soloActivos}
-              onChange={(e) => setSoloActivos(e.target.checked)}
-              className="rounded border-border text-brand focus:ring-brand"
-            />
-            <span>Solo activos</span>
-          </label>
+          <CheckboxField
+            label="Solo activos"
+            checked={soloActivos}
+            onCheckedChange={(checked) => setSoloActivos(checked === true)}
+            className="min-h-[32px] py-0 items-center [&_span]:text-xs [&_span]:text-txt-secondary"
+          />
 
           {/* Selector de Vista: Flash Cards (Tarjetas) vs Tabla */}
           <div
@@ -646,34 +654,38 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
             aria-label="Modo de visualización del directorio"
             className="inline-flex items-center rounded-lg bg-canvas-subtle p-0.5 border border-border"
           >
-            <button
+            <Button
               type="button"
+              variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+              size="sm"
               onClick={() => setViewMode('cards')}
               aria-pressed={viewMode === 'cards'}
               title="Vista de tarjetas interactivas"
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+              leftIcon={<Icon name="dashboard" className="w-3.5 h-3.5" aria-hidden="true" />}
+              className={`min-h-[28px] px-2.5 py-1 text-xs font-semibold ${
                 viewMode === 'cards'
-                  ? 'bg-surface text-txt-primary shadow-xs border border-border'
-                  : 'text-txt-muted hover:text-txt-primary'
+                  ? 'shadow-xs'
+                  : 'text-txt-muted hover:text-txt-primary border border-transparent'
               }`}
             >
-              <Icon name="dashboard" className="w-3.5 h-3.5" />
-              <span>Tarjetas</span>
-            </button>
-            <button
+              Tarjetas
+            </Button>
+            <Button
               type="button"
+              variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+              size="sm"
               onClick={() => setViewMode('table')}
               aria-pressed={viewMode === 'table'}
               title="Vista de tabla clásica"
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+              leftIcon={<Icon name="menu" className="w-3.5 h-3.5" aria-hidden="true" />}
+              className={`min-h-[28px] px-2.5 py-1 text-xs font-semibold ${
                 viewMode === 'table'
-                  ? 'bg-surface text-txt-primary shadow-xs border border-border'
-                  : 'text-txt-muted hover:text-txt-primary'
+                  ? 'shadow-xs'
+                  : 'text-txt-muted hover:text-txt-primary border border-transparent'
               }`}
             >
-              <Icon name="menu" className="w-3.5 h-3.5" />
-              <span>Tabla</span>
-            </button>
+              Tabla
+            </Button>
           </div>
 
           {effectiveSubTab === 'clients' && (
@@ -798,8 +810,8 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                     title={fullName}
                     documentLabel={`${client.tipo_documento}: ${client.numero_documento}`}
                     secondaryCodeChip={
-                      <span className="px-2 py-0.5 rounded bg-status-info-bg text-status-info border border-sky-300/70 font-mono text-[11px] font-semibold inline-flex items-center gap-1">
-                        <Icon name="qr" className="w-3 h-3" />
+                      <span className="px-2 py-0.5 rounded bg-status-info-bg text-status-info border border-status-info-border font-mono text-[11px] font-semibold inline-flex items-center gap-1">
+                        <Icon name="qr" className="w-3 h-3" aria-hidden="true" />
                         <span>{client.codigo_qr_token}</span>
                       </span>
                     }
@@ -810,16 +822,18 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                         label: 'Peso Actual',
                         value: <span>{formatKg(client.peso_actual_kg)}</span>,
                         action: (
-                          <button
+                          <Button
                             type="button"
+                            variant="link"
+                            size="sm"
                             onClick={() => {
                               setSelectedWeightClient(client);
                               setIsWeightModalOpen(true);
                             }}
-                            className="text-[11px] font-semibold text-brand hover:underline"
+                            className="text-[11px] font-semibold h-auto min-h-0 p-0"
                           >
                             Historial
-                          </button>
+                          </Button>
                         ),
                       },
                       {
@@ -869,8 +883,8 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                             }
                             className={
                               client.estado_activo
-                                ? 'text-status-danger border-red-300'
-                                : 'text-status-success border-emerald-300'
+                                ? 'text-status-danger border-status-danger-border'
+                                : 'text-status-success border-status-success-border'
                             }
                           >
                             {client.estado_activo ? 'Desactivar' : 'Activar'}
@@ -1054,8 +1068,8 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                               }
                               className={
                                 client.estado_activo
-                                  ? 'text-status-danger border-red-300'
-                                  : 'text-status-success border-emerald-300'
+                                  ? 'text-status-danger border-status-danger-border'
+                                  : 'text-status-success border-status-success-border'
                               }
                             >
                               {client.estado_activo ? 'Desactivar' : 'Activar'}
@@ -1168,8 +1182,8 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                             }
                             className={
                               supplier.estado_activo
-                                ? 'text-status-danger border-red-300'
-                                : 'text-status-success border-emerald-300'
+                                ? 'text-status-danger border-status-danger-border'
+                                : 'text-status-success border-status-success-border'
                             }
                           >
                             {supplier.estado_activo ? 'Desactivar' : 'Activar'}
@@ -1316,8 +1330,8 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                                 }
                                 className={
                                   supplier.estado_activo
-                                    ? 'text-status-danger border-red-300'
-                                    : 'text-status-success border-emerald-300'
+                                    ? 'text-status-danger border-status-danger-border'
+                                    : 'text-status-success border-status-success-border'
                                 }
                               >
                                 {supplier.estado_activo ? 'Desactivar' : 'Activar'}
@@ -1399,7 +1413,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                     title={fullName}
                     subtitleTag={
                       isCurrentSessionPerson ? (
-                        <span className="text-[10px] text-sky-600 font-bold uppercase">
+                        <span className="text-[10px] text-status-info font-bold uppercase">
                           (Persona de tu sesión activa)
                         </span>
                       ) : undefined
@@ -1458,8 +1472,8 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                           }
                           className={
                             person.estado_activo
-                              ? 'text-status-danger border-red-300'
-                              : 'text-status-success border-emerald-300'
+                              ? 'text-status-danger border-status-danger-border'
+                              : 'text-status-success border-status-success-border'
                           }
                         >
                           {person.estado_activo ? 'Desactivar' : 'Activar'}
@@ -1528,7 +1542,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                             {person.nombres} {person.apellidos}
                           </span>
                           {isCurrentSessionPerson && (
-                            <span className="text-[10px] text-sky-600 font-bold uppercase">
+                            <span className="text-[10px] text-status-info font-bold uppercase">
                               (Persona de tu sesión activa)
                             </span>
                           )}
@@ -1621,8 +1635,8 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                             }
                             className={
                               person.estado_activo
-                                ? 'text-status-danger border-red-300'
-                                : 'text-status-success border-emerald-300'
+                                ? 'text-status-danger border-status-danger-border'
+                                : 'text-status-success border-status-success-border'
                             }
                           >
                             {person.estado_activo ? 'Desactivar' : 'Activar'}
@@ -1726,8 +1740,8 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                           }
                           className={
                             company.estado_activo
-                              ? 'text-status-danger border-red-300'
-                              : 'text-status-success border-emerald-300'
+                              ? 'text-status-danger border-status-danger-border'
+                              : 'text-status-success border-status-success-border'
                           }
                         >
                           {company.estado_activo ? 'Desactivar' : 'Activar'}
@@ -1855,8 +1869,8 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
                               }
                               className={
                                 company.estado_activo
-                                  ? 'text-status-danger border-red-300'
-                                  : 'text-status-success border-emerald-300'
+                                  ? 'text-status-danger border-status-danger-border'
+                                  : 'text-status-success border-status-success-border'
                               }
                             >
                               {company.estado_activo ? 'Desactivar' : 'Activar'}

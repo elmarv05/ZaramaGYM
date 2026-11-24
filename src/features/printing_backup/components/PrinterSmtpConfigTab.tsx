@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { Alert } from '../../../components/primitives/Alert';
 import { Badge } from '../../../components/primitives/Badge';
 import { Button } from '../../../components/primitives/Button';
+import { CheckboxField } from '../../../components/primitives/Checkbox';
 import { Icon } from '../../../components/primitives/Icon';
 import { Input } from '../../../components/primitives/Input';
 import { Modal } from '../../../components/primitives/Modal';
@@ -420,22 +421,14 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
               }
             />
 
-            <div className="flex items-center gap-2 pt-1">
-              <input
-                type="checkbox"
-                id="drawerCheck"
-                checked={openDrawer}
-                onChange={(e) => setOpenDrawer(e.target.checked)}
-                disabled={!isAdmin || isActionLoading || isLoading}
-                className="w-4 h-4 text-brand rounded border-border focus:ring-brand"
-              />
-              <label
-                htmlFor="drawerCheck"
-                className="text-xs text-txt-primary font-medium cursor-pointer"
-              >
-                Disparar pulso de apertura de gaveta de dinero en cobros en efectivo (ESC p)
-              </label>
-            </div>
+            <CheckboxField
+              id="drawerCheck"
+              checked={openDrawer}
+              onCheckedChange={(checked) => setOpenDrawer(checked === true)}
+              disabled={!isAdmin || isActionLoading || isLoading}
+              label="Disparar pulso de apertura de gaveta de dinero en cobros en efectivo (ESC p)"
+              className="min-h-[32px] py-0 items-center [&_span]:text-xs"
+            />
 
             <Input
               label="Mensaje de Pie de Ticket"
@@ -503,22 +496,22 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <label
+              htmlFor="smtpCheck"
+              className="inline-flex items-center gap-2.5 min-h-[36px] text-xs text-txt-primary font-medium cursor-pointer select-none"
+            >
               <input
                 type="checkbox"
                 id="smtpCheck"
                 checked={smtpEnabled}
                 onChange={(e) => setSmtpEnabled(e.target.checked)}
                 disabled={!isAdmin || isActionLoading || isLoading}
-                className="w-4 h-4 text-brand rounded border-border focus:ring-brand"
+                className="w-4 h-4 rounded border-border accent-brand cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
               />
-              <label
-                htmlFor="smtpCheck"
-                className="text-xs text-txt-primary font-medium cursor-pointer"
-              >
+              <span>
                 Habilitar envío automático de comprobantes y reportes vía correo electrónico
-              </label>
-            </div>
+              </span>
+            </label>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2">
@@ -611,13 +604,15 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
 
             <div className="flex items-center gap-2">
               <div className="flex-1">
-                <input
+                <Input
+                  inputSize="sm"
                   type="text"
                   inputMode="numeric"
+                  aria-label="ID de Venta para prueba térmica"
                   value={testVentaId}
                   onChange={(e) => setTestVentaId(sanitizeIntegerInput(e.target.value))}
                   placeholder="ID de Venta"
-                  className="w-full px-3 py-1.5 text-xs rounded-md border border-border bg-canvas text-txt-primary focus:ring-1 focus:ring-brand outline-none"
+                  className="bg-canvas"
                 />
               </div>
               <Button
@@ -713,7 +708,7 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
             </p>
           </div>
 
-          <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 flex items-start gap-2.5">
+          <div className="p-3 rounded-lg bg-status-success-bg border border-status-success-border text-status-success flex items-start gap-2.5">
             <Icon name="lock" className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
             <div className="flex flex-col gap-0.5">
               <span className="font-bold">

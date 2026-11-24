@@ -5,7 +5,20 @@
 // ============================================================================
 
 import React from 'react';
-import { Icon } from '../../components/primitives/Icon';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Icon,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/primitives';
 import { MembershipExtensionDto } from '../../types/attendance';
 
 export interface MembershipExtensionsTableProps {
@@ -28,29 +41,25 @@ export const MembershipExtensionsTable: React.FC<MembershipExtensionsTableProps>
   // 1. ESTADO DE ERROR
   if (error && !isLoading) {
     return (
-      <div
-        role="alert"
-        className="w-full bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-800 rounded-2xl p-8 flex flex-col items-center justify-center text-center gap-3"
+      <Alert
+        variant="danger"
+        floating={false}
+        title="Error al cargar prórrogas de membresía"
+        className="p-6 flex-col items-center text-center"
       >
-        <Icon name="warning" className="w-8 h-8 text-status-danger" />
-        <h4 className="text-base font-bold text-rose-800 dark:text-rose-200">
-          Error al cargar prórrogas de membresía
-        </h4>
-        <p className="text-xs text-rose-600 dark:text-rose-300 max-w-md">{error}</p>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="mt-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors"
-        >
-          Reintentar Carga
-        </button>
-      </div>
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-xs max-w-md">{error}</p>
+          <Button type="button" variant="danger" size="sm" onClick={onRetry}>
+            Reintentar Carga
+          </Button>
+        </div>
+      </Alert>
     );
   }
 
   return (
     <div className="w-full flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-base font-bold text-txt-primary">
             Registro Histórico de Prórrogas y Recuperación de Días
@@ -60,35 +69,41 @@ export const MembershipExtensionsTable: React.FC<MembershipExtensionsTableProps>
           </p>
         </div>
         {canExtendMembership && (
-          <button
+          <Button
             type="button"
+            variant="primary"
+            size="sm"
             data-testid="btn-open-extend-modal"
             onClick={onOpenExtendModal}
-            className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-brand-text text-xs font-black shadow-xs transition-colors flex items-center gap-2"
+            leftIcon={<Icon name="plus" className="w-4 h-4" />}
           >
-            <Icon name="plus" className="w-4 h-4" />
-            <span>Otorgar Días de Membresía</span>
-          </button>
+            Otorgar Días de Membresía
+          </Button>
         )}
       </div>
 
       {/* 2. LOADING / SKELETON */}
       {isLoading ? (
-        <div data-testid="extensions-loading" className="w-full flex flex-col gap-2">
+        <div
+          data-testid="extensions-loading"
+          role="status"
+          aria-label="Cargando prórrogas de membresía"
+          className="w-full flex flex-col gap-2"
+        >
           {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-14 w-full bg-surface border border-border rounded-xl animate-pulse"
-            />
+            <Skeleton key={i} className="h-14 w-full rounded-xl border border-border" />
           ))}
         </div>
       ) : extensions.length === 0 ? (
         /* 3. EMPTY STATE */
-        <div
+        <Card
           data-testid="extensions-empty"
-          className="w-full bg-surface border border-dashed border-border rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-3"
+          className="border-dashed p-10 items-center justify-center text-center gap-3"
         >
-          <div className="w-14 h-14 rounded-full bg-canvas-subtle flex items-center justify-center text-txt-muted border border-border">
+          <div
+            aria-hidden="true"
+            className="w-14 h-14 rounded-full bg-canvas-subtle flex items-center justify-center text-txt-muted border border-border"
+          >
             <Icon name="calendar" className="w-6 h-6" />
           </div>
           <h4 className="text-sm font-bold text-txt-primary">
@@ -100,65 +115,65 @@ export const MembershipExtensionsTable: React.FC<MembershipExtensionsTableProps>
               : 'Consulta aquí el historial auditado de prórrogas autorizadas por el Administrador.'}
           </p>
           {canExtendMembership && (
-            <button
+            <Button
               type="button"
+              variant="primary"
+              size="sm"
               onClick={onOpenExtendModal}
-              className="mt-2 px-4 py-2 bg-brand text-brand-text text-xs font-bold rounded-lg shadow-xs hover:bg-brand-hover transition-colors"
+              className="mt-2"
             >
               Otorgar Primera Prórroga
-            </button>
+            </Button>
           )}
-        </div>
+        </Card>
       ) : (
         /* 4. SUCCESS / DATA STATE */
-        <div className="overflow-x-auto border border-border rounded-xl bg-surface shadow-xs">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-border bg-canvas-subtle text-txt-secondary font-bold uppercase tracking-wider text-[11px]">
-                <th className="py-3 px-4">Fecha Registro</th>
-                <th className="py-3 px-4">Socio Beneficiario</th>
-                <th className="py-3 px-4">Plan Vigente</th>
-                <th className="py-3 px-4">Días Otorgados</th>
-                <th className="py-3 px-4">Vigencia Anterior</th>
-                <th className="py-3 px-4">Nueva Vigencia</th>
-                <th className="py-3 px-4">Motivo / Justificación</th>
-                <th className="py-3 px-4">Autorizado Por</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {extensions.map((ext) => (
-                <tr key={ext.id} className="hover:bg-canvas/50 transition-colors">
-                  <td className="py-3 px-4 whitespace-nowrap text-txt-muted font-medium">
-                    {ext.createdAt}
-                  </td>
-                  <td className="py-3 px-4 font-bold text-txt-primary">
-                    {ext.nombreCliente}
-                  </td>
-                  <td className="py-3 px-4 text-txt-secondary font-medium">
-                    {ext.nombrePlan}
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    <span className="font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-300 dark:border-emerald-800">
-                      +{ext.diasOtorgados} días
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap text-txt-muted">
-                    {ext.fechaVencimientoAnterior.split(' ')[0]}
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap font-bold text-emerald-600 dark:text-emerald-400">
-                    {ext.fechaVencimientoNueva.split(' ')[0]} 23:59
-                  </td>
-                  <td className="py-3 px-4 max-w-xs truncate text-txt-primary" title={ext.motivoJustificacion}>
-                    {ext.motivoJustificacion}
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap text-txt-secondary text-[11px]">
-                    {ext.autorizadoPorNombre || `Usuario #${ext.autorizadoPorUsuarioId}`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          containerLabel="Registro histórico de prórrogas y recuperación de días"
+          containerClassName="rounded-xl shadow-xs"
+          className="text-xs"
+        >
+          <TableHeader stickyHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Fecha Registro</TableHead>
+              <TableHead>Socio Beneficiario</TableHead>
+              <TableHead>Plan Vigente</TableHead>
+              <TableHead>Días Otorgados</TableHead>
+              <TableHead>Vigencia Anterior</TableHead>
+              <TableHead>Nueva Vigencia</TableHead>
+              <TableHead>Motivo / Justificación</TableHead>
+              <TableHead>Autorizado Por</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {extensions.map((ext) => (
+              <TableRow key={ext.id}>
+                <TableCell className="whitespace-nowrap text-txt-muted font-medium">
+                  {ext.createdAt}
+                </TableCell>
+                <TableCell className="font-bold">{ext.nombreCliente}</TableCell>
+                <TableCell className="text-txt-secondary font-medium">{ext.nombrePlan}</TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <Badge variant="success" size="sm" className="normal-case">
+                    +{ext.diasOtorgados} días
+                  </Badge>
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-txt-muted">
+                  {ext.fechaVencimientoAnterior.split(' ')[0]}
+                </TableCell>
+                <TableCell className="whitespace-nowrap font-bold text-status-success">
+                  {ext.fechaVencimientoNueva.split(' ')[0]} 23:59
+                </TableCell>
+                <TableCell className="max-w-xs truncate" title={ext.motivoJustificacion}>
+                  {ext.motivoJustificacion}
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-txt-secondary text-[11px]">
+                  {ext.autorizadoPorNombre || `Usuario #${ext.autorizadoPorUsuarioId}`}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
     </div>
   );

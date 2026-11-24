@@ -59,7 +59,7 @@ export const LockModal: React.FC<LockModalProps> = ({
       <div className="flex flex-col gap-5">
         {/* Ficha de Operador */}
         <div className="flex items-center gap-3.5 p-3.5 bg-canvas-subtle border border-border rounded-lg">
-          <div className="w-11 h-11 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-txt-primary">
+          <div className="w-11 h-11 rounded-full bg-surface border border-border flex items-center justify-center font-bold text-txt-primary">
             {session.nombre_completo.charAt(0)}
           </div>
           <div className="flex flex-col">
@@ -109,14 +109,16 @@ export const LockModal: React.FC<LockModalProps> = ({
               Desbloquear Turno
             </Button>
 
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="sm"
               onClick={onLogout}
               disabled={isLoading}
-              className="text-xs text-txt-muted hover:text-txt-primary underline text-center py-1 transition-colors"
+              className="text-xs text-txt-muted hover:text-txt-primary underline mx-auto py-1"
             >
               ¿Cambio de turno? Cerrar sesión actual
-            </button>
+            </Button>
           </div>
         </form>
       </div>

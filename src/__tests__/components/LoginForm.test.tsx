@@ -111,4 +111,26 @@ describe('Component: LoginForm', () => {
       brandTitle.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
+
+  it('adapta el fondo del formulario de acceso al alternar entre modo Claro y modo Oscuro', async () => {
+    const user = userEvent.setup();
+    const handleLogin = vi.fn().mockResolvedValue(true);
+    const { container } = render(<LoginForm onLogin={handleLogin} />);
+
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.className).toContain('from-[var(--login-bg-from)]');
+    expect(root.className).toContain('via-[var(--login-bg-via)]');
+    expect(root.className).toContain('to-[var(--login-bg-to)]');
+
+    const darkBtn = screen.getByRole('button', { name: /modo oscuro/i });
+    const lightBtn = screen.getByRole('button', { name: /modo claro/i });
+
+    await user.click(darkBtn);
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(darkBtn).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(lightBtn);
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(lightBtn).toHaveAttribute('aria-pressed', 'true');
+  });
 });

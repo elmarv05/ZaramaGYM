@@ -7,6 +7,7 @@ import React, { useRef, useState } from 'react';
 import { AuthSession } from '../../types/auth';
 import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
+import { Separator } from '../../components/primitives/Separator';
 import { fileToDataUrl } from '../../domain/user';
 import { userIpc } from '../../services/ipc/userIpc';
 
@@ -92,12 +93,14 @@ export const SessionHeader: React.FC<SessionHeaderProps> = ({
         <div className="flex items-center gap-3">
           {/* Avatar Circular con Selector de Archivo */}
           <div className="relative group">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={handleAvatarClick}
               disabled={isUploadingPhoto || isActionLoading}
               title="Haz clic para cambiar tu foto de perfil"
-              className="w-10 h-10 rounded-full border-2 border-border overflow-hidden flex items-center justify-center bg-canvas-subtle hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand transition-all cursor-pointer shadow-xs relative"
+              className="w-10 h-10 min-h-0 min-w-0 p-0 rounded-full border-2 border-border overflow-hidden bg-canvas-subtle hover:border-brand hover:bg-canvas-subtle shadow-xs relative"
               aria-label="Cambiar foto de perfil"
             >
               {isUploadingPhoto ? (
@@ -113,7 +116,7 @@ export const SessionHeader: React.FC<SessionHeaderProps> = ({
                   {getInitials(session.nombre_completo)}
                 </span>
               )}
-            </button>
+            </Button>
             <input
               ref={fileInputRef}
               type="file"
@@ -144,7 +147,7 @@ export const SessionHeader: React.FC<SessionHeaderProps> = ({
         </div>
 
         {/* Separador vertical */}
-        <div className="h-7 w-[1px] bg-border mx-1" />
+        <Separator orientation="vertical" className="h-7 mx-1" />
 
         {/* Botones de Operación de Sesión */}
         <div className="flex items-center gap-2">

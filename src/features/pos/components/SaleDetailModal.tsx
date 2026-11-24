@@ -6,13 +6,21 @@
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
-import { Alert } from '../../../components/primitives/Alert';
-import { Badge } from '../../../components/primitives/Badge';
-import { Button } from '../../../components/primitives/Button';
-import { Icon } from '../../../components/primitives/Icon';
-import { Input } from '../../../components/primitives/Input';
-import { Modal } from '../../../components/primitives/Modal';
-import { Select } from '../../../components/primitives/Select';
+import {
+  Alert,
+  Badge,
+  Button,
+  Icon,
+  Input,
+  Modal,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../../components/primitives';
 import { formatMoney } from '../../../domain/pos';
 import {
   printThermalTicketText,
@@ -348,40 +356,35 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
           <h4 className="font-bold text-txt-primary text-xs uppercase tracking-wider">
             Ítems de la Venta
           </h4>
-          <div
-            tabIndex={0}
-            className="border border-border rounded-lg overflow-x-auto overscroll-x-contain focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            <table className="w-full min-w-[440px] text-left">
-              <thead className="bg-canvas-subtle text-[11px] text-txt-muted uppercase font-bold border-b border-border">
-                <tr>
-                  <th className="px-3 py-2">Descripción</th>
-                  <th className="px-2 py-2 text-center">Cant.</th>
-                  <th className="px-3 py-2 text-right">P. Unitario</th>
-                  <th className="px-3 py-2 text-right">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {sale.items?.map((item) => (
-                  <tr key={item.id} className="hover:bg-canvas-subtle/30">
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-txt-primary">{item.descripcion}</span>
-                        {item.tipo_item === 'PLAN' && item.fecha_inicio_plan && (
-                          <span className="text-[10px] text-txt-muted">
-                            Vigencia: {item.fecha_inicio_plan} a {item.fecha_fin_plan}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 text-center text-txt-primary">{item.cantidad}</td>
-                    <td className="px-3 py-2 text-right text-txt-secondary">S/ {formatMoney(item.precio_unitario)}</td>
-                    <td className="px-3 py-2 text-right font-bold text-txt-primary">S/ {formatMoney(item.subtotal)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table containerLabel="Ítems de la venta" containerClassName="rounded-lg" className="min-w-[440px] text-xs">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="px-3 py-2 text-[11px]">Descripción</TableHead>
+                <TableHead className="px-2 py-2 text-center text-[11px]">Cant.</TableHead>
+                <TableHead className="px-3 py-2 text-right text-[11px]">P. Unitario</TableHead>
+                <TableHead className="px-3 py-2 text-right text-[11px]">Subtotal</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sale.items?.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="px-3 py-2">
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-txt-primary">{item.descripcion}</span>
+                      {item.tipo_item === 'PLAN' && item.fecha_inicio_plan && (
+                        <span className="text-[10px] text-txt-muted">
+                          Vigencia: {item.fecha_inicio_plan} a {item.fecha_fin_plan}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-2 py-2 text-center">{item.cantidad}</TableCell>
+                  <TableCell className="px-3 py-2 text-right text-txt-secondary">S/ {formatMoney(item.precio_unitario)}</TableCell>
+                  <TableCell className="px-3 py-2 text-right font-bold">S/ {formatMoney(item.subtotal)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
 
         {/* Desglose de Pagos */}
@@ -389,31 +392,26 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
           <h4 className="font-bold text-txt-primary text-xs uppercase tracking-wider">
             Medios de Pago Aplicados
           </h4>
-          <div
-            tabIndex={0}
-            className="border border-border rounded-lg overflow-x-auto overscroll-x-contain focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            <table className="w-full min-w-[420px] text-left">
-              <thead className="bg-canvas-subtle text-[11px] text-txt-muted uppercase font-bold border-b border-border">
-                <tr>
-                  <th className="px-3 py-2">Método</th>
-                  <th className="px-2 py-2">Canal</th>
-                  <th className="px-3 py-2">Referencia</th>
-                  <th className="px-3 py-2 text-right">Monto</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {sale.pagos?.map((pago) => (
-                  <tr key={pago.id}>
-                    <td className="px-3 py-2 font-semibold text-txt-primary">{pago.metodo_pago}</td>
-                    <td className="px-2 py-2 text-txt-muted">{pago.canal_caja}</td>
-                    <td className="px-3 py-2 text-txt-secondary">{pago.referencia_operacion || '-'}</td>
-                    <td className="px-3 py-2 text-right font-bold text-txt-primary">S/ {formatMoney(pago.monto)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table containerLabel="Medios de pago aplicados" containerClassName="rounded-lg" className="min-w-[420px] text-xs">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="px-3 py-2 text-[11px]">Método</TableHead>
+                <TableHead className="px-2 py-2 text-[11px]">Canal</TableHead>
+                <TableHead className="px-3 py-2 text-[11px]">Referencia</TableHead>
+                <TableHead className="px-3 py-2 text-right text-[11px]">Monto</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sale.pagos?.map((pago) => (
+                <TableRow key={pago.id}>
+                  <TableCell className="px-3 py-2 font-semibold">{pago.metodo_pago}</TableCell>
+                  <TableCell className="px-2 py-2 text-txt-muted">{pago.canal_caja}</TableCell>
+                  <TableCell className="px-3 py-2 text-txt-secondary">{pago.referencia_operacion || '-'}</TableCell>
+                  <TableCell className="px-3 py-2 text-right font-bold">S/ {formatMoney(pago.monto)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
 
         {/* Totales */}
@@ -423,17 +421,17 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
             <span className="font-semibold text-txt-primary">S/ {formatMoney(sale.subtotal)}</span>
           </div>
           {parseFloat(sale.descuento) > 0 && (
-            <div className="flex justify-between text-red-600 dark:text-red-400">
+            <div className="flex justify-between text-status-danger">
               <span>Descuento Aplicado:</span>
               <span>- S/ {formatMoney(sale.descuento)}</span>
             </div>
           )}
           <div className="flex justify-between font-extrabold text-sm pt-1 border-t border-border">
             <span>Total Venta:</span>
-            <span className="text-emerald-700 dark:text-emerald-400">S/ {formatMoney(sale.total_venta)}</span>
+            <span className="text-status-success">S/ {formatMoney(sale.total_venta)}</span>
           </div>
           {parseFloat(sale.saldo_credito_generado) > 0 && (
-            <div className="flex justify-between text-amber-700 dark:text-amber-400 font-bold">
+            <div className="flex justify-between text-status-warning font-bold">
               <span>Saldo a Crédito Generado:</span>
               <span>S/ {formatMoney(sale.saldo_credito_generado)}</span>
             </div>
@@ -442,8 +440,8 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
 
         {/* Trazabilidad de Tachado si aplica */}
         {sale.estado_venta !== 'COMPLETADA' && (
-          <div className="bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-900 flex flex-col gap-1">
-            <span className="font-bold text-amber-900 dark:text-amber-200 inline-flex items-center gap-1.5">
+          <div className="bg-status-warning-bg p-3 rounded-xl border border-status-warning-border flex flex-col gap-1">
+            <span className="font-bold text-status-warning inline-flex items-center gap-1.5">
               <Icon name="scissors" className="w-4 h-4" aria-hidden="true" />
               Registro de Tachado:
             </span>
@@ -451,7 +449,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
               Tachado por @{sale.tachado_por_username} el {sale.fecha_tachado}: "{sale.motivo_tachado}"
             </p>
             {sale.resuelto_por_admin_username && (
-              <p className="text-[11px] text-txt-primary font-medium pt-1 border-t border-amber-200 dark:border-amber-800">
+              <p className="text-[11px] text-txt-primary font-medium pt-1 border-t border-status-warning-border">
                 Resuelto por @{sale.resuelto_por_admin_username} el {sale.fecha_resolucion_tachado}: "{sale.nota_resolucion_tachado || 'Sin nota adicional'}"
               </p>
             )}
@@ -608,12 +606,13 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
               className="p-3 bg-canvas-subtle rounded-lg border border-border flex flex-col sm:flex-row items-center gap-2"
             >
               <div className="flex-1 w-full">
-                <input
+                <Input
                   type="email"
+                  inputSize="sm"
+                  aria-label="Correo del destinatario"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   placeholder="cliente@correo.com"
-                  className="w-full px-3 py-1.5 text-xs rounded-md border border-border bg-canvas text-txt-primary outline-none focus:ring-1 focus:ring-brand"
                   required
                 />
               </div>

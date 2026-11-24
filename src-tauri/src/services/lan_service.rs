@@ -54,8 +54,8 @@ const SCANNER_WEB_MANIFEST: &str = r##"{
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#090e1a",
-  "theme_color": "#090e1a",
+  "background_color": "#090c0b",
+  "theme_color": "#090c0b",
   "icons": [
     {
       "src": "/assets/zaramagym-icon-256.png",
@@ -448,10 +448,26 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#090e1a">
+  <meta name="color-scheme" content="light dark">
+  <meta id="metaThemeColor" name="theme-color" content="#e6f0ea">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('zarama_scanner_theme');
+        var metaCs = document.querySelector('meta[name="color-scheme"]');
+        var metaTc = document.getElementById('metaThemeColor');
+        var resolved = (saved === 'light' || saved === 'dark')
+          ? saved
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (metaCs) metaCs.content = (saved === 'light' || saved === 'dark') ? saved : 'light dark';
+        document.documentElement.setAttribute('data-theme', resolved);
+        if (metaTc) metaTc.content = resolved === 'dark' ? '#0e1c16' : '#e6f0ea';
+      } catch (e) {}
+    })();
+  </script>
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ZaramaGYM">
   <link rel="icon" type="image/png" sizes="256x256" href="/assets/zaramagym-icon-256.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/assets/zaramagym-icon.png">
@@ -459,25 +475,131 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
   <link rel="manifest" href="/manifest.webmanifest">
   <title>ZaramaGYM Escáner Móvil</title>
   <style>
+    /* ========================================================================
+       SISTEMA VISUAL ZARAMA GYM MÓVIL (CLARO & OSCURO — SOBRIO, SIN NEÓN)
+       ======================================================================== */
     :root {
-      --bg: #090e1a;
-      --card: #101728;
-      --card-elevated: #121a2e;
-      --control: #0a101e;
-      --control-alt: #162038;
-      --border: rgba(148, 163, 184, 0.14);
-      --border-strong: #243250;
-      --emerald: #10b981;
-      --emerald-dark: #059669;
-      --emerald-soft: #34d399;
-      --cyan: #0ea5e9;
-      --cyan-dark: #0284c7;
-      --amber: #f59e0b;
-      --rose: #fb7185;
-      --text: #f8fafc;
-      --text-sec: #94a3b8;
-      --text-mut: #64748b;
+      color-scheme: light dark;
+      --bg: #f4f6f5;
+      --header-bg: #e6f0ea;
+      --header-border: #c1d4ca;
+      --header-accent: #057a44;
+      --footer-bg: #eaf1ed;
+      --card: #ffffff;
+      --card-subtle: #f7faf8;
+      --control: #ffffff;
+      --control-hover: #eef3f0;
+      --border: #d7e1dc;
+      --border-strong: #9db0a6;
+      --brand: #057a44;
+      --brand-hover: #046337;
+      --brand-ink: #ffffff;
+      --brand-soft-bg: #e8f6ee;
+      --brand-soft-border: #b3dfc6;
+      --brand-soft-text: #04683a;
+      --amber-bg: #fef7e6;
+      --amber-border: #e7c67e;
+      --amber-text: #8c4607;
+      --amber-dot: #c9720c;
+      --danger: #b91c1c;
+      --danger-hover: #991b1b;
+      --danger-bg: #fef2f2;
+      --danger-border: #efc1c1;
+      --danger-text: #a51c1c;
+      --text: #0f1714;
+      --text-sec: #45564f;
+      --text-mut: #65766f;
+      --focus-ring: rgba(5, 122, 68, 0.22);
+      --shadow-card: 0 1px 3px rgba(15, 23, 20, 0.06);
+      --shadow-modal: 0 14px 32px -8px rgba(15, 23, 20, 0.22);
+      --backdrop: rgba(15, 23, 20, 0.48);
+      --radius-sm: 5px;
+      --radius-md: 7px;
+      --radius-lg: 8px;
+      --radius-xl: 10px;
     }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #090c0b;
+        --header-bg: #0e1c16;
+        --header-border: #193429;
+        --header-accent: #10b981;
+        --footer-bg: #0c1712;
+        --card: #121816;
+        --card-subtle: #0e1412;
+        --control: #0c110f;
+        --control-hover: #18221e;
+        --border: #1c2622;
+        --border-strong: #2d3c36;
+        --brand: #10b981;
+        --brand-hover: #0ea472;
+        --brand-ink: #041e12;
+        --brand-soft-bg: #0d271c;
+        --brand-soft-border: #1b4a36;
+        --brand-soft-text: #4ade9d;
+        --amber-bg: #231a09;
+        --amber-border: #523b13;
+        --amber-text: #f3c15b;
+        --amber-dot: #e3a634;
+        --danger: #dc2626;
+        --danger-hover: #b91c1c;
+        --danger-bg: #241114;
+        --danger-border: #542329;
+        --danger-text: #f29494;
+        --text: #edf3f0;
+        --text-sec: #98aca3;
+        --text-mut: #6b7e75;
+        --focus-ring: rgba(16, 185, 129, 0.22);
+        --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.32);
+        --shadow-modal: 0 18px 40px -10px rgba(0, 0, 0, 0.65);
+        --backdrop: rgba(4, 7, 6, 0.72);
+      }
+    }
+
+    :root[data-theme="dark"],
+    :root:has(> head > meta[name="color-scheme"][content="dark"]) {
+      color-scheme: dark;
+      --bg: #090c0b;
+      --header-bg: #0e1c16;
+      --header-border: #193429;
+      --header-accent: #10b981;
+      --footer-bg: #0c1712;
+      --card: #121816;
+      --card-subtle: #0e1412;
+      --control: #0c110f;
+      --control-hover: #18221e;
+      --border: #1c2622;
+      --border-strong: #2d3c36;
+      --brand: #10b981;
+      --brand-hover: #0ea472;
+      --brand-ink: #041e12;
+      --brand-soft-bg: #0d271c;
+      --brand-soft-border: #1b4a36;
+      --brand-soft-text: #4ade9d;
+      --amber-bg: #231a09;
+      --amber-border: #523b13;
+      --amber-text: #f3c15b;
+      --amber-dot: #e3a634;
+      --danger: #dc2626;
+      --danger-hover: #b91c1c;
+      --danger-bg: #241114;
+      --danger-border: #542329;
+      --danger-text: #f29494;
+      --text: #edf3f0;
+      --text-sec: #98aca3;
+      --text-mut: #6b7e75;
+      --focus-ring: rgba(16, 185, 129, 0.22);
+      --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.32);
+      --shadow-modal: 0 18px 40px -10px rgba(0, 0, 0, 0.65);
+      --backdrop: rgba(4, 7, 6, 0.72);
+    }
+
+    :root[data-theme="light"],
+    :root:has(> head > meta[name="color-scheme"][content="light"]) {
+      color-scheme: light;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -485,19 +607,23 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       -webkit-tap-highlight-color: transparent;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
     }
+
     html, body {
       background-color: var(--bg);
       color: var(--text);
       min-height: 100vh;
       min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
+
     body {
       display: flex;
       flex-direction: column;
       padding-top: env(safe-area-inset-top, 0px);
       padding-bottom: env(safe-area-inset-bottom, 0px);
-      background-image: radial-gradient(circle at 50% -10%, rgba(16, 185, 129, 0.08), transparent 55%);
     }
+
     .svg-ic {
       width: 16px;
       height: 16px;
@@ -505,36 +631,48 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       display: inline-block;
     }
 
-    /* Header */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Header compacto con contraste de marca y selector Claro / Oscuro */
     .app-header {
       width: 100%;
-      background: rgba(12, 19, 36, 0.92);
-      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-      backdrop-filter: blur(10px);
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--header-border);
+      box-shadow: inset 0 2px 0 0 var(--header-accent);
     }
     .app-header-inner {
       width: 100%;
       max-width: 440px;
       margin: 0 auto;
-      padding: 12px 16px;
+      padding: 10px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 9px;
       min-width: 0;
     }
     .brand-logo {
-      width: 36px;
-      height: 36px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       object-fit: cover;
-      border: 1.5px solid rgba(16, 185, 129, 0.55);
-      box-shadow: 0 0 12px rgba(16, 185, 129, 0.22);
+      background: #ffffff;
+      border: 1px solid var(--header-border);
       flex-shrink: 0;
     }
     .brand-copy {
@@ -542,82 +680,95 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       flex-direction: column;
       min-width: 0;
     }
-    .brand-title-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
     .brand-title {
-      font-size: 1.05rem;
+      font-size: 0.98rem;
       font-weight: 800;
       letter-spacing: -0.02em;
       color: var(--text);
       line-height: 1.15;
+      white-space: nowrap;
     }
     .brand-accent {
-      color: var(--emerald-soft);
-    }
-    body[data-view="m1"] .brand-accent {
-      color: var(--text);
-    }
-    .pwa-pill {
-      font-size: 0.62rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      color: var(--text-sec);
-      background: var(--control-alt);
-      border: 1px solid rgba(148, 163, 184, 0.22);
-      padding: 2px 6px;
-      border-radius: 6px;
-      line-height: 1.2;
-    }
-    body[data-view="m2"] .pwa-pill {
-      color: var(--emerald-soft);
-      background: rgba(16, 185, 129, 0.14);
-      border-color: rgba(16, 185, 129, 0.32);
+      color: var(--brand-soft-text);
     }
     .brand-sub {
-      font-size: 0.72rem;
+      font-size: 0.69rem;
       color: var(--text-sec);
-      margin-top: 2px;
+      margin-top: 1px;
       line-height: 1.15;
     }
     body[data-view="m1"] .brand-sub {
       display: none;
     }
 
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .theme-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+      background: var(--control);
+      border: 1px solid var(--header-border);
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 0.15s, border-color 0.15s;
+    }
+    .theme-btn:hover {
+      background: var(--control-hover);
+    }
+    .theme-btn:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: 2px;
+    }
+    .theme-btn .theme-opt-light { display: none; }
+    .theme-btn .theme-opt-dark { display: inline-flex; align-items: center; }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .theme-btn .theme-opt-light { display: inline-flex; align-items: center; }
+      :root:not([data-theme="light"]) .theme-btn .theme-opt-dark { display: none; }
+    }
+    :root[data-theme="dark"] .theme-btn .theme-opt-light { display: inline-flex; align-items: center; }
+    :root[data-theme="dark"] .theme-btn .theme-opt-dark { display: none; }
+
     .badge-lan {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 5px 11px;
-      border-radius: 9999px;
-      font-size: 0.74rem;
+      gap: 5px;
+      height: 32px;
+      padding: 0 9px;
+      border-radius: var(--radius-md);
+      font-size: 0.71rem;
       font-weight: 700;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      background: rgba(6, 78, 59, 0.42);
-      border: 1px solid rgba(16, 185, 129, 0.35);
-      color: var(--emerald-soft);
+      background: var(--brand-soft-bg);
+      border: 1px solid var(--brand-soft-border);
+      color: var(--brand-soft-text);
       white-space: nowrap;
       flex-shrink: 0;
     }
     .badge-lan.is-amber {
-      background: rgba(120, 53, 15, 0.45);
-      border-color: rgba(245, 158, 11, 0.42);
-      color: #fbbf24;
+      background: var(--amber-bg);
+      border-color: var(--amber-border);
+      color: var(--amber-text);
     }
     .status-dot {
-      width: 7px;
-      height: 7px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
-      background-color: var(--emerald);
-      box-shadow: 0 0 8px rgba(16, 185, 129, 0.75);
+      background-color: var(--brand);
       display: inline-block;
       flex-shrink: 0;
     }
     .badge-lan.is-amber .status-dot {
-      background-color: var(--amber);
-      box-shadow: 0 0 8px rgba(245, 158, 11, 0.75);
+      background-color: var(--amber-dot);
     }
 
     /* Main Containers */
@@ -626,7 +777,7 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       width: 100%;
       max-width: 440px;
       margin: 0 auto;
-      padding: 14px 16px 16px;
+      padding: 14px 14px 16px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -636,67 +787,68 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
     }
     #viewM2 {
       justify-content: flex-start;
-      gap: 12px;
+      gap: 10px;
     }
 
-    /* Vista M1 */
+    /* Vista M1: Limpia y sin sobrecarga */
     .m1-card {
       width: 100%;
-      max-width: 400px;
-      background: linear-gradient(180deg, var(--card-elevated) 0%, var(--card) 100%);
+      max-width: 392px;
+      background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 26px 22px 22px;
-      box-shadow: 0 20px 44px -16px rgba(0, 0, 0, 0.65);
+      border-radius: var(--radius-xl);
+      padding: 22px 20px 20px;
+      box-shadow: var(--shadow-card);
     }
     .m1-title {
-      font-size: 1.42rem;
+      font-size: 1.32rem;
       font-weight: 800;
       text-align: center;
       color: var(--text);
       letter-spacing: -0.02em;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     }
     .m1-subtitle {
-      font-size: 0.84rem;
+      font-size: 0.82rem;
       color: var(--text-sec);
       text-align: center;
-      line-height: 1.5;
-      margin-bottom: 20px;
+      line-height: 1.48;
+      margin-bottom: 18px;
     }
     .input-code {
       width: 100%;
-      height: 62px;
+      height: 56px;
       text-align: center;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 1.75rem;
+      font-size: 1.62rem;
       font-weight: 800;
-      letter-spacing: 0.48em;
-      padding-left: 0.48em;
+      letter-spacing: 0.38em;
+      padding-left: 0.38em;
       text-transform: uppercase;
-      border-radius: 14px;
+      border-radius: var(--radius-lg);
       border: 1px solid var(--border-strong);
-      background-color: var(--bg);
+      background-color: var(--control);
       color: var(--text);
       outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
+      transition: border-color 0.16s, box-shadow 0.16s;
     }
     .input-code::placeholder {
-      color: #475569;
+      color: var(--text-mut);
+      opacity: 0.7;
     }
     .input-code:focus {
-      border-color: var(--emerald);
-      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px var(--focus-ring);
     }
     .inline-error {
       display: none;
       margin-top: 10px;
-      padding: 9px 12px;
-      border-radius: 10px;
-      background: rgba(244, 63, 94, 0.12);
-      border: 1px solid rgba(251, 113, 133, 0.35);
-      color: #fda4af;
-      font-size: 0.8rem;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger-text);
+      font-size: 0.78rem;
       line-height: 1.35;
       text-align: center;
     }
@@ -704,75 +856,80 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       display: block;
     }
 
-    /* Buttons */
+    /* Botones sobrios (sin sombras ni degradados neón) */
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 7px;
       width: 100%;
-      min-height: 46px;
-      padding: 12px 14px;
-      border-radius: 13px;
-      font-size: 0.92rem;
-      font-weight: 700;
-      border: none;
+      min-height: 42px;
+      padding: 10px 13px;
+      border-radius: var(--radius-md);
+      font-size: 0.875rem;
+      font-weight: 600;
+      border: 1px solid transparent;
       cursor: pointer;
       text-decoration: none;
-      transition: transform 0.12s, opacity 0.18s, background-color 0.18s, border-color 0.18s;
+      transition: background-color 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
     }
     .btn:active {
-      transform: scale(0.985);
+      transform: scale(0.99);
     }
     .btn:disabled {
-      opacity: 0.65;
+      opacity: 0.58;
       cursor: not-allowed;
+      transform: none;
     }
-    .btn-emerald {
-      background: linear-gradient(135deg, var(--emerald) 0%, var(--emerald-dark) 100%);
-      color: #ffffff;
-      box-shadow: 0 10px 26px -8px rgba(16, 185, 129, 0.55);
+    .btn:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: 2px;
     }
-    .btn-emerald.is-stop {
-      background: linear-gradient(135deg, #271521 0%, #3b1724 100%);
-      border: 1px solid rgba(251, 113, 133, 0.4);
-      color: #fda4af;
-      box-shadow: none;
+    .btn-primary {
+      background: var(--brand);
+      color: var(--brand-ink);
     }
-    .btn-cyan {
-      background: linear-gradient(135deg, var(--cyan) 0%, var(--cyan-dark) 100%);
-      color: #ffffff;
-      box-shadow: 0 8px 20px -8px rgba(14, 165, 233, 0.5);
+    .btn-primary:hover:not(:disabled) {
+      background: var(--brand-hover);
     }
-    .btn-dark {
-      background: var(--control-alt);
-      border: 1px solid var(--border-strong);
+    .btn-primary.is-stop {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+      color: var(--danger-text);
+    }
+    .btn-secondary {
+      background: var(--control);
+      border-color: var(--border-strong);
       color: var(--text);
     }
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--control-hover);
+    }
     .btn-amber {
-      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      color: #090e1a;
+      background: var(--amber-text);
+      color: #ffffff;
     }
     .btn-ca {
-      background: var(--control-alt);
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      color: #e2e8f0;
-      font-size: 0.85rem;
-      font-weight: 600;
-      margin-top: 10px;
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text-sec);
+      font-size: 0.82rem;
+      margin-top: 8px;
+    }
+    .btn-ca:hover {
+      background: var(--control-hover);
+      color: var(--text);
     }
     .btn-ca .svg-ic {
-      color: var(--emerald);
+      color: var(--brand-soft-text);
     }
     .m1-actions {
-      margin-top: 16px;
-    }
-    .m1-divider {
-      height: 1px;
-      background: rgba(148, 163, 184, 0.12);
-      margin: 20px 0 16px;
+      margin-top: 14px;
     }
     .m1-guide {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
       font-size: 0.74rem;
       color: var(--text-sec);
       text-align: center;
@@ -780,40 +937,28 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
     }
     .m1-guide strong {
       color: var(--text);
-      font-weight: 700;
+      font-weight: 600;
     }
 
-    /* Vista M2: Terminal Bar */
+    /* Vista M2: Barra de Terminal compacta */
     .terminal-bar {
       width: 100%;
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 9px 12px;
+      border-radius: var(--radius-lg);
+      padding: 8px 11px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
+      gap: 8px;
     }
     .terminal-left {
       display: flex;
       align-items: center;
-      gap: 9px;
+      gap: 7px;
       min-width: 0;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       color: var(--text-sec);
-    }
-    .terminal-icon-box {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      background: var(--control-alt);
-      border: 1px solid rgba(56, 189, 248, 0.25);
-      color: #38bdf8;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
     }
     .terminal-name {
       color: var(--text);
@@ -821,52 +966,62 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 145px;
+      max-width: 165px;
     }
     .btn-unlink {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 4px;
       background: transparent;
-      border: none;
-      color: var(--rose);
-      font-size: 0.8rem;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      color: var(--danger-text);
+      font-size: 0.77rem;
       font-weight: 600;
       cursor: pointer;
-      padding: 4px 2px;
+      padding: 4px 7px;
       flex-shrink: 0;
+      transition: background-color 0.15s, border-color 0.15s;
+    }
+    .btn-unlink:hover {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
     }
 
     /* Banner HTTP */
     .warning-banner {
       width: 100%;
-      background: rgba(120, 53, 15, 0.34);
-      border: 1px solid rgba(245, 158, 11, 0.42);
-      color: #fef3c7;
-      border-radius: 14px;
-      padding: 10px 12px;
-      font-size: 0.78rem;
+      background: var(--amber-bg);
+      border: 1px solid var(--amber-border);
+      color: var(--amber-text);
+      border-radius: var(--radius-lg);
+      padding: 9px 11px;
+      font-size: 0.77rem;
       line-height: 1.45;
       display: none;
       flex-direction: column;
-      gap: 9px;
+      gap: 8px;
     }
     .warning-row {
       display: flex;
       align-items: flex-start;
-      gap: 8px;
+      gap: 7px;
     }
     .warning-row .svg-ic {
-      color: #fbbf24;
-      margin-top: 2px;
+      margin-top: 1px;
     }
 
-    /* Video Input Section */
-    .video-section {
+    /* Sección de Video cohesionada y despejada */
+    .scanner-panel {
       width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 11px;
+      box-shadow: var(--shadow-card);
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 9px;
     }
     .video-head {
       display: flex;
@@ -877,41 +1032,45 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
     .section-kicker {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      font-size: 0.71rem;
+      gap: 6px;
+      font-size: 0.7rem;
       font-weight: 700;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.06em;
       color: var(--text-sec);
       text-transform: uppercase;
     }
     .section-kicker .svg-ic {
-      color: var(--emerald);
+      color: var(--brand-soft-text);
     }
     .video-tools {
       display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 6px;
     }
     .icon-btn {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: var(--card-elevated);
-      border: 1px solid var(--border-strong);
-      color: #cbd5e1;
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: var(--control);
+      border: 1px solid var(--border);
+      color: var(--text-sec);
       display: inline-flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: border-color 0.18s, color 0.18s, background-color 0.18s;
+      transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+    }
+    .icon-btn:hover {
+      background: var(--control-hover);
+      color: var(--text);
     }
     .icon-btn:active {
-      transform: scale(0.95);
+      transform: scale(0.96);
     }
     .icon-btn.is-active {
-      border-color: rgba(16, 185, 129, 0.65);
-      background: rgba(16, 185, 129, 0.16);
-      color: var(--emerald-soft);
+      border-color: var(--brand-soft-border);
+      background: var(--brand-soft-bg);
+      color: var(--brand-soft-text);
     }
 
     .select-wrap {
@@ -922,43 +1081,41 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       width: 100%;
       appearance: none;
       -webkit-appearance: none;
-      background: var(--card);
-      border: 1px solid var(--border-strong);
-      border-radius: 12px;
+      background: var(--card-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
       color: var(--text);
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       font-weight: 500;
-      padding: 10px 36px 10px 12px;
+      padding: 8px 32px 8px 10px;
       outline: none;
       cursor: pointer;
+      transition: border-color 0.15s;
     }
     .select-cam:focus {
-      border-color: var(--emerald);
+      border-color: var(--brand);
     }
     .select-chevron {
       position: absolute;
-      right: 12px;
+      right: 10px;
       top: 50%;
       transform: translateY(-50%);
       pointer-events: none;
-      color: var(--text-sec);
+      color: var(--text-mut);
     }
 
-    /* Scanner Viewport */
+    /* Visor de cámara sobrio (sin grilla neón ni resplandor) */
     .scanner-box {
       width: 100%;
-      height: 268px;
-      background-color: #050a14;
-      background-image: radial-gradient(rgba(16, 185, 129, 0.16) 1px, transparent 1px);
-      background-size: 16px 16px;
-      border: 1.5px solid rgba(16, 185, 129, 0.38);
-      border-radius: 18px;
+      height: 224px;
+      background-color: #101513;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
       position: relative;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: inset 0 0 32px rgba(0, 0, 0, 0.65), 0 12px 30px -14px rgba(16, 185, 129, 0.25);
     }
     .scanner-box video {
       position: absolute;
@@ -967,231 +1124,120 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       height: 100%;
       object-fit: cover;
       opacity: 0;
-      transition: opacity 0.25s ease;
+      transition: opacity 0.22s ease;
     }
     .scanner-box.is-live video {
       opacity: 1;
     }
     .cam-telemetry {
       position: absolute;
-      top: 10px;
-      left: 10px;
+      top: 8px;
+      left: 8px;
       z-index: 4;
-      padding: 4px 9px;
-      border-radius: 8px;
-      background: rgba(9, 14, 26, 0.82);
-      border: 1px solid rgba(16, 185, 129, 0.32);
-      color: var(--emerald-soft);
+      padding: 3px 7px;
+      border-radius: var(--radius-sm);
+      background: rgba(12, 16, 15, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #d6e4dd;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.67rem;
-      font-weight: 700;
+      font-size: 0.64rem;
+      font-weight: 600;
       letter-spacing: 0.04em;
     }
     .scan-reticle {
       position: absolute;
-      inset: 28px 42px 34px;
+      inset: 28px 46px 34px;
       pointer-events: none;
       z-index: 3;
     }
     .corner {
       position: absolute;
-      width: 24px;
-      height: 24px;
-      border-color: var(--emerald);
+      width: 20px;
+      height: 20px;
+      border-color: rgba(255, 255, 255, 0.78);
       border-style: solid;
       border-width: 0;
     }
-    .corner.tl { top: 0; left: 0; border-top-width: 3px; border-left-width: 3px; border-top-left-radius: 10px; }
-    .corner.tr { top: 0; right: 0; border-top-width: 3px; border-right-width: 3px; border-top-right-radius: 10px; }
-    .corner.bl { bottom: 0; left: 0; border-bottom-width: 3px; border-left-width: 3px; border-bottom-left-radius: 10px; }
-    .corner.br { bottom: 0; right: 0; border-bottom-width: 3px; border-right-width: 3px; border-bottom-right-radius: 10px; }
-    .center-reticle {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 54px;
-      height: 54px;
-      transform: translate(-50%, -50%);
-      opacity: 0.45;
-      transition: opacity 0.25s ease;
+    .scanner-box.is-live .corner {
+      border-color: rgba(16, 185, 129, 0.85);
     }
-    .scanner-box.is-live .center-reticle {
-      opacity: 0.18;
-    }
-    .center-reticle span {
-      position: absolute;
-      width: 14px;
-      height: 14px;
-      border-color: rgba(52, 211, 153, 0.65);
-      border-style: solid;
-      border-width: 0;
-    }
-    .center-reticle .ctl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; border-top-left-radius: 4px; }
-    .center-reticle .ctr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; border-top-right-radius: 4px; }
-    .center-reticle .cbl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; border-bottom-left-radius: 4px; }
-    .center-reticle .cbr { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 4px; }
+    .corner.tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; border-top-left-radius: 4px; }
+    .corner.tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; border-top-right-radius: 4px; }
+    .corner.bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; border-bottom-left-radius: 4px; }
+    .corner.br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 4px; }
 
-    .laser {
+    .scan-guide {
       position: absolute;
-      top: 10px;
-      left: 8px;
-      right: 8px;
-      height: 2px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, transparent 0%, #34d399 18%, #d1fae5 50%, #34d399 82%, transparent 100%);
-      box-shadow: 0 0 18px 4px rgba(16, 185, 129, 0.6), 0 0 6px 1px rgba(167, 243, 208, 0.9);
-      animation: laserSweep 2.4s ease-in-out infinite;
-      will-change: transform;
+      top: 8px;
+      left: 10px;
+      right: 10px;
+      height: 1.5px;
+      background: rgba(16, 185, 129, 0.55);
       z-index: 3;
+      transform: translateY(72px);
     }
-    @keyframes laserSweep {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(184px); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .laser {
-        animation: none;
-        transform: translateY(92px);
+    @media (prefers-reduced-motion: no-preference) {
+      .scanner-box.is-live .scan-guide {
+        animation: guideSweep 2.6s ease-in-out infinite;
+        will-change: transform;
       }
+    }
+    @keyframes guideSweep {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(144px); }
     }
 
     .cam-status-wrap {
       position: absolute;
-      bottom: 10px;
+      bottom: 8px;
       left: 50%;
       transform: translateX(-50%);
-      max-width: calc(100% - 20px);
+      max-width: calc(100% - 16px);
       z-index: 4;
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      padding: 5px 12px;
-      border-radius: 9999px;
-      background: rgba(9, 14, 26, 0.88);
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: #e2e8f0;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      background: rgba(12, 16, 15, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: #e6efea;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .cam-dot {
-      width: 7px;
-      height: 7px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
-      background-color: var(--emerald);
+      background-color: #10b981;
       flex-shrink: 0;
     }
-    .cam-dot.is-idle { background-color: var(--text-mut); }
-    .cam-dot.is-warn { background-color: var(--amber); }
-    .cam-dot.is-err { background-color: var(--rose); }
+    .cam-dot.is-idle { background-color: #82948b; }
+    .cam-dot.is-warn { background-color: #e3a634; }
+    .cam-dot.is-err { background-color: #e05252; }
 
-    /* Controls Row */
     .controls-row {
       width: 100%;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 8px;
     }
     .controls-row .btn {
-      font-size: 0.84rem;
-      padding: 11px 10px;
-    }
-    .controls-row .btn-dark .svg-ic {
-      color: #38bdf8;
+      font-size: 0.82rem;
+      min-height: 40px;
+      padding: 8px 10px;
     }
 
-    /* Manual / Backup Card */
-    .manual-card {
+    /* Último pase compacto */
+    .last-pass-bar {
       width: 100%;
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .manual-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .terminal-tag {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.71rem;
-      color: var(--text-mut);
-    }
-    .field-group {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-    .field-label {
-      font-size: 0.67rem;
-      font-weight: 700;
-      letter-spacing: 0.07em;
-      color: var(--text-sec);
-      text-transform: uppercase;
-    }
-    .input-row {
-      display: flex;
-      gap: 8px;
-      align-items: stretch;
-    }
-    .input-text {
-      flex: 1;
-      min-width: 0;
-      padding: 10px 12px;
-      border-radius: 11px;
-      border: 1px solid var(--border-strong);
-      background-color: var(--control);
-      color: var(--text);
-      font-size: 0.84rem;
-      outline: none;
-      transition: border-color 0.18s;
-    }
-    .input-text::placeholder {
-      color: #475569;
-    }
-    .input-text:focus {
-      border-color: var(--emerald);
-    }
-    .btn-inline {
-      width: auto;
-      min-width: 74px;
-      min-height: 40px;
-      padding: 0 14px;
-      border-radius: 11px;
-      font-size: 0.82rem;
-      flex-shrink: 0;
-    }
-    .scan-notice {
-      display: none;
+      border-radius: var(--radius-lg);
       padding: 8px 11px;
-      border-radius: 10px;
-      background: rgba(245, 158, 11, 0.12);
-      border: 1px solid rgba(245, 158, 11, 0.35);
-      color: #fde68a;
-      font-size: 0.77rem;
-      line-height: 1.35;
-    }
-    .scan-notice.is-error {
-      background: rgba(244, 63, 94, 0.12);
-      border-color: rgba(251, 113, 133, 0.38);
-      color: #fecdd3;
-    }
-    .scan-notice.is-visible {
-      display: block;
-    }
-
-    .last-pass-bar {
-      background: var(--control);
-      border: 1px solid rgba(148, 163, 184, 0.12);
-      border-radius: 12px;
-      padding: 9px 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -1210,56 +1256,136 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 145px;
+      max-width: 150px;
     }
     .last-pass-status {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.72rem;
-      font-weight: 700;
+      font-size: 0.71rem;
+      font-weight: 600;
       color: var(--text-mut);
       white-space: nowrap;
     }
-    .last-pass-bar.is-verde .last-pass-status { color: var(--emerald-soft); }
-    .last-pass-bar.is-amarillo .last-pass-status { color: #fbbf24; }
-    .last-pass-bar.is-rojo .last-pass-status { color: var(--rose); }
+    .last-pass-bar.is-verde .last-pass-status { color: var(--brand-soft-text); }
+    .last-pass-bar.is-amarillo .last-pass-status { color: var(--amber-text); }
+    .last-pass-bar.is-rojo .last-pass-status { color: var(--danger-text); }
     .last-pass-dot {
-      width: 7px;
-      height: 7px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: var(--text-mut);
       flex-shrink: 0;
     }
-    .last-pass-bar.is-verde .last-pass-dot { background: var(--emerald); }
-    .last-pass-bar.is-amarillo .last-pass-dot { background: var(--amber); }
-    .last-pass-bar.is-rojo .last-pass-dot { background: #ef4444; }
+    .last-pass-bar.is-verde .last-pass-dot { background: var(--brand); }
+    .last-pass-bar.is-amarillo .last-pass-dot { background: var(--amber-dot); }
+    .last-pass-bar.is-rojo .last-pass-dot { background: var(--danger); }
 
-    /* Live Footer */
+    /* Tarjeta discreta de Ingreso Manual / Respaldo */
+    .manual-card {
+      width: 100%;
+      background: var(--card-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .manual-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .terminal-tag {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.69rem;
+      color: var(--text-mut);
+    }
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .field-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-sec);
+    }
+    .input-row {
+      display: flex;
+      gap: 6px;
+      align-items: stretch;
+    }
+    .input-text {
+      flex: 1;
+      min-width: 0;
+      height: 38px;
+      padding: 0 10px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-strong);
+      background-color: var(--control);
+      color: var(--text);
+      font-size: 0.82rem;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .input-text::placeholder {
+      color: var(--text-mut);
+    }
+    .input-text:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+    .btn-inline {
+      width: auto;
+      min-width: 72px;
+      min-height: 38px;
+      height: 38px;
+      padding: 0 12px;
+      border-radius: var(--radius-md);
+      font-size: 0.8rem;
+      flex-shrink: 0;
+    }
+    .scan-notice {
+      display: none;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      background: var(--amber-bg);
+      border: 1px solid var(--amber-border);
+      color: var(--amber-text);
+      font-size: 0.76rem;
+      line-height: 1.35;
+    }
+    .scan-notice.is-error {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+      color: var(--danger-text);
+    }
+    .scan-notice.is-visible {
+      display: block;
+    }
+
+    /* Footer */
     .app-footer {
       width: 100%;
-      border-top: 1px solid rgba(148, 163, 184, 0.1);
-      background: rgba(9, 14, 26, 0.85);
+      border-top: 1px solid var(--header-border);
+      background: var(--footer-bg);
     }
     .app-footer-inner {
       width: 100%;
       max-width: 440px;
       margin: 0 auto;
-      padding: 11px 16px 14px;
+      padding: 9px 14px 11px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.69rem;
+      font-size: 0.68rem;
       color: var(--text-mut);
     }
     body[data-view="m1"] .app-footer-inner {
       justify-content: center;
       gap: 8px;
-    }
-    .section-divider {
-      width: 100%;
-      height: 1px;
-      background: rgba(148, 163, 184, 0.1);
-      margin: 2px 0;
     }
     .footer-left {
       display: inline-flex;
@@ -1270,24 +1396,20 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: var(--emerald);
+      background: var(--brand);
       display: inline-block;
     }
-    .footer-dot.is-err { background: #ef4444; }
-    .footer-sep {
-      display: none;
-    }
-    body[data-view="m1"] .footer-sep {
-      display: inline;
-    }
+    .footer-dot.is-err { background: var(--danger); }
+    .footer-sep { display: none; }
+    body[data-view="m1"] .footer-sep { display: inline; }
 
-    /* Unlink Modal */
+    /* Modal de Desvinculación */
     .modal-backdrop {
       position: fixed;
       inset: 0;
       z-index: 90;
-      background: rgba(5, 8, 16, 0.78);
-      backdrop-filter: blur(6px);
+      background: var(--backdrop);
+      backdrop-filter: blur(3px);
       display: none;
       align-items: center;
       justify-content: center;
@@ -1298,51 +1420,54 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
     }
     .modal-card {
       width: 100%;
-      max-width: 340px;
-      background: var(--card-elevated);
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      border-radius: 18px;
-      padding: 20px;
-      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+      max-width: 332px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 18px;
+      box-shadow: var(--shadow-modal);
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 11px;
       text-align: center;
     }
     .modal-icon {
-      width: 44px;
-      height: 44px;
+      width: 40px;
+      height: 40px;
       margin: 0 auto;
-      border-radius: 12px;
-      background: rgba(244, 63, 94, 0.14);
-      border: 1px solid rgba(251, 113, 133, 0.35);
-      color: var(--rose);
+      border-radius: var(--radius-lg);
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger-text);
       display: flex;
       align-items: center;
       justify-content: center;
     }
     .modal-title {
-      font-size: 1.05rem;
-      font-weight: 800;
+      font-size: 1rem;
+      font-weight: 700;
       color: var(--text);
     }
     .modal-desc {
-      font-size: 0.82rem;
+      font-size: 0.81rem;
       color: var(--text-sec);
       line-height: 1.45;
     }
     .modal-actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 4px;
+      gap: 8px;
+      margin-top: 2px;
     }
     .btn-danger {
-      background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+      background: var(--danger);
       color: #ffffff;
     }
+    .btn-danger:hover {
+      background: var(--danger-hover);
+    }
 
-    /* Traffic Light Overlay */
+    /* Overlay Semafórico (tonos ejecutivos mate de alta legibilidad, sin destello neón) */
     .overlay {
       position: fixed;
       inset: 0;
@@ -1355,101 +1480,101 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       text-align: center;
       color: #ffffff;
     }
-    .overlay.VERDE { background: radial-gradient(circle at 50% 25%, #10b981 0%, #065f46 75%, #042f2e 100%); }
-    .overlay.AMARILLO { background: radial-gradient(circle at 50% 25%, #f59e0b 0%, #b45309 75%, #451a03 100%); }
-    .overlay.ROJO { background: radial-gradient(circle at 50% 25%, #ef4444 0%, #991b1b 75%, #450a0a 100%); }
+    .overlay.VERDE { background-color: #065f46; }
+    .overlay.AMARILLO { background-color: #92400e; }
+    .overlay.ROJO { background-color: #991b1b; }
     .overlay-icon-circle {
-      width: 84px;
-      height: 84px;
+      width: 72px;
+      height: 72px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.16);
-      border: 2px solid rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.14);
+      border: 1.5px solid rgba(255, 255, 255, 0.32);
       display: flex;
       align-items: center;
       justify-content: center;
       margin-bottom: 14px;
     }
     .overlay-icon-circle svg {
-      width: 44px;
-      height: 44px;
+      width: 38px;
+      height: 38px;
       display: none;
     }
     .overlay h1 {
-      font-size: 1.75rem;
-      font-weight: 900;
-      letter-spacing: -0.02em;
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
       text-transform: uppercase;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
     .overlay h2 {
-      font-size: 1.35rem;
+      font-size: 1.25rem;
       font-weight: 700;
       margin-bottom: 4px;
     }
     .overlay-doc {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       opacity: 0.88;
       margin-bottom: 12px;
     }
     .overlay-box {
-      background: rgba(9, 14, 26, 0.36);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 16px;
-      padding: 16px;
+      background: rgba(0, 0, 0, 0.24);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: var(--radius-xl);
+      padding: 14px;
       width: 100%;
-      max-width: 360px;
+      max-width: 350px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
+      gap: 7px;
       margin-bottom: 14px;
     }
     .overlay-plan-pill {
       display: inline-block;
-      padding: 4px 12px;
-      border-radius: 9999px;
-      background: rgba(255, 255, 255, 0.18);
-      font-size: 0.82rem;
-      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.16);
+      font-size: 0.8rem;
+      font-weight: 600;
     }
     .overlay-days {
-      font-size: 1.05rem;
-      font-weight: 800;
+      font-size: 1rem;
+      font-weight: 700;
     }
     .overlay-debt {
       display: none;
-      padding: 5px 10px;
-      border-radius: 8px;
-      background: rgba(0, 0, 0, 0.34);
-      font-size: 0.82rem;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      background: rgba(0, 0, 0, 0.3);
+      font-size: 0.8rem;
       font-weight: 700;
       color: #fef08a;
     }
     .overlay-reason {
-      font-size: 0.86rem;
+      font-size: 0.84rem;
       opacity: 0.92;
       line-height: 1.35;
     }
     .overlay-cashier {
       display: none;
       width: 100%;
-      max-width: 360px;
-      padding: 10px 14px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.16);
-      border: 1.5px solid rgba(255, 255, 255, 0.55);
-      font-size: 0.95rem;
-      font-weight: 900;
-      letter-spacing: 0.04em;
+      max-width: 350px;
+      padding: 9px 12px;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
       margin-bottom: 14px;
     }
     .overlay-progress-track {
       width: 100%;
-      max-width: 260px;
-      height: 4px;
+      max-width: 250px;
+      height: 3px;
       border-radius: 9999px;
-      background: rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.24);
       overflow: hidden;
       margin-bottom: 14px;
       display: none;
@@ -1465,10 +1590,13 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       to { transform: scaleX(0); }
     }
     .btn-overlay-close {
-      max-width: 260px;
+      max-width: 250px;
       background: #ffffff;
-      color: #090e1a;
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+      color: #0f1714;
+      border-color: transparent;
+    }
+    .btn-overlay-close:hover {
+      background: #f1f5f3;
     }
   </style>
 </head>
@@ -1478,25 +1606,46 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       <div class="brand">
         <img src="/assets/zaramagym-icon-256.png" alt="ZaramaGYM" class="brand-logo">
         <div class="brand-copy">
-          <div class="brand-title-row">
-            <span class="brand-title">Zarama<span class="brand-accent">GYM</span></span>
-            <span class="pwa-pill">PWA</span>
-          </div>
+          <span class="brand-title">Zarama<span class="brand-accent">GYM</span></span>
           <div class="brand-sub">Control de Accesos</div>
         </div>
       </div>
-      <div class="badge-lan" id="statusBadge">
-        <span class="status-dot"></span>
-        <svg id="badgeLockIcon" class="svg-ic" style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-        </svg>
-        <svg id="badgeAlertIcon" class="svg-ic" style="width:13px;height:13px;display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-          <line x1="12" y1="9" x2="12" y2="13"></line>
-          <line x1="12" y1="17" x2="12.01" y2="17"></line>
-        </svg>
-        <span id="statusBadgeText">HTTPS 3443</span>
+      <div class="header-right">
+        <button type="button" id="btnThemeToggle" class="theme-btn" title="Cambiar modo Claro / Oscuro" aria-label="Cambiar modo de color">
+          <span class="theme-opt-dark">
+            <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+            <span class="sr-only">Cambiar a modo oscuro</span>
+          </span>
+          <span class="theme-opt-light">
+            <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <span class="sr-only">Cambiar a modo claro</span>
+          </span>
+        </button>
+        <div class="badge-lan" id="statusBadge">
+          <span class="status-dot"></span>
+          <svg id="badgeLockIcon" class="svg-ic" style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <svg id="badgeAlertIcon" class="svg-ic" style="width:12px;height:12px;display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <span id="statusBadgeText">HTTPS 3443</span>
+        </div>
       </div>
     </div>
   </header>
@@ -1505,11 +1654,11 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
   <main id="viewM1" style="display: none;">
     <div class="m1-card">
       <h1 class="m1-title">Vincular Celular</h1>
-      <p class="m1-subtitle">Conecta este teléfono a la red Wi-Fi del gimnasio e introduce el código de 6 caracteres generado en la PC principal.</p>
+      <p class="m1-subtitle">Conecta este teléfono al Wi-Fi del gimnasio e introduce el código de 6 caracteres generado en la PC principal.</p>
       <input type="text" id="pairInput" class="input-code" maxlength="6" placeholder="K9M2PX" autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus>
       <div id="pairError" class="inline-error" role="alert"></div>
       <div class="m1-actions">
-        <button type="button" class="btn btn-emerald" id="btnPair">
+        <button type="button" class="btn btn-primary" id="btnPair">
           <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
@@ -1525,9 +1674,8 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
           <span>Descargar Certificado CA Local</span>
         </a>
       </div>
-      <div class="m1-divider"></div>
       <p class="m1-guide">
-        Para habilitar la cámara en vivo en iOS/Android usa siempre <strong>HTTPS</strong>. Si tu navegador muestra alerta de certificado local, pulsa <strong>Avanzado → Continuar</strong> o instala el certificado CA arriba.
+        Usa <strong>HTTPS</strong> para la cámara en vivo. Si el navegador muestra aviso local, pulsa <strong>Avanzado → Continuar</strong> o instala el certificado CA arriba.
       </p>
     </div>
   </main>
@@ -1536,15 +1684,9 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
   <main id="viewM2" style="display: none;">
     <div class="terminal-bar">
       <div class="terminal-left">
-        <span class="terminal-icon-box" aria-hidden="true">
-          <svg class="svg-ic" style="width:15px;height:15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-            <line x1="12" y1="18" x2="12.01" y2="18"></line>
-          </svg>
-        </span>
+        <span class="status-dot" aria-hidden="true"></span>
         <span>Terminal:</span>
         <strong id="devNameLabel" class="terminal-name">Móvil</strong>
-        <span class="status-dot" aria-hidden="true"></span>
       </div>
       <button type="button" id="btnUnlink" class="btn-unlink">
         <span>Desvincular</span>
@@ -1556,8 +1698,6 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       </button>
     </div>
 
-    <div class="section-divider" aria-hidden="true"></div>
-
     <!-- Aviso automático si abrió sin HTTPS -->
     <div id="insecureHttpsBanner" class="warning-banner">
       <div class="warning-row">
@@ -1566,18 +1706,18 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
           <line x1="12" y1="9" x2="12" y2="13"></line>
           <line x1="12" y1="17" x2="12.01" y2="17"></line>
         </svg>
-        <span>Para activar el escaneo automático en vivo por video necesitas conexión segura <strong>HTTPS</strong> (o usar el botón de captura por foto abajo).</span>
+        <span>Para activar el escaneo en vivo por video necesitas conexión segura <strong>HTTPS</strong> (o usar captura por foto).</span>
       </div>
-      <button type="button" id="btnSwitchHttps" class="btn btn-amber" style="min-height:38px;padding:8px 12px;font-size:0.8rem;">
+      <button type="button" id="btnSwitchHttps" class="btn btn-amber" style="min-height:36px;padding:7px 11px;font-size:0.78rem;">
         <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
           <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
         </svg>
-        <span>Cambiar a Modo HTTPS (Cámara en Vivo)</span>
+        <span>Cambiar a Modo HTTPS</span>
       </button>
     </div>
 
-    <div class="video-section">
+    <section class="scanner-panel" aria-label="Escáner QR">
       <div class="video-head">
         <span class="section-kicker">
           <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1610,50 +1750,53 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
           <polyline points="6 9 12 15 18 9"></polyline>
         </svg>
       </div>
-    </div>
 
-    <div class="scanner-box" id="scannerBox">
-      <div id="camTelemetry" class="cam-telemetry">STANDBY • LISTO</div>
-      <video id="videoPreview" autoplay playsinline muted></video>
-      <div class="scan-reticle" aria-hidden="true">
-        <span class="corner tl"></span>
-        <span class="corner tr"></span>
-        <span class="corner bl"></span>
-        <span class="corner br"></span>
-        <div class="center-reticle">
-          <span class="ctl"></span>
-          <span class="ctr"></span>
-          <span class="cbl"></span>
-          <span class="cbr"></span>
+      <div class="scanner-box" id="scannerBox">
+        <div id="camTelemetry" class="cam-telemetry">STANDBY • LISTO</div>
+        <video id="videoPreview" autoplay playsinline muted></video>
+        <div class="scan-reticle" aria-hidden="true">
+          <span class="corner tl"></span>
+          <span class="corner tr"></span>
+          <span class="corner bl"></span>
+          <span class="corner br"></span>
+          <div class="scan-guide"></div>
         </div>
-        <div class="laser"></div>
+        <div id="camStatusWrap" class="cam-status-wrap">
+          <span id="camDot" class="cam-dot is-idle"></span>
+          <span id="camStatus">Escáner activo • Apunta al QR del socio</span>
+        </div>
       </div>
-      <div id="camStatusWrap" class="cam-status-wrap">
-        <span id="camDot" class="cam-dot is-idle"></span>
-        <span id="camStatus">Escáner activo • Apunta al QR del socio</span>
+
+      <div class="controls-row">
+        <button type="button" id="btnStartCam" class="btn btn-primary">
+          <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          <span id="btnStartCamText">Activar Cámara</span>
+        </button>
+        <label for="qrFileInput" class="btn btn-secondary" style="cursor:pointer;">
+          <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          <span>Subir Foto QR</span>
+          <input type="file" id="qrFileInput" accept="image/*" capture="environment" style="display: none;">
+        </label>
       </div>
+    </section>
+
+    <div id="lastPassBar" class="last-pass-bar">
+      <div class="last-pass-left">
+        <span class="last-pass-dot" aria-hidden="true"></span>
+        <span>Último pase:</span>
+        <strong id="lastPassName">Sin lecturas</strong>
+      </div>
+      <span id="lastPassStatus" class="last-pass-status">En espera</span>
     </div>
 
-    <div class="controls-row">
-      <button type="button" id="btnStartCam" class="btn btn-emerald">
-        <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-          <circle cx="12" cy="13" r="4"></circle>
-        </svg>
-        <span id="btnStartCamText">Activar Cámara</span>
-      </button>
-      <label for="qrFileInput" class="btn btn-dark" style="cursor:pointer;">
-        <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-          <circle cx="8.5" cy="8.5" r="1.5"></circle>
-          <polyline points="21 15 16 10 5 21"></polyline>
-        </svg>
-        <span>Subir Foto QR</span>
-        <input type="file" id="qrFileInput" accept="image/*" capture="environment" style="display: none;">
-      </label>
-    </div>
-
-    <div class="manual-card">
+    <section class="manual-card" aria-label="Ingreso manual de respaldo">
       <div class="manual-head">
         <span class="section-kicker">
           <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1666,32 +1809,23 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       </div>
 
       <div class="field-group">
-        <label class="field-label" for="qrTextInput">TOKEN DIRECTO DE APLICACIÓN</label>
+        <label class="field-label" for="qrTextInput">Token QR directo</label>
         <div class="input-row">
           <input type="text" id="qrTextInput" class="input-text" placeholder="Pegar token QR (ZG-...)" autocomplete="off">
-          <button type="button" class="btn btn-emerald btn-inline" id="btnSendQrText">Validar</button>
+          <button type="button" class="btn btn-secondary btn-inline" id="btnSendQrText">Validar</button>
         </div>
       </div>
 
       <div class="field-group">
-        <label class="field-label" for="dniInput">BÚSQUEDA POR DOCUMENTO</label>
+        <label class="field-label" for="dniInput">Documento de identidad</label>
         <div class="input-row">
           <input type="text" id="dniInput" class="input-text" placeholder="Ingreso manual por DNI / CE" inputmode="numeric" autocomplete="off">
-          <button type="button" class="btn btn-cyan btn-inline" id="btnSendManual">DNI</button>
+          <button type="button" class="btn btn-secondary btn-inline" id="btnSendManual">DNI</button>
         </div>
       </div>
 
       <div id="scanNotice" class="scan-notice" role="status"></div>
-
-      <div id="lastPassBar" class="last-pass-bar">
-        <div class="last-pass-left">
-          <span class="last-pass-dot" aria-hidden="true"></span>
-          <span>Último pase:</span>
-          <strong id="lastPassName">Sin lecturas</strong>
-        </div>
-        <span id="lastPassStatus" class="last-pass-status">En espera</span>
-      </div>
-    </div>
+    </section>
   </main>
 
   <footer class="app-footer">
@@ -1711,7 +1845,7 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
   <div id="unlinkModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="unlinkModalTitle">
     <div class="modal-card">
       <div class="modal-icon" aria-hidden="true">
-        <svg class="svg-ic" style="width:22px;height:22px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="svg-ic" style="width:20px;height:20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
           <polyline points="16 17 21 12 16 7"></polyline>
           <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -1720,7 +1854,7 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       <h2 id="unlinkModalTitle" class="modal-title">¿Desvincular este teléfono?</h2>
       <p class="modal-desc">Dejarás de enviar asistencias desde esta terminal hasta ingresar un nuevo código de 6 caracteres.</p>
       <div class="modal-actions">
-        <button type="button" id="btnCancelUnlink" class="btn btn-dark">Cancelar</button>
+        <button type="button" id="btnCancelUnlink" class="btn btn-secondary">Cancelar</button>
         <button type="button" id="btnConfirmUnlink" class="btn btn-danger">Desvincular</button>
       </div>
     </div>
@@ -1761,6 +1895,67 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
 
   <script src="/assets/jsqr.js"></script>
   <script>
+    // Gestión de Modo Claro / Oscuro con preferencia del sistema y sincronización entre pestañas
+    (function setupThemeToggle() {
+      const STORAGE_KEY = 'zarama_scanner_theme';
+      const metaCs = document.querySelector('meta[name="color-scheme"]');
+      const metaTc = document.getElementById('metaThemeColor');
+      const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+      function getSystemTheme() {
+        return mq && mq.matches ? 'dark' : 'light';
+      }
+      function getStoredTheme() {
+        try {
+          const val = localStorage.getItem(STORAGE_KEY);
+          return (val === 'light' || val === 'dark') ? val : null;
+        } catch (e) {
+          return null;
+        }
+      }
+      function applyTheme(stored) {
+        const effective = stored || getSystemTheme();
+        document.documentElement.setAttribute('data-theme', effective);
+        if (metaCs) metaCs.content = stored || 'light dark';
+        if (metaTc) metaTc.content = effective === 'dark' ? '#0e1c16' : '#e6f0ea';
+        const btn = document.getElementById('btnThemeToggle');
+        if (btn) {
+          btn.setAttribute('aria-pressed', String(effective === 'dark'));
+          btn.title = effective === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
+        }
+      }
+
+      applyTheme(getStoredTheme());
+
+      const toggleBtn = document.getElementById('btnThemeToggle');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+          const currentRendered = document.documentElement.getAttribute('data-theme') || getSystemTheme();
+          const target = currentRendered === 'dark' ? 'light' : 'dark';
+          const sys = getSystemTheme();
+          if (target === sys) {
+            try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+            applyTheme(null);
+          } else {
+            try { localStorage.setItem(STORAGE_KEY, target); } catch (e) {}
+            applyTheme(target);
+          }
+        });
+      }
+
+      if (mq && typeof mq.addEventListener === 'function') {
+        mq.addEventListener('change', () => {
+          if (!getStoredTheme()) applyTheme(null);
+        });
+      }
+
+      window.addEventListener('storage', (e) => {
+        if (e.key === STORAGE_KEY) {
+          applyTheme(getStoredTheme());
+        }
+      });
+    })();
+
     let audioCtx = null;
     function unlockAudio() {
       try {

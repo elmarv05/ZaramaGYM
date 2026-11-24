@@ -4,10 +4,17 @@
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
-import { Alert } from '../../components/primitives/Alert';
-import { Badge } from '../../components/primitives/Badge';
-import { Button } from '../../components/primitives/Button';
-import { Icon } from '../../components/primitives/Icon';
+import {
+  Alert,
+  Badge,
+  Button,
+  Icon,
+  Skeleton,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '../../components/primitives';
 import { usePrintingBackup } from '../../hooks/usePrintingBackup';
 import { AppError, AuthSession } from '../../types/auth';
 import {
@@ -177,84 +184,53 @@ export const PrintingBackupView: React.FC<PrintingBackupViewProps> = ({
         </Alert>
       )}
 
-      {/* Navegación por Sub-Pestañas Accesibles */}
-      <nav
-        role="tablist"
-        aria-label="Pestañas de Impresión y Respaldos"
-        className="flex flex-wrap items-center gap-2 border-b border-border pb-2"
+      {/* Navegación por Sub-Pestañas Accesibles (Radix Tabs) */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(nextValue) => setActiveTab(nextValue as PrintingBackupTab)}
+        className="gap-6"
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'printer'}
-          onClick={() => setActiveTab('printer')}
-          className={`flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
-            activeTab === 'printer'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="printer" className="w-4 h-4" aria-hidden="true" />
-          <span>Impresora Térmica & SMTP</span>
-        </button>
+        <TabsList aria-label="Pestañas de Impresión y Respaldos">
+          <TabsTrigger value="printer">
+            <Icon name="printer" className="w-4 h-4" aria-hidden="true" />
+            <span>Impresora Térmica & SMTP</span>
+          </TabsTrigger>
 
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'series'}
-          onClick={() => setActiveTab('series')}
-          className={`flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
-            activeTab === 'series'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="receipt" className="w-4 h-4" aria-hidden="true" />
-          <span>Series Documentales</span>
-        </button>
+          <TabsTrigger value="series">
+            <Icon name="receipt" className="w-4 h-4" aria-hidden="true" />
+            <span>Series Documentales</span>
+          </TabsTrigger>
 
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'backups'}
-          onClick={() => setActiveTab('backups')}
-          className={`flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
-            activeTab === 'backups'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name={isAdmin ? 'cloud' : 'lock'} className="w-4 h-4" aria-hidden="true" />
-          <span>Respaldos SQLite & Drive</span>
-          {!isAdmin && (
-            <Badge variant="warning" size="sm">
-              Solo Admin
-            </Badge>
-          )}
-          {isAdmin && backups.length > 0 && (
-            <Badge variant="default" size="sm">
-              {backups.length}
-            </Badge>
-          )}
-        </button>
-      </nav>
+          <TabsTrigger value="backups">
+            <Icon name={isAdmin ? 'cloud' : 'lock'} className="w-4 h-4" aria-hidden="true" />
+            <span>Respaldos SQLite & Drive</span>
+            {!isAdmin && (
+              <Badge variant="warning" size="sm">
+                Solo Admin
+              </Badge>
+            )}
+            {isAdmin && backups.length > 0 && (
+              <Badge variant="default" size="sm">
+                {backups.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Contenido de la Sub-Pestaña Activa */}
-      <section aria-label="Contenido de pestaña seleccionada">
         {isLoading && !config && (
           <div
-            className="flex flex-col gap-6 animate-pulse"
+            className="flex flex-col gap-6"
             role="status"
             aria-label="Cargando configuración documental"
           >
-            <div className="h-44 bg-surface rounded-xl border border-border" />
-            <div className="h-64 bg-surface rounded-xl border border-border" />
+            <Skeleton className="h-44 rounded-xl border border-border" />
+            <Skeleton className="h-64 rounded-xl border border-border" />
           </div>
         )}
 
         {(!isLoading || config) && (
           <>
-            {activeTab === 'printer' && (
+            <TabsContent value="printer">
               <PrinterSmtpConfigTab
                 config={config}
                 isAdmin={isAdmin}
@@ -271,9 +247,9 @@ export const PrintingBackupView: React.FC<PrintingBackupViewProps> = ({
                     }))
                 }
               />
-            )}
+            </TabsContent>
 
-            {activeTab === 'series' && (
+            <TabsContent value="series">
               <ReceiptSeriesTab
                 series={series}
                 isAdmin={isAdmin}
@@ -282,9 +258,9 @@ export const PrintingBackupView: React.FC<PrintingBackupViewProps> = ({
                 onUpdateSeries={onUpdateSeries || hook.updateSeries}
                 onRefresh={hook.fetchSeries}
               />
-            )}
+            </TabsContent>
 
-            {activeTab === 'backups' && (
+            <TabsContent value="backups">
               <BackupsTab
                 backups={backups}
                 integrityReports={integrityReports}
@@ -301,10 +277,10 @@ export const PrintingBackupView: React.FC<PrintingBackupViewProps> = ({
                 onDatabaseRestored={onDatabaseRestored}
                 onRefresh={hook.fetchBackups}
               />
-            )}
+            </TabsContent>
           </>
         )}
-      </section>
+      </Tabs>
     </div>
   );
 };

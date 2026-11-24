@@ -5,7 +5,17 @@
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
-import { Icon } from '../../components/primitives/Icon';
+import {
+  Alert,
+  Button,
+  Card,
+  Icon,
+  Input,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '../../components/primitives';
 import { useAttendance } from '../../hooks/useAttendance';
 import { useWebcamQrScanner } from '../../hooks/useWebcamQrScanner';
 import { normalizeQrTokenClient } from '../../utils/qrScanner';
@@ -168,7 +178,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
             : 'grid grid-cols-2 sm:grid-cols-4 gap-3'
         }
       >
-        <div className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-col">
+        <Card padding="sm" className="shadow-2xs gap-0">
           <span className="text-[10px] uppercase font-bold text-txt-muted tracking-wider">
             Ingresos Hoy
           </span>
@@ -180,44 +190,47 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
               ? `Último: ${todaySummary.ultimoIngresoHora.split(' ')[1] || todaySummary.ultimoIngresoHora}`
               : 'Sin ingresos aún'}
           </span>
-        </div>
+        </Card>
 
-        <div className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-col">
-          <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wider inline-flex items-center gap-1.5">
+        <Card padding="sm" className="shadow-2xs gap-0">
+          <span className="text-[10px] uppercase font-bold text-status-success tracking-wider inline-flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-status-success shrink-0" aria-hidden="true" />
             <span>Verdes</span>
           </span>
-          <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+          <span className="text-2xl font-black text-status-success mt-1">
             {todaySummary?.totalVerde ?? 0}
           </span>
           <span className="text-[11px] text-txt-secondary">Membresía activa al día y sin deudas</span>
-        </div>
+        </Card>
 
-        <div className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-col">
-          <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 tracking-wider inline-flex items-center gap-1.5">
+        <Card padding="sm" className="shadow-2xs gap-0">
+          <span className="text-[10px] uppercase font-bold text-status-warning tracking-wider inline-flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-status-warning shrink-0" aria-hidden="true" />
             <span>Amarillos</span>
           </span>
-          <span className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
+          <span className="text-2xl font-black text-status-warning mt-1">
             {todaySummary?.totalAmarillo ?? 0}
           </span>
           <span className="text-[11px] text-txt-secondary">Membresia por vender o deuda</span>
-        </div>
+        </Card>
 
-        <div className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-col">
-          <span className="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400 tracking-wider inline-flex items-center gap-1.5">
+        <Card padding="sm" className="shadow-2xs gap-0">
+          <span className="text-[10px] uppercase font-bold text-status-danger tracking-wider inline-flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-status-danger shrink-0" aria-hidden="true" />
             <span>Rojos</span>
           </span>
-          <span className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+          <span className="text-2xl font-black text-status-danger mt-1">
             {todaySummary?.totalPaseCredito ?? todaySummary?.totalRojoAutorizados ?? 0}
           </span>
           <span className="text-[11px] text-txt-secondary">Pases diarios autorizados sin membresía</span>
-        </div>
+        </Card>
 
         {/* Acceso a Configuración de Semáforo (Exclusivo Administrador) */}
         {isAdmin && (
-          <div className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-col justify-between col-span-2 sm:col-span-4 lg:col-span-1">
+          <Card
+            padding="sm"
+            className="shadow-2xs justify-between gap-2 col-span-2 sm:col-span-4 lg:col-span-1"
+          >
             <div className="flex flex-col">
               <span className="text-[10px] uppercase font-bold text-txt-muted tracking-wider">
                 Parámetros Semáforo
@@ -226,136 +239,100 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                 Umbral: {systemConfig?.diasAlertaAmarillo ?? 5}d • Anti-Rebote: {systemConfig?.minutosAntireboteQr ?? 3}m
               </span>
             </div>
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               data-testid="btn-open-system-config"
               onClick={() => setIsConfigModalOpen(true)}
-              className="mt-2 text-xs font-bold text-txt-secondary hover:text-txt-primary bg-canvas hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-border transition-colors flex items-center justify-center gap-1.5"
+              leftIcon={<Icon name="settings" className="w-4 h-4" />}
+              className="w-full"
             >
-              <Icon name="settings" className="w-4 h-4" />
-              <span>Configuración</span>
-            </button>
-          </div>
+              Configuración
+            </Button>
+          </Card>
         )}
       </section>
 
       {/* Banner de Error Global si existe */}
       {error && (
-        <div
-          role="alert"
-          className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 flex items-center justify-between"
-        >
-          <div className="flex items-center gap-2">
-            <Icon name="warning" className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-          <button
-            type="button"
-            onClick={clearError}
-            className="text-xs font-bold px-2 py-1 rounded bg-black/10 hover:bg-black/20 transition-colors inline-flex items-center gap-1"
-          >
-            <Icon name="x" className="w-3.5 h-3.5" />
-            <span>Cerrar</span>
-          </button>
-        </div>
+        <Alert variant="danger" floating={false} onClose={clearError}>
+          {error}
+        </Alert>
       )}
 
-      {/* 2. SUB-NAVEGACIÓN POR PESTAÑAS (ROLE TABLIST) */}
-      <nav
-        role="tablist"
-        aria-label="Pestañas de Asistencias"
-        className="flex flex-wrap items-center gap-2 border-b border-border pb-2"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'monitor'}
-          onClick={() => setActiveTab('monitor')}
-          className={`text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-            activeTab === 'monitor'
-              ? 'bg-surface text-txt-primary shadow-xs border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="activity" className="w-4 h-4" />
-          <span>Monitor en Vivo & Escáner QR</span>
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'history'}
-          onClick={() => setActiveTab('history')}
-          className={`text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-            activeTab === 'history'
-              ? 'bg-surface text-txt-primary shadow-xs border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="audit" className="w-4 h-4" />
-          <span>Historial de Asistencias</span>
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'extensions'}
-          onClick={() => {
-            setActiveTab('extensions');
+      {/* 2. SUB-NAVEGACIÓN POR PESTAÑAS (RADIX TABS) */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(nextValue) => {
+          const nextTab = nextValue as AttendanceMainTab;
+          setActiveTab(nextTab);
+          if (nextTab === 'extensions') {
             void loadMemberships();
-          }}
-          className={`text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-            activeTab === 'extensions'
-              ? 'bg-surface text-txt-primary shadow-xs border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="calendar" className="w-4 h-4" />
-          <span>Recuperación Manual de Días</span>
-        </button>
-      </nav>
+          }
+        }}
+        className="gap-6"
+      >
+        <TabsList aria-label="Pestañas de Asistencias">
+          <TabsTrigger value="monitor">
+            <Icon name="activity" className="w-4 h-4" aria-hidden="true" />
+            <span>Monitor en Vivo & Escáner QR</span>
+          </TabsTrigger>
 
-      {/* 3. CONTENIDO SEGÚN PESTAÑA */}
-      {/* ===================================================================== */}
-      {/* PESTAÑA 1: MONITOR EN VIVO & ESCÁNER QR */}
-      {/* ===================================================================== */}
-      {activeTab === 'monitor' && (
-        <section aria-label="Monitor de Control de Acceso" className="flex flex-col gap-6">
+          <TabsTrigger value="history">
+            <Icon name="audit" className="w-4 h-4" aria-hidden="true" />
+            <span>Historial de Asistencias</span>
+          </TabsTrigger>
+
+          <TabsTrigger value="extensions">
+            <Icon name="calendar" className="w-4 h-4" aria-hidden="true" />
+            <span>Recuperación Manual de Días</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 3. CONTENIDO SEGÚN PESTAÑA */}
+        {/* ===================================================================== */}
+        {/* PESTAÑA 1: MONITOR EN VIVO & ESCÁNER QR */}
+        {/* ===================================================================== */}
+        <TabsContent value="monitor">
+          <section aria-label="Monitor de Control de Acceso" className="flex flex-col gap-6">
           {/* Zona de Escaneo QR (Cámara Web, Imagen o Token Manual) */}
-          <div className="bg-surface border border-border rounded-2xl p-5 shadow-xs flex flex-col gap-3">
+          <Card padding="md" className="rounded-2xl gap-3">
             <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
               {/* Formulario de Validación Manual de Token QR */}
               <form onSubmit={handleScanQrSubmit} className="flex-1 flex items-center gap-2">
-                <div className="relative flex-1">
-                  <input
+                <div className="flex-1 min-w-0">
+                  <Input
                     id="scanner-qr-input"
                     data-testid="scanner-qr-input"
                     type="text"
                     autoFocus
+                    aria-label="Token QR del socio"
                     placeholder="Pegue o ingrese el token QR (ZG-...) y presione Enter"
                     value={qrInput}
                     onChange={(e) => setQrInput(e.target.value)}
                     disabled={isActionLoading}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-border bg-canvas text-sm font-bold text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand shadow-inner"
-                  />
-                  <Icon
-                    name="qr"
-                    className="w-4 h-4 absolute left-3.5 top-3.5 text-txt-muted pointer-events-none"
+                    leftIcon={<Icon name="qr" className="w-4 h-4" />}
+                    className="py-2.5 font-bold bg-canvas rounded-xl shadow-inner"
                   />
                 </div>
-                <button
+                <Button
                   type="submit"
+                  variant="primary"
+                  size="md"
                   disabled={isActionLoading || !qrInput.trim()}
-                  className="px-5 py-3 rounded-xl bg-brand hover:bg-brand-hover text-brand-text font-black text-xs shadow-xs transition-colors disabled:opacity-50 whitespace-nowrap"
+                  className="rounded-xl whitespace-nowrap"
                 >
                   {isActionLoading ? 'Validando...' : 'Escanear / Validar'}
-                </button>
+                </Button>
               </form>
 
               {/* Controles de Cámara Web, Foto QR e Ingreso Manual */}
               <div className="flex flex-wrap items-center gap-2">
-                <button
+                <Button
                   type="button"
+                  variant={isCameraActive ? 'danger' : 'secondary'}
+                  size="md"
                   disabled={isStartingCamera}
                   onClick={() => {
                     clearCameraError();
@@ -365,29 +342,23 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                       void startCamera();
                     }
                   }}
-                  className={`px-3.5 py-3 rounded-xl border text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs whitespace-nowrap ${
-                    isCameraActive
-                      ? 'bg-rose-600 hover:bg-rose-500 border-rose-500 text-white'
-                      : 'bg-canvas border-border hover:bg-slate-200 dark:hover:bg-slate-700 text-txt-primary'
-                  }`}
+                  leftIcon={<Icon name={isCameraActive ? 'x' : 'camera'} className="w-4 h-4" />}
+                  className="rounded-xl whitespace-nowrap text-xs font-bold"
                 >
-                  <Icon name={isCameraActive ? 'x' : 'camera'} className="w-4 h-4" />
-                  <span>
-                    {isStartingCamera
-                      ? 'Abriendo cámara...'
-                      : isCameraActive
-                        ? 'Cerrar Cámara Web'
-                        : 'Usar Cámara Web'}
-                  </span>
-                </button>
+                  {isStartingCamera
+                    ? 'Abriendo cámara...'
+                    : isCameraActive
+                    ? 'Cerrar Cámara Web'
+                    : 'Usar Cámara Web'}
+                </Button>
 
-                <label className="cursor-pointer px-3.5 py-3 rounded-xl bg-canvas border border-border hover:bg-slate-200 dark:hover:bg-slate-700 text-txt-primary font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-2xs whitespace-nowrap">
-                  <Icon name="upload" className="w-4 h-4" />
+                <label className="cursor-pointer px-3.5 py-2 min-h-[38px] rounded-xl bg-surface border border-border hover:bg-surface-hover text-txt-primary font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap focus-within:ring-2 focus-within:ring-border-focus">
+                  <Icon name="upload" className="w-4 h-4" aria-hidden="true" />
                   <span>Leer Imagen QR</span>
                   <input
                     type="file"
                     accept="image/*"
-                    className="hidden"
+                    className="sr-only"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       e.target.value = '';
@@ -396,37 +367,29 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                   />
                 </label>
 
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="md"
                   data-testid="btn-manual-olvido-qr"
                   onClick={() => setIsManualModalOpen(true)}
-                  className="px-4 py-3 rounded-xl bg-canvas border border-border hover:bg-slate-200 dark:hover:bg-slate-700 text-txt-primary font-bold text-xs transition-colors flex items-center justify-center gap-2 shadow-2xs whitespace-nowrap"
+                  leftIcon={<Icon name="user" className="w-4 h-4" />}
+                  className="rounded-xl whitespace-nowrap text-xs font-bold"
                 >
-                  <Icon name="user" className="w-4 h-4" />
-                  <span>Ingreso Manual por Olvido de QR</span>
-                </button>
+                  Ingreso Manual por Olvido de QR
+                </Button>
               </div>
             </div>
 
             {cameraError && (
-              <div className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-300/60 dark:border-amber-800 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1.5">
-                  <Icon name="warning" className="w-4 h-4 shrink-0" />
-                  <span>{cameraError}</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={clearCameraError}
-                  className="font-bold hover:underline shrink-0"
-                >
-                  Ocultar
-                </button>
-              </div>
+              <Alert variant="warning" floating={false} onClose={clearCameraError}>
+                {cameraError}
+              </Alert>
             )}
 
             {isCameraActive && (
-              <div className="bg-slate-950 rounded-xl p-3 flex flex-col sm:flex-row items-center gap-4 border border-emerald-500/40">
-                <div className="relative w-48 h-36 rounded-lg overflow-hidden border-2 border-emerald-400/70 bg-black shrink-0">
+              <div className="bg-canvas-subtle rounded-xl p-3 flex flex-col sm:flex-row items-center gap-4 border border-status-success/40">
+                <div className="relative w-48 h-36 rounded-lg overflow-hidden border-2 border-status-success/70 bg-black shrink-0">
                   <video
                     ref={webcamVideoRef}
                     playsInline
@@ -434,48 +397,55 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                     autoPlay
                     className="w-full h-full object-cover"
                   />
-                  <div className="pointer-events-none absolute inset-4 border-2 border-emerald-400/60 rounded-md" />
+                  <div className="pointer-events-none absolute inset-4 border-2 border-status-success/60 rounded-md" />
                 </div>
-                <div className="text-xs text-slate-200 flex flex-col gap-1">
-                  <span className="font-bold text-emerald-400 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="text-xs text-txt-primary flex flex-col gap-1">
+                  <span className="font-bold text-status-success flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-status-success animate-pulse" aria-hidden="true" />
                     Cámara Web Activa — Escaneo Automático
                   </span>
-                  <span className="text-slate-400">
+                  <span className="text-txt-secondary">
                     Muestra la credencial QR frente a la cámara. El sistema validará automáticamente sin presionar Enter.
                   </span>
                 </div>
               </div>
             )}
-          </div>
+          </Card>
 
           {/* SIMULADOR RÁPIDO DE SOCIOS REGISTRADOS (Acceso 1-clic para pruebas manuales y demo) */}
           {clients.length > 0 && (
-            <div className="bg-canvas-subtle border border-border rounded-xl p-3 flex flex-col gap-2">
+            <Card variant="subtle" padding="sm" className="gap-2">
               <span className="text-[11px] font-bold text-txt-secondary flex items-center gap-1.5">
-                <Icon name="sparkles" className="w-3.5 h-3.5 text-brand" />
+                <Icon name="sparkles" className="w-3.5 h-3.5 text-brand" aria-hidden="true" />
                 <span>Simulación rápida de escaneo con 1 clic (Socios en el gimnasio):</span>
               </span>
               <div className="flex flex-wrap gap-2">
                 {clients.slice(0, 8).map((client) => (
-                  <button
+                  <Button
                     key={client.id}
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={() => handleQuickSimulateScan(client)}
                     disabled={isActionLoading}
-                    className="text-xs bg-surface border border-border hover:border-brand px-3 py-1.5 rounded-lg text-txt-primary font-semibold transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                    leftIcon={
+                      <Icon
+                        name={client.codigo_qr_token ? 'qr' : 'user'}
+                        className="w-3.5 h-3.5 text-txt-muted"
+                      />
+                    }
+                    className="hover:border-brand"
                   >
-                    <Icon name={client.codigo_qr_token ? 'qr' : 'user'} className="w-3.5 h-3.5 text-txt-muted" />
                     <span>
-                      {client.nombres} {client.apellidos}
+                      {client.nombres} {client.apellidos}{' '}
+                      <span className="text-[10px] text-txt-muted font-normal">
+                        ({client.numero_documento})
+                      </span>
                     </span>
-                    <span className="text-[10px] text-txt-muted font-normal">
-                      ({client.numero_documento})
-                    </span>
-                  </button>
+                  </Button>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
 
           {/* Gran Tarjeta Visual del Semáforo */}
@@ -486,40 +456,41 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
             onNavigateToPos={onNavigateToPos}
             isActionLoading={isActionLoading}
           />
-        </section>
-      )}
+          </section>
+        </TabsContent>
 
-      {/* ===================================================================== */}
-      {/* PESTAÑA 2: HISTORIAL DE ASISTENCIAS */}
-      {/* ===================================================================== */}
-      {activeTab === 'history' && (
-        <section aria-label="Historial Operacional de Asistencias">
-          <AttendanceHistoryTable
-            attendances={attendances}
-            isLoading={isLoading}
-            error={error}
-            onFilterChange={(filter) => void fetchAttendances(filter)}
-            onRetry={() => void fetchAttendances()}
-            onOpenManualModal={() => setIsManualModalOpen(true)}
-          />
-        </section>
-      )}
+        {/* ===================================================================== */}
+        {/* PESTAÑA 2: HISTORIAL DE ASISTENCIAS */}
+        {/* ===================================================================== */}
+        <TabsContent value="history">
+          <section aria-label="Historial Operacional de Asistencias">
+            <AttendanceHistoryTable
+              attendances={attendances}
+              isLoading={isLoading}
+              error={error}
+              onFilterChange={(filter) => void fetchAttendances(filter)}
+              onRetry={() => void fetchAttendances()}
+              onOpenManualModal={() => setIsManualModalOpen(true)}
+            />
+          </section>
+        </TabsContent>
 
-      {/* ===================================================================== */}
-      {/* PESTAÑA 3: RECUPERACIÓN MANUAL DE DÍAS (PRÓRROGAS) */}
-      {/* ===================================================================== */}
-      {activeTab === 'extensions' && (
-        <section aria-label="Recuperación Manual de Días de Membresía">
-          <MembershipExtensionsTable
-            extensions={extensions}
-            isLoading={isLoading}
-            error={error}
-            canExtendMembership={true}
-            onOpenExtendModal={() => setIsExtendModalOpen(true)}
-            onRetry={() => void fetchExtensions()}
-          />
-        </section>
-      )}
+        {/* ===================================================================== */}
+        {/* PESTAÑA 3: RECUPERACIÓN MANUAL DE DÍAS (PRÓRROGAS) */}
+        {/* ===================================================================== */}
+        <TabsContent value="extensions">
+          <section aria-label="Recuperación Manual de Días de Membresía">
+            <MembershipExtensionsTable
+              extensions={extensions}
+              isLoading={isLoading}
+              error={error}
+              canExtendMembership={true}
+              onOpenExtendModal={() => setIsExtendModalOpen(true)}
+              onRetry={() => void fetchExtensions()}
+            />
+          </section>
+        </TabsContent>
+      </Tabs>
 
       {/* MODAL 1: INGRESO MANUAL POR OLVIDO DE QR */}
       <ManualCheckInModal

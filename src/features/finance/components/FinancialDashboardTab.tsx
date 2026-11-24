@@ -4,10 +4,14 @@
 // Ubicación: src/features/finance/components/FinancialDashboardTab.tsx
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { Badge } from '../../../components/primitives/Badge';
 import { Button } from '../../../components/primitives/Button';
+import { Card } from '../../../components/primitives/Card';
 import { Icon } from '../../../components/primitives/Icon';
+import { Input } from '../../../components/primitives/Input';
+import { Label } from '../../../components/primitives/Label';
+import { Skeleton } from '../../../components/primitives/Skeleton';
 import { EXPENSE_CATEGORY_LABELS, formatCurrency } from '../../../domain/finance';
 import {
   FinancialDashboardDto,
@@ -34,6 +38,8 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
   isLoading,
   onNavigateToStruckTray,
 }) => {
+  const fechaDesdeId = useId();
+  const fechaHastaId = useId();
   const [fechaDesde, setFechaDesde] = useState(reportFilter.fecha_desde || '');
   const [fechaHasta, setFechaHasta] = useState(reportFilter.fecha_hasta || '');
 
@@ -66,17 +72,17 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
   // 1. Estado Loading / Skeleton
   if (isLoading && !dashboard) {
     return (
-      <div className="flex flex-col gap-6 animate-pulse" role="status" aria-label="Cargando panel financiero">
-        <div className="h-14 bg-surface rounded-xl border border-border" />
+      <div className="flex flex-col gap-6" role="status" aria-label="Cargando panel financiero">
+        <Skeleton className="h-14 w-full rounded-xl" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="h-28 bg-surface rounded-xl border border-border" />
-          <div className="h-28 bg-surface rounded-xl border border-border" />
-          <div className="h-28 bg-surface rounded-xl border border-border" />
-          <div className="h-28 bg-surface rounded-xl border border-border" />
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-28 w-full rounded-xl" />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-56 bg-surface rounded-xl border border-border" />
-          <div className="h-56 bg-surface rounded-xl border border-border" />
+          <Skeleton className="h-56 w-full rounded-xl" />
+          <Skeleton className="h-56 w-full rounded-xl" />
         </div>
       </div>
     );
@@ -85,7 +91,7 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
   // 2. Estado Empty (sin datos cargados aún)
   if (!dashboard) {
     return (
-      <div className="p-8 text-center bg-surface rounded-xl border border-border flex flex-col items-center justify-center gap-3">
+      <Card className="p-8 text-center items-center justify-center gap-3">
         <div className="w-12 h-12 rounded-full bg-canvas flex items-center justify-center text-txt-muted">
           <Icon name="bar-chart" className="w-6 h-6" aria-hidden="true" />
         </div>
@@ -96,78 +102,103 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
         <Button onClick={() => onApplyFilter(reportFilter)} variant="primary" size="sm">
           Recargar Datos
         </Button>
-      </div>
+      </Card>
     );
   }
 
   return (
     <div className="flex flex-col gap-6">
       {/* 1. Selector Triple Reactivo y Barra de Filtro de Fechas */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 bg-surface rounded-xl border border-border shadow-sm">
+      <Card padding="sm" className="lg:flex-row lg:items-center justify-between gap-4 shadow-sm">
         {/* Selector Triple Prominente */}
-        <div className="flex items-center gap-1.5 p-1 bg-canvas rounded-lg border border-border">
-          <button
+        <div
+          role="group"
+          aria-label="Selector de canal financiero"
+          className="flex flex-wrap items-center gap-1.5 p-1 bg-canvas rounded-lg border border-border"
+        >
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
+            aria-pressed={activeChannelView === 'FISICA'}
             onClick={() => onSelectChannelView('FISICA')}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-md transition-all ${
+            leftIcon={<Icon name="cash" className="w-4 h-4" aria-hidden="true" />}
+            className={
               activeChannelView === 'FISICA'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'text-txt-secondary hover:text-txt-primary hover:bg-surface/50'
-            }`}
+                ? 'bg-status-success-bg text-status-success border border-status-success-border hover:bg-status-success-bg hover:text-status-success font-bold shadow-xs'
+                : 'text-txt-secondary hover:text-txt-primary hover:bg-surface/60 font-bold border border-transparent'
+            }
           >
-            <Icon name="cash" className="w-4 h-4" aria-hidden="true" />
-            <span>Caja Física</span>
-          </button>
+            Caja Física
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
+            aria-pressed={activeChannelView === 'DIGITAL'}
             onClick={() => onSelectChannelView('DIGITAL')}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-md transition-all ${
+            leftIcon={<Icon name="smartphone" className="w-4 h-4" aria-hidden="true" />}
+            className={
               activeChannelView === 'DIGITAL'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-txt-secondary hover:text-txt-primary hover:bg-surface/50'
-            }`}
+                ? 'bg-status-info-bg text-status-info border border-status-info-border hover:bg-status-info-bg hover:text-status-info font-bold shadow-xs'
+                : 'text-txt-secondary hover:text-txt-primary hover:bg-surface/60 font-bold border border-transparent'
+            }
           >
-            <Icon name="smartphone" className="w-4 h-4" aria-hidden="true" />
-            <span>Caja Digital</span>
-          </button>
+            Caja Digital
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant={activeChannelView === 'MIXTA' ? 'primary' : 'ghost'}
+            size="sm"
+            aria-pressed={activeChannelView === 'MIXTA'}
             onClick={() => onSelectChannelView('MIXTA')}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-md transition-all ${
+            leftIcon={<Icon name="bank" className="w-4 h-4" aria-hidden="true" />}
+            className={
               activeChannelView === 'MIXTA'
-                ? 'bg-purple-700 text-white shadow-sm'
-                : 'text-txt-secondary hover:text-txt-primary hover:bg-surface/50'
-            }`}
+                ? 'font-bold shadow-xs'
+                : 'text-txt-secondary hover:text-txt-primary hover:bg-surface/60 font-bold border border-transparent'
+            }
           >
-            <Icon name="bank" className="w-4 h-4" aria-hidden="true" />
-            <span>Vista Mixta / Consolidada</span>
-          </button>
+            Vista Mixta / Consolidada
+          </Button>
         </div>
 
         {/* Formulario de Filtro Rango de Fechas */}
         <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-center gap-2 text-xs">
           <div className="flex items-center gap-1.5">
-            <span className="text-txt-muted font-medium">Desde:</span>
-            <input
-              type="date"
-              value={fechaDesde}
-              onChange={(e) => setFechaDesde(e.target.value)}
-              aria-label="Fecha Desde"
-              className="px-2 py-1.5 rounded-md border border-border bg-canvas text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-            />
+            <Label htmlFor={fechaDesdeId} className="normal-case text-txt-muted font-medium">
+              Desde:
+            </Label>
+            <div className="w-36">
+              <Input
+                id={fechaDesdeId}
+                inputSize="sm"
+                type="date"
+                value={fechaDesde}
+                onChange={(e) => setFechaDesde(e.target.value)}
+                aria-label="Fecha Desde"
+                className="bg-canvas"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-txt-muted font-medium">Hasta:</span>
-            <input
-              type="date"
-              value={fechaHasta}
-              onChange={(e) => setFechaHasta(e.target.value)}
-              aria-label="Fecha Hasta"
-              className="px-2 py-1.5 rounded-md border border-border bg-canvas text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-            />
+            <Label htmlFor={fechaHastaId} className="normal-case text-txt-muted font-medium">
+              Hasta:
+            </Label>
+            <div className="w-36">
+              <Input
+                id={fechaHastaId}
+                inputSize="sm"
+                type="date"
+                value={fechaHasta}
+                onChange={(e) => setFechaHasta(e.target.value)}
+                aria-label="Fecha Hasta"
+                className="bg-canvas"
+              />
+            </div>
           </div>
 
           <Button type="submit" variant="primary" size="sm" isLoading={isLoading}>
@@ -180,82 +211,81 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
             </Button>
           )}
         </form>
-      </div>
+      </Card>
 
       {/* 2. Tarjetas de KPIs Dinámicas por Canal */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI: Ingresos por Ventas */}
-        <div className="p-4 bg-surface rounded-xl border border-border shadow-sm flex flex-col justify-between">
+        <Card padding="sm" className="justify-between shadow-sm">
           <div className="flex items-center justify-between text-xs text-txt-muted font-medium">
             <span>Ingresos Ventas Cobradas</span>
-            <Icon name="finance" className="w-4 h-4 text-emerald-500" aria-hidden="true" />
+            <Icon name="finance" className="w-4 h-4 text-status-success" aria-hidden="true" />
           </div>
           <div className="mt-2">
-            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+            <div className="text-2xl font-black text-status-success">
               {formatCurrency(currentSummary?.ingresos_ventas || '0.00')}
             </div>
             <p className="text-[11px] text-txt-muted mt-1">
               Canal {activeChannelView} en el periodo
             </p>
           </div>
-        </div>
+        </Card>
 
         {/* KPI: Egresos Compras */}
-        <div className="p-4 bg-surface rounded-xl border border-border shadow-sm flex flex-col justify-between">
+        <Card padding="sm" className="justify-between shadow-sm">
           <div className="flex items-center justify-between text-xs text-txt-muted font-medium">
             <span>Egresos Compras Mercadería</span>
-            <Icon name="package" className="w-4 h-4 text-amber-500" aria-hidden="true" />
+            <Icon name="package" className="w-4 h-4 text-status-warning" aria-hidden="true" />
           </div>
           <div className="mt-2">
-            <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
+            <div className="text-2xl font-black text-status-warning">
               {formatCurrency(currentSummary?.egresos_compras || '0.00')}
             </div>
             <p className="text-[11px] text-txt-muted mt-1">
               Abastecimiento de stock y kardex
             </p>
           </div>
-        </div>
+        </Card>
 
         {/* KPI: Egresos Gastos Operativos */}
-        <div className="p-4 bg-surface rounded-xl border border-border shadow-sm flex flex-col justify-between">
+        <Card padding="sm" className="justify-between shadow-sm">
           <div className="flex items-center justify-between text-xs text-txt-muted font-medium">
             <span>Egresos Gastos Operativos</span>
-            <Icon name="receipt" className="w-4 h-4 text-rose-500" aria-hidden="true" />
+            <Icon name="receipt" className="w-4 h-4 text-status-danger" aria-hidden="true" />
           </div>
           <div className="mt-2">
-            <div className="text-2xl font-black text-rose-600 dark:text-rose-400">
+            <div className="text-2xl font-black text-status-danger">
               {formatCurrency(currentSummary?.egresos_gastos || '0.00')}
             </div>
             <p className="text-[11px] text-txt-muted mt-1">
               Servicios, alquiler, honorarios, etc.
             </p>
           </div>
-        </div>
+        </Card>
 
         {/* KPI: Flujo Neto / Balance */}
-        <div
-          className={`p-4 rounded-xl border shadow-sm flex flex-col justify-between ${
+        <Card
+          padding="sm"
+          className={`justify-between shadow-sm ${
             isNetoPositivo
-              ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
-              : 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800'
+              ? 'bg-status-success-bg/50 border-status-success-border'
+              : 'bg-status-danger-bg/50 border-status-danger-border'
           }`}
         >
           <div className="flex items-center justify-between text-xs font-semibold">
-            <span className={isNetoPositivo ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}>
+            <span className={isNetoPositivo ? 'text-status-success' : 'text-status-danger'}>
               Flujo Neto / Balance
             </span>
             {isNetoPositivo ? (
-              <Icon name="activity" className="w-4 h-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+              <Icon name="activity" className="w-4 h-4 text-status-success" aria-hidden="true" />
             ) : (
-              <Icon name="warning" className="w-4 h-4 text-rose-600 dark:text-rose-400" aria-hidden="true" />
+              <Icon name="warning" className="w-4 h-4 text-status-danger" aria-hidden="true" />
             )}
           </div>
           <div className="mt-2">
             <div
               className={`text-2xl font-black ${
-                isNetoPositivo
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-rose-600 dark:text-rose-400'
+                isNetoPositivo ? 'text-status-success' : 'text-status-danger'
               }`}
             >
               {formatCurrency(currentSummary?.flujo_neto || '0.00')}
@@ -264,12 +294,12 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
               Ingresos ({formatCurrency(currentSummary?.ingresos_ventas || 0)}) - Total Egresos ({formatCurrency(currentSummary?.total_egresos || 0)})
             </p>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* 3. Desglose Digital (Visible en DIGITAL y MIXTA) */}
       {(activeChannelView === 'DIGITAL' || activeChannelView === 'MIXTA') && (
-        <div className="p-4 bg-surface rounded-xl border border-border shadow-sm flex flex-col gap-3">
+        <Card padding="sm" className="shadow-sm">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-txt-primary flex items-center gap-2">
               <Icon name="smartphone" className="w-4 h-4 text-brand" aria-hidden="true" />
@@ -281,7 +311,7 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             {/* Digital Ingresos */}
             <div className="p-3 bg-canvas rounded-lg border border-border">
-              <span className="font-semibold text-emerald-600 block mb-2">
+              <span className="font-semibold text-status-success block mb-2">
                 Ingresos por Medio Digital:
               </span>
               <div className="flex flex-col gap-1 text-txt-secondary">
@@ -310,7 +340,7 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
 
             {/* Digital Compras */}
             <div className="p-3 bg-canvas rounded-lg border border-border">
-              <span className="font-semibold text-amber-600 block mb-2">
+              <span className="font-semibold text-status-warning block mb-2">
                 Compras a Proveedores (Digital):
               </span>
               <div className="flex flex-col gap-1 text-txt-secondary">
@@ -339,7 +369,7 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
 
             {/* Digital Gastos */}
             <div className="p-3 bg-canvas rounded-lg border border-border">
-              <span className="font-semibold text-rose-600 block mb-2">
+              <span className="font-semibold text-status-danger block mb-2">
                 Gastos Operativos (Digital):
               </span>
               <div className="flex flex-col gap-1 text-txt-secondary">
@@ -366,13 +396,13 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* 4. Dominios Operativos & Gastos por Categoría */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Desglose de Ingresos por Dominio Operativo */}
-        <div className="p-4 bg-surface rounded-xl border border-border shadow-sm flex flex-col gap-3">
+        <Card padding="sm" className="shadow-sm">
           <h4 className="text-sm font-bold text-txt-primary flex items-center gap-2">
             <Icon name="dashboard" className="w-4 h-4 text-brand" aria-hidden="true" />
             <span>Ingresos por Dominio Operativo</span>
@@ -413,10 +443,10 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
               <span>{formatCurrency(dashboard.ingresos_por_dominio.total)}</span>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Desglose de Gastos por Categoría */}
-        <div className="p-4 bg-surface rounded-xl border border-border shadow-sm flex flex-col gap-3">
+        <Card padding="sm" className="shadow-sm">
           <h4 className="text-sm font-bold text-txt-primary flex items-center gap-2">
             <Icon name="bar-chart" className="w-4 h-4 text-brand" aria-hidden="true" />
             <span>Gastos Operativos por Categoría</span>
@@ -448,11 +478,11 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
               ))}
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* 5. Panel de Indicadores de Control y Riesgo Operacional */}
-      <div className="p-4 bg-surface rounded-xl border border-border shadow-sm flex flex-col gap-3">
+      <Card padding="sm" className="shadow-sm">
         <h4 className="text-sm font-bold text-txt-primary flex items-center gap-2">
           <Icon name="shield" className="w-4 h-4 text-brand" aria-hidden="true" />
           <span>Indicadores de Control, Créditos y Riesgo Operacional</span>
@@ -473,32 +503,34 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
           </div>
 
           {/* Ventas Tachadas Pendientes */}
-          <div className="p-3 bg-canvas rounded-lg border border-amber-300 dark:border-amber-900/50 bg-amber-50/20 dark:bg-amber-950/10 flex flex-col justify-between">
+          <div className="p-3 rounded-lg border border-status-warning-border bg-status-warning-bg/35 flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between">
-                <span className="text-amber-800 dark:text-amber-400 font-bold block">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-status-warning font-bold block">
                   Tachadas en Espera de Dictamen
                 </span>
                 {dashboard.indicadores_control.ventas_tachadas_pendientes_count > 0 && (
                   <Badge variant="warning">Requiere Acción</Badge>
                 )}
               </div>
-              <div className="text-xl font-bold text-amber-700 dark:text-amber-300 mt-1">
+              <div className="text-xl font-bold text-status-warning mt-1">
                 {dashboard.indicadores_control.ventas_tachadas_pendientes_count} venta(s)
               </div>
             </div>
-            <div className="mt-2 flex items-center justify-between">
+            <div className="mt-2 flex items-center justify-between gap-2">
               <span className="text-[11px] text-txt-secondary">
                 Monto: {formatCurrency(dashboard.indicadores_control.monto_tachado_pendiente)}
               </span>
               {onNavigateToStruckTray && (
-                <button
+                <Button
                   type="button"
+                  variant="link"
+                  size="sm"
                   onClick={onNavigateToStruckTray}
-                  className="text-[11px] font-bold text-brand hover:underline"
+                  className="text-[11px] font-bold h-auto p-0 min-h-0"
                 >
                   Ir a Bandeja &rarr;
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -516,7 +548,7 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
             </p>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 };

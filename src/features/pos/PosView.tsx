@@ -6,11 +6,25 @@
 // ============================================================================
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert } from '../../components/primitives/Alert';
-import { Badge } from '../../components/primitives/Badge';
-import { Button } from '../../components/primitives/Button';
-import { Icon } from '../../components/primitives/Icon';
-import { Input } from '../../components/primitives/Input';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Icon,
+  Input,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '../../components/primitives';
 import { canResolveStruckSale, canStrikeSale, formatMoney } from '../../domain/pos';
 import { getLocalDateISO } from '../../domain/printingBackup';
 import { usePos } from '../../hooks/usePos';
@@ -263,122 +277,77 @@ export const PosView: React.FC<PosViewProps> = (props) => {
         </div>
       )}
 
-      {/* 2. Barra de Pestañas Operativas */}
-      <div
-        role="tablist"
-        aria-label="Módulos de Caja y POS"
-        className="flex flex-wrap items-center gap-2 border-b border-border pb-2"
+      {/* 2. Barra de Pestañas Operativas (Radix Tabs) */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(nextValue) => setActiveTab(nextValue as PosMainTab)}
+        className="gap-5"
       >
-        <button
-          type="button"
-          role="tab"
-          id="tab-pos"
-          aria-selected={activeTab === 'pos'}
-          aria-controls="panel-pos"
-          onClick={() => setActiveTab('pos')}
-          className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-2 ${
-            activeTab === 'pos'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="pos" className="w-4 h-4" aria-hidden="true" />
-          <span>Punto de Venta</span>
-        </button>
+        <TabsList aria-label="Módulos de Caja y POS">
+          <TabsTrigger value="pos">
+            <Icon name="pos" className="w-4 h-4" aria-hidden="true" />
+            <span>Punto de Venta</span>
+          </TabsTrigger>
 
-        <button
-          type="button"
-          role="tab"
-          id="tab-ventas"
-          aria-selected={activeTab === 'ventas'}
-          aria-controls="panel-ventas"
-          onClick={() => setActiveTab('ventas')}
-          className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-2 ${
-            activeTab === 'ventas'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="receipt" className="w-4 h-4" aria-hidden="true" />
-          <span>Ventas del Turno & Tachado</span>
-        </button>
+          <TabsTrigger value="ventas">
+            <Icon name="receipt" className="w-4 h-4" aria-hidden="true" />
+            <span>Ventas del Turno & Tachado</span>
+          </TabsTrigger>
 
-        <button
-          type="button"
-          role="tab"
-          id="tab-deudores"
-          aria-selected={activeTab === 'deudores'}
-          aria-controls="panel-deudores"
-          onClick={() => setActiveTab('deudores')}
-          className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-2 ${
-            activeTab === 'deudores'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="credit-card" className="w-4 h-4" aria-hidden="true" />
-          <span>Deudores & Créditos</span>
-          {debtorsWithBalanceCount > 0 && (
-            <span
-              className="bg-amber-500 text-white font-mono px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-              title={`${debtorsWithBalanceCount} deudor(es) con saldo pendiente`}
-            >
-              {debtorsWithBalanceCount}
-            </span>
-          )}
-        </button>
+          <TabsTrigger value="deudores">
+            <Icon name="credit-card" className="w-4 h-4" aria-hidden="true" />
+            <span>Deudores & Créditos</span>
+            {debtorsWithBalanceCount > 0 && (
+              <Badge
+                variant="warning"
+                size="sm"
+                className="font-mono px-1.5 py-0 text-[10px]"
+                title={`${debtorsWithBalanceCount} deudor(es) con saldo pendiente`}
+              >
+                {debtorsWithBalanceCount}
+              </Badge>
+            )}
+          </TabsTrigger>
 
-        <button
-          type="button"
-          role="tab"
-          id="tab-tachados-admin"
-          aria-selected={activeTab === 'tachados_admin'}
-          aria-controls="panel-tachados-admin"
-          onClick={() => setActiveTab('tachados_admin')}
-          className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-2 ${
-            activeTab === 'tachados_admin'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="shield" className="w-4 h-4" aria-hidden="true" />
-          <span>Auditoría Tachados</span>
-          {struckSales.length > 0 && (
-            <span className="ml-0.5 px-1.5 py-0.5 text-[10px] rounded-full bg-red-100 text-red-700 font-bold">
-              {struckSales.length}
-            </span>
-          )}
-        </button>
-      </div>
+          <TabsTrigger value="tachados_admin">
+            <Icon name="shield" className="w-4 h-4" aria-hidden="true" />
+            <span>Auditoría Tachados</span>
+            {struckSales.length > 0 && (
+              <Badge
+                variant="danger"
+                size="sm"
+                className="font-mono px-1.5 py-0 text-[10px]"
+              >
+                {struckSales.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* ==================================================================== */}
-      {/* PESTAÑA 1: PUNTO DE VENTA (POS)                                      */}
-      {/* ==================================================================== */}
-      {activeTab === 'pos' && (
-        <div
-          role="tabpanel"
-          id="panel-pos"
-          aria-labelledby="tab-pos"
-          className="flex flex-col gap-6"
-        >
+        {/* ==================================================================== */}
+        {/* PESTAÑA 1: PUNTO DE VENTA (POS)                                      */}
+        {/* ==================================================================== */}
+        <TabsContent value="pos" className="flex flex-col gap-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Columna Izquierda: Selector de Cliente + Catálogo (7 columnas) */}
             <div className="lg:col-span-7 flex flex-col gap-5">
               {/* Selector de Cliente (Caso Juan Pérez) */}
-              <div className="bg-surface border border-border rounded-xl p-4 shadow-xs flex flex-col gap-3">
+              <Card padding="sm" className="gap-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-txt-primary flex items-center gap-1.5">
                     <Icon name="user" className="w-4 h-4 text-txt-secondary" aria-hidden="true" />
                     Selección de Cliente / Socio
                   </span>
                   {hook.selectedClient ? (
-                    <button
+                    <Button
                       type="button"
+                      variant="link"
+                      size="sm"
                       onClick={() => hook.setSelectedClient(null)}
-                      className="text-[11px] font-semibold text-red-600 hover:underline"
+                      className="text-[11px] font-semibold text-status-danger"
                     >
                       Cambiar a Público General
-                    </button>
+                    </Button>
                   ) : (
                     <Badge variant="default" size="sm">
                       Público General / Venta Rápida
@@ -387,7 +356,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                 </div>
 
                 {hook.selectedClient ? (
-                  <div className="p-3 bg-canvas-subtle border border-emerald-300 dark:border-emerald-800 rounded-lg flex items-center justify-between">
+                  <div className="p-3 bg-canvas-subtle border border-status-success-border rounded-lg flex items-center justify-between">
                     <div>
                       <h4 className="font-bold text-txt-primary text-sm">
                         {hook.selectedClient.nombres} {hook.selectedClient.apellidos}
@@ -403,10 +372,11 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                 ) : (
                   <div className="relative">
                     <Input
+                      inputSize="sm"
+                      aria-label="Buscar cliente o socio"
                       placeholder="Buscar por Apellidos, Nombres, DNI o QR..."
                       value={clientSearch}
                       onChange={(e) => setClientSearch(e.target.value)}
-                      className="text-xs"
                     />
 
                     {/* Menú flotante de resultados en vivo */}
@@ -421,7 +391,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                                 hook.setSelectedClient(c);
                                 setClientSearch('');
                               }}
-                              className="w-full text-left p-2.5 hover:bg-canvas-subtle text-xs flex justify-between items-center transition-colors"
+                              className="w-full text-left p-2.5 hover:bg-canvas-subtle focus-visible:bg-canvas-subtle focus:outline-none text-xs flex justify-between items-center transition-colors"
                             >
                               <div className="flex flex-col">
                                 <span className="font-bold text-txt-primary">
@@ -446,8 +416,8 @@ export const PosView: React.FC<PosViewProps> = (props) => {
 
                 {/* Si el cliente tiene deudas pendientes */}
                 {clientPendingCredits.length > 0 && (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-lg flex flex-col gap-2">
-                    <span className="text-xs font-bold text-amber-900 dark:text-amber-200 inline-flex items-center gap-1.5">
+                  <div className="p-3 bg-status-warning-bg border border-status-warning-border rounded-lg flex flex-col gap-2">
+                    <span className="text-xs font-bold text-status-warning inline-flex items-center gap-1.5">
                       <Icon name="warning" className="w-4 h-4 shrink-0" aria-hidden="true" />
                       Este socio tiene {clientPendingCredits.length} deuda(s) pendiente(s):
                     </span>
@@ -455,7 +425,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                       {clientPendingCredits.map((cred) => (
                         <div
                           key={cred.id}
-                          className="flex items-center justify-between bg-surface p-2 rounded border border-amber-200 dark:border-amber-900 text-xs"
+                          className="flex items-center justify-between bg-surface p-2 rounded border border-status-warning-border text-xs"
                         >
                           <div>
                             <span className="font-semibold text-txt-primary">{cred.descripcion}</span>
@@ -477,44 +447,39 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                     </div>
                   </div>
                 )}
-              </div>
+              </Card>
 
               {/* Selector de Catálogo (Productos / Planes) */}
-              <div className="bg-surface border border-border rounded-xl p-4 shadow-xs flex flex-col gap-4">
+              <Card padding="sm" className="gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
+                    <Button
                       type="button"
+                      size="sm"
+                      variant={catalogSubTab === 'productos' ? 'primary' : 'secondary'}
                       onClick={() => setCatalogSubTab('productos')}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 ${
-                        catalogSubTab === 'productos'
-                          ? 'bg-brand text-brand-text'
-                          : 'bg-canvas-subtle text-txt-muted hover:text-txt-primary'
-                      }`}
+                      leftIcon={<Icon name="package" className="w-3.5 h-3.5" aria-hidden="true" />}
                     >
-                      <Icon name="package" className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Productos en Stock</span>
-                    </button>
-                    <button
+                      Productos en Stock
+                    </Button>
+                    <Button
                       type="button"
+                      size="sm"
+                      variant={catalogSubTab === 'planes' ? 'primary' : 'secondary'}
                       onClick={() => setCatalogSubTab('planes')}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 ${
-                        catalogSubTab === 'planes'
-                          ? 'bg-brand text-brand-text'
-                          : 'bg-canvas-subtle text-txt-muted hover:text-txt-primary'
-                      }`}
+                      leftIcon={<Icon name="catalog" className="w-3.5 h-3.5" aria-hidden="true" />}
                     >
-                      <Icon name="catalog" className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Planes & Pases</span>
-                    </button>
+                      Planes & Pases
+                    </Button>
                   </div>
 
                   <div className="w-full sm:w-52">
                     <Input
+                      inputSize="sm"
+                      aria-label="Buscar en catálogo"
                       placeholder="Buscar en catálogo..."
                       value={catalogSearch}
                       onChange={(e) => setCatalogSearch(e.target.value)}
-                      className="text-xs py-1"
                     />
                   </div>
                 </div>
@@ -543,7 +508,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                           </div>
 
                           <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                            <span className="font-extrabold text-sm text-emerald-700 dark:text-emerald-400">
+                            <span className="font-extrabold text-sm text-status-success">
                               S/ {formatMoney(p.precio_venta)}
                             </span>
                             <Button
@@ -570,13 +535,16 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                       <label htmlFor="plan-start-date" className="font-bold text-txt-secondary whitespace-nowrap">
                         Fecha de Inicio del Plan:
                       </label>
-                      <input
-                        id="plan-start-date"
-                        type="date"
-                        value={planStartDate}
-                        onChange={(e) => setPlanStartDate(e.target.value)}
-                        className="text-xs px-2 py-1 rounded border border-border bg-surface text-txt-primary font-semibold"
-                      />
+                      <div className="w-40">
+                        <Input
+                          id="plan-start-date"
+                          type="date"
+                          inputSize="sm"
+                          value={planStartDate}
+                          onChange={(e) => setPlanStartDate(e.target.value)}
+                          className="font-semibold py-1"
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
@@ -600,7 +568,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                           </div>
 
                           <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                            <span className="font-extrabold text-sm text-emerald-700 dark:text-emerald-400">
+                            <span className="font-extrabold text-sm text-status-success">
                               S/ {formatMoney(pl.precio_base || pl.precio || '0.00')}
                             </span>
                             <Button
@@ -619,7 +587,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                     </div>
                   </div>
                 )}
-              </div>
+              </Card>
             </div>
 
             {/* Columna Derecha: Carrito + Split de Pagos (5 columnas) */}
@@ -649,17 +617,13 @@ export const PosView: React.FC<PosViewProps> = (props) => {
               />
             </div>
           </div>
-        </div>
-      )}
+        </TabsContent>
 
-      {/* ==================================================================== */}
-      {/* PESTAÑA 2: VENTAS DEL TURNO & TACHADO (PASO 1)                        */}
-      {/* ==================================================================== */}
-      {activeTab === 'ventas' && (
-        <div
-          role="tabpanel"
-          id="panel-ventas"
-          aria-labelledby="tab-ventas"
+        {/* ==================================================================== */}
+        {/* PESTAÑA 2: VENTAS DEL TURNO & TACHADO (PASO 1)                        */}
+        {/* ==================================================================== */}
+        <TabsContent
+          value="ventas"
           className="bg-surface border border-border rounded-xl p-4 sm:p-5 shadow-xs flex flex-col gap-4"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
@@ -674,27 +638,31 @@ export const PosView: React.FC<PosViewProps> = (props) => {
             </div>
 
             <div className="flex items-center gap-2">
-              <select
-                value={salesFilterStatus}
-                onChange={(e) => setSalesFilterStatus(e.target.value)}
-                aria-label="Filtrar ventas por estado"
-                className="text-xs rounded-lg border border-border bg-surface px-3 py-1.5 font-semibold text-txt-primary"
-              >
-                <option value="TODAS">Todos los Estados</option>
-                <option value="COMPLETADA">Solo Completadas</option>
-                <option value="TACHADA_EN_TURNO">Tachadas en Turno</option>
-                <option value="ANULADA_DEFINITIVA">Anuladas Definitivas</option>
-              </select>
+              <div className="w-44">
+                <Select
+                  selectSize="sm"
+                  value={salesFilterStatus}
+                  onChange={(e) => setSalesFilterStatus(e.target.value)}
+                  aria-label="Filtrar ventas por estado"
+                  options={[
+                    { value: 'TODAS', label: 'Todos los Estados' },
+                    { value: 'COMPLETADA', label: 'Solo Completadas' },
+                    { value: 'TACHADA_EN_TURNO', label: 'Tachadas en Turno' },
+                    { value: 'ANULADA_DEFINITIVA', label: 'Anuladas Definitivas' },
+                  ]}
+                />
+              </div>
 
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="icon"
                 onClick={() => hook.fetchSales()}
-                className="p-1.5 border border-border rounded-lg bg-canvas-subtle hover:bg-slate-200 dark:hover:bg-slate-700 text-xs text-txt-secondary hover:text-txt-primary transition-colors"
                 title="Refrescar ventas"
                 aria-label="Refrescar ventas"
               >
                 <Icon name="refresh" className="w-4 h-4" aria-hidden="true" />
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -703,117 +671,110 @@ export const PosView: React.FC<PosViewProps> = (props) => {
               No se encontraron ventas para los criterios seleccionados.
             </div>
           ) : (
-            <div
-              tabIndex={0}
-              className="border border-border rounded-xl overflow-x-auto overscroll-x-contain shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            <Table
+              containerLabel="Registro de ventas del turno"
+              containerClassName="rounded-xl shadow-xs"
+              className="min-w-[680px] text-xs"
             >
-              <table className="w-full min-w-[680px] text-left text-xs">
-                <thead className="bg-canvas-subtle text-[11px] text-txt-muted uppercase font-bold border-b border-border">
-                  <tr>
-                    <th className="px-4 py-3">Venta #</th>
-                    <th className="px-3 py-3">Cliente</th>
-                    <th className="px-3 py-3">Vendedor</th>
-                    <th className="px-3 py-3 text-right">Efectivo</th>
-                    <th className="px-3 py-3 text-right">Digital</th>
-                    <th className="px-3 py-3 text-right">Total</th>
-                    <th className="px-3 py-3 text-center">Estado</th>
-                    <th className="px-4 py-3 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {filteredSales.map((s) => {
-                    const isTurnoOpen = activeShift && activeShift.id === s.turno_caja_id && activeShift.estado === 'ABIERTO';
-                    const canDoStrike = canStrike && s.estado_venta === 'COMPLETADA' && isTurnoOpen;
+              <TableHeader stickyHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-4 py-3 text-[11px]">Venta #</TableHead>
+                  <TableHead className="px-3 py-3 text-[11px]">Cliente</TableHead>
+                  <TableHead className="px-3 py-3 text-[11px]">Vendedor</TableHead>
+                  <TableHead className="px-3 py-3 text-right text-[11px]">Efectivo</TableHead>
+                  <TableHead className="px-3 py-3 text-right text-[11px]">Digital</TableHead>
+                  <TableHead className="px-3 py-3 text-right text-[11px]">Total</TableHead>
+                  <TableHead className="px-3 py-3 text-center text-[11px]">Estado</TableHead>
+                  <TableHead className="px-4 py-3 text-center text-[11px]">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSales.map((s) => {
+                  const isTurnoOpen = activeShift && activeShift.id === s.turno_caja_id && activeShift.estado === 'ABIERTO';
+                  const canDoStrike = canStrike && s.estado_venta === 'COMPLETADA' && isTurnoOpen;
 
-                    return (
-                      <tr key={s.id} className="hover:bg-canvas-subtle/40 transition-colors">
-                        <td className="px-4 py-3 font-bold text-txt-primary">
-                          #{s.id}
-                          <span className="block text-[10px] text-txt-muted font-normal">{s.created_at}</span>
-                        </td>
-                        <td className="px-3 py-3">
-                          <span className="font-semibold text-txt-primary">
-                            {s.cliente_nombre_completo || 'Público General'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 text-txt-secondary">
-                          @{s.usuario_vendedor_username}
-                        </td>
-                        <td className="px-3 py-3 text-right text-txt-secondary font-medium">
-                          S/ {formatMoney(s.monto_pagado_efectivo)}
-                        </td>
-                        <td className="px-3 py-3 text-right text-txt-secondary font-medium">
-                          S/ {formatMoney(s.monto_pagado_digital)}
-                        </td>
-                        <td className="px-3 py-3 text-right font-extrabold text-txt-primary">
-                          S/ {formatMoney(s.total_venta)}
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          {s.estado_venta === 'COMPLETADA' && <Badge variant="success" size="sm">Completada</Badge>}
-                          {s.estado_venta === 'TACHADA_EN_TURNO' && <Badge variant="warning" size="sm">Tachada</Badge>}
-                          {s.estado_venta === 'ANULADA_DEFINITIVA' && <Badge variant="danger" size="sm">Anulada Definitiva</Badge>}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell className="px-4 py-3 font-bold">
+                        #{s.id}
+                        <span className="block text-[10px] text-txt-muted font-normal">{s.created_at}</span>
+                      </TableCell>
+                      <TableCell className="px-3 py-3">
+                        <span className="font-semibold text-txt-primary">
+                          {s.cliente_nombre_completo || 'Público General'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-txt-secondary">
+                        @{s.usuario_vendedor_username}
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-right text-txt-secondary font-medium">
+                        S/ {formatMoney(s.monto_pagado_efectivo)}
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-right text-txt-secondary font-medium">
+                        S/ {formatMoney(s.monto_pagado_digital)}
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-right font-extrabold">
+                        S/ {formatMoney(s.total_venta)}
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-center">
+                        {s.estado_venta === 'COMPLETADA' && <Badge variant="success" size="sm">Completada</Badge>}
+                        {s.estado_venta === 'TACHADA_EN_TURNO' && <Badge variant="warning" size="sm">Tachada</Badge>}
+                        {s.estado_venta === 'ANULADA_DEFINITIVA' && <Badge variant="danger" size="sm">Anulada Definitiva</Badge>}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              const detail = await hook.fetchSaleDetail(s.id);
+                              if (detail) setDetailModalSale(detail);
+                            }}
+                            className="text-xs"
+                          >
+                            Ver Detalle
+                          </Button>
+
+                          {canDoStrike && (
                             <Button
                               type="button"
                               size="sm"
-                              variant="outline"
-                              onClick={async () => {
-                                const detail = await hook.fetchSaleDetail(s.id);
-                                if (detail) setDetailModalSale(detail);
-                              }}
-                              className="text-xs"
+                              variant="danger"
+                              onClick={() => setStrikeModalSale(s)}
+                              leftIcon={<Icon name="scissors" className="w-3.5 h-3.5" aria-hidden="true" />}
+                              className="text-xs font-bold"
                             >
-                              Ver Detalle
+                              Tachar
                             </Button>
-
-                            {canDoStrike && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="danger"
-                                onClick={() => setStrikeModalSale(s)}
-                                leftIcon={<Icon name="scissors" className="w-3.5 h-3.5" aria-hidden="true" />}
-                                className="text-xs font-bold"
-                              >
-                                Tachar
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
-        </div>
-      )}
+        </TabsContent>
 
-      {/* ==================================================================== */}
-      {/* PESTAÑA 3: DEUDORES Y CRÉDITOS                                        */}
-      {/* ==================================================================== */}
-      {activeTab === 'deudores' && (
-        <div role="tabpanel" id="panel-deudores" aria-labelledby="tab-deudores">
+        {/* ==================================================================== */}
+        {/* PESTAÑA 3: DEUDORES Y CRÉDITOS                                        */}
+        {/* ==================================================================== */}
+        <TabsContent value="deudores">
           <DebtorsTable
             credits={credits}
             isLoading={hook.isLoading}
             onAmortizeInPos={handleAmortizeCredit}
             onRefresh={hook.fetchCredits}
           />
-        </div>
-      )}
+        </TabsContent>
 
-      {/* ==================================================================== */}
-      {/* PESTAÑA 4: BANDEJA ADMIN RESOLUCIÓN DE TACHADOS (PASO 2)             */}
-      {/* ==================================================================== */}
-      {activeTab === 'tachados_admin' && (
-        <div
-          role="tabpanel"
-          id="panel-tachados-admin"
-          aria-labelledby="tab-tachados-admin"
+        {/* ==================================================================== */}
+        {/* PESTAÑA 4: BANDEJA ADMIN RESOLUCIÓN DE TACHADOS (PASO 2)             */}
+        {/* ==================================================================== */}
+        <TabsContent
+          value="tachados_admin"
           className="bg-surface border border-border rounded-xl p-4 sm:p-5 shadow-xs flex flex-col gap-4"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
@@ -834,24 +795,23 @@ export const PosView: React.FC<PosViewProps> = (props) => {
               </p>
             </div>
 
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="icon"
               onClick={() => hook.fetchSales()}
-              className="p-1.5 border border-border rounded-lg bg-canvas-subtle hover:bg-slate-200 dark:hover:bg-slate-700 text-xs text-txt-secondary hover:text-txt-primary transition-colors self-start sm:self-auto"
+              className="self-start sm:self-auto"
               title="Refrescar bandeja"
               aria-label="Refrescar bandeja"
             >
               <Icon name="refresh" className="w-4 h-4" aria-hidden="true" />
-            </button>
+            </Button>
           </div>
 
           {!isAdmin && (
-            <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-lg p-3 text-xs text-blue-900 dark:text-blue-200 flex items-center gap-2">
-              <Icon name="info" className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>
-                Solo los usuarios con rol <strong>ADMINISTRADOR</strong> cuentan con privilegios para confirmar anulaciones o revertir tachados.
-              </span>
-            </div>
+            <Alert variant="info" floating={false}>
+              Solo los usuarios con rol <strong>ADMINISTRADOR</strong> cuentan con privilegios para confirmar anulaciones o revertir tachados.
+            </Alert>
           )}
 
           {struckSales.length === 0 ? (
@@ -860,61 +820,60 @@ export const PosView: React.FC<PosViewProps> = (props) => {
               <span>No hay ventas pendientes de resolución en la bandeja de tachados.</span>
             </div>
           ) : (
-            <div
-              tabIndex={0}
-              className="border border-border rounded-xl overflow-x-auto overscroll-x-contain shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            <Table
+              containerLabel="Bandeja administrativa de resolución de tachados"
+              containerClassName="rounded-xl shadow-xs"
+              className="min-w-[680px] text-xs"
             >
-              <table className="w-full min-w-[680px] text-left text-xs">
-                <thead className="bg-canvas-subtle text-[11px] text-txt-muted uppercase font-bold border-b border-border">
-                  <tr>
-                    <th className="px-4 py-3">Venta #</th>
-                    <th className="px-3 py-3">Turno</th>
-                    <th className="px-3 py-3">Cliente</th>
-                    <th className="px-3 py-3 text-right">Monto</th>
-                    <th className="px-4 py-3">Motivo Tachado</th>
-                    <th className="px-4 py-3 text-center">Acción Admin</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {struckSales.map((s) => (
-                    <tr key={s.id} className="hover:bg-canvas-subtle/40 transition-colors">
-                      <td className="px-4 py-3 font-bold text-txt-primary">#{s.id}</td>
-                      <td className="px-3 py-3 text-txt-secondary">Turno #{s.turno_caja_id}</td>
-                      <td className="px-3 py-3 font-semibold text-txt-primary">
-                        {s.cliente_nombre_completo || 'Público General'}
-                      </td>
-                      <td className="px-3 py-3 text-right font-bold text-txt-primary">
-                        S/ {formatMoney(s.total_venta)}
-                      </td>
-                      <td className="px-4 py-3 text-txt-secondary text-[11px] italic">
-                        {s.usuario_vendedor_username ? `Vendedor: @${s.usuario_vendedor_username}` : ''}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {canResolve ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="primary"
-                            onClick={() => setResolveModalSale(s)}
-                            leftIcon={<Icon name="shield" className="w-3.5 h-3.5" aria-hidden="true" />}
-                            className="text-xs font-bold shadow-xs"
-                          >
-                            Resolver
-                          </Button>
-                        ) : (
-                          <span className="text-[11px] text-txt-muted italic">
-                            Pendiente de Admin
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+              <TableHeader stickyHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-4 py-3 text-[11px]">Venta #</TableHead>
+                  <TableHead className="px-3 py-3 text-[11px]">Turno</TableHead>
+                  <TableHead className="px-3 py-3 text-[11px]">Cliente</TableHead>
+                  <TableHead className="px-3 py-3 text-right text-[11px]">Monto</TableHead>
+                  <TableHead className="px-4 py-3 text-[11px]">Motivo Tachado</TableHead>
+                  <TableHead className="px-4 py-3 text-center text-[11px]">Acción Admin</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {struckSales.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="px-4 py-3 font-bold">#{s.id}</TableCell>
+                    <TableCell className="px-3 py-3 text-txt-secondary">Turno #{s.turno_caja_id}</TableCell>
+                    <TableCell className="px-3 py-3 font-semibold">
+                      {s.cliente_nombre_completo || 'Público General'}
+                    </TableCell>
+                    <TableCell className="px-3 py-3 text-right font-bold">
+                      S/ {formatMoney(s.total_venta)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-txt-secondary text-[11px] italic">
+                      {s.usuario_vendedor_username ? `Vendedor: @${s.usuario_vendedor_username}` : ''}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-center">
+                      {canResolve ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="primary"
+                          onClick={() => setResolveModalSale(s)}
+                          leftIcon={<Icon name="shield" className="w-3.5 h-3.5" aria-hidden="true" />}
+                          className="text-xs font-bold shadow-xs"
+                        >
+                          Resolver
+                        </Button>
+                      ) : (
+                        <span className="text-[11px] text-txt-muted italic">
+                          Pendiente de Admin
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
-        </div>
-      )}
+        </TabsContent>
+      </Tabs>
 
       {/* ==================================================================== */}
       {/* MODALES DEL SLICE 4                                                   */}

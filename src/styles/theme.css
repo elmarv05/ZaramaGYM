@@ -4,68 +4,127 @@
 
 /* ============================================================================
    DESIGN TOKENS - KINETIC LEDGER (LIGHT) & KINETIC OBSIDIAN (DARK)
-   ZaramaGYM Sistema de Gestión - Slice 9 (Capa 3)
-   Paleta de Alto Contraste, Semáforo G/Y/R y Ergonomía Multiplataforma
+   Sistema de Diseño estandarizado shadcn/ui — ZaramaGYM
+   Armonía cromática neutral + esmeralda, contraste WCAG AA/AAA y fluidez GPU
    ============================================================================ */
+
+@property --login-bg-from {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #047340;
+}
+
+@property --login-bg-via {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #046242;
+}
+
+@property --login-bg-to {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0a5554;
+}
 
 :root {
   color-scheme: light dark;
   accent-color: var(--color-brand-primary);
   scrollbar-color: var(--color-border-strong) transparent;
+  --in-oklab: ;
 
-  /* Superficies (Kinetic Ledger - Light Mode) */
-  --color-bg-canvas: #f4f6fa;
-  --color-bg-canvas-subtle: #edf1f7;
+  /* Superficies (Light Mode — Alabaster arquitectónico limpio) */
+  --color-bg-canvas: #f5f7f6;
+  --color-bg-canvas-subtle: #ebf0ed;
   --color-bg-surface: #ffffff;
-  --color-bg-surface-hover: #f8fafc;
-  --color-bg-surface-active: #eef2f6;
+  --color-bg-surface-hover: #f3f7f5;
+  --color-bg-surface-active: #e6eee9;
   --color-bg-elevated: #ffffff;
 
-  /* Chrome (Sidebar, Header y Footer con tonalidad verde esmeralda corporativa suave) */
-  --color-chrome-sidebar: #e7f2ec;
-  --color-chrome-bar: #eef6f1;
-  --color-chrome-surface: #dcebe3;
-  --color-chrome-hover: #d1e6db;
-  --color-chrome-border: #bfd9cb;
+  /* Chrome ZaramaGYM Light: Sidebar Pino Profundo + Header/Footer Salvia Mineral con alto contraste */
+  --color-chrome-sidebar: #0b271c;
+  --color-chrome-sidebar-surface: #123628;
+  --color-chrome-sidebar-hover: #174432;
+  --color-chrome-sidebar-border: #1e523d;
+  --color-chrome-sidebar-text: #f2faf6;
+  --color-chrome-sidebar-text-secondary: #c2ddd0;
+  --color-chrome-sidebar-text-muted: #8fb6a4;
+  --color-chrome-sidebar-active-bg: #058749;
+  --color-chrome-sidebar-active-text: #ffffff;
+  --color-chrome-sidebar-active-icon: #ffffff;
+  --color-chrome-sidebar-active-border: #22c574;
+  --color-chrome-sidebar-danger: #fca5a5;
+  --color-chrome-sidebar-danger-bg: rgba(220, 38, 38, 0.22);
+  --color-chrome-sidebar-danger-border: rgba(248, 113, 113, 0.42);
+  --color-chrome-sidebar-scrollbar: #3f7660;
+  --color-chrome-sidebar-glow: rgba(16, 185, 129, 0.14);
 
-  /* Bordes */
-  --color-border-subtle: #e2e8f0;
-  --color-border-strong: #94a3b8;
-  --color-border-elevated: #cbd5e1;
-  --color-border-focus: #05ad52;
+  --color-chrome-bar: #e2eee7;
+  --color-chrome-bar-surface: #ffffff;
+  --color-chrome-bar-input: #ffffff;
+  --color-chrome-bar-hover: #d3e5db;
+  --color-chrome-bar-border: #aec9bb;
+  --color-chrome-bar-text: #0b2219;
+  --color-chrome-bar-text-muted: #2d4e40;
+  --color-chrome-bar-accent: #057a44;
 
-  /* Textos */
-  --color-text-primary: #1e293b;
-  --color-text-secondary: #475569;
-  --color-text-muted: #64748b;
+  /* Alias legacy chrome (apuntan a las barras para compatibilidad) */
+  --color-chrome-surface: var(--color-chrome-bar-surface);
+  --color-chrome-hover: var(--color-chrome-bar-hover);
+  --color-chrome-border: var(--color-chrome-bar-border);
+
+  /* Bordes (hairlines limpios con contraste >= 3:1 en controles WCAG 1.4.11) */
+  --color-border-subtle: #e0e7e3;
+  --color-border-strong: #82928b;
+  --color-border-elevated: #c2cdc8;
+  --color-border-focus: #057a44;
+
+  /* Textos (tinta obsidiana de alto contraste) */
+  --color-text-primary: #0f1714;
+  --color-text-secondary: #43524c;
+  --color-text-muted: #64746d;
   --color-text-inverse: #ffffff;
 
-  /* Marca y Acentos */
-  --color-brand-primary: #05ad52;
-  --color-brand-hover: #048c42;
+  /* Marca y Acentos (WCAG AA >= 4.5:1 con texto blanco) */
+  --color-brand-primary: #057a44;
+  --color-brand-hover: #046337;
   --color-brand-text: #ffffff;
-  --color-accent-indigo: #6366f1;
-  --color-accent-sky: #0284c7;
+  --color-accent-indigo: #4f46e5;
+  --color-accent-sky: #0369a1;
 
-  /* Semáforo G/Y/R e Informativo */
-  --color-status-success: #05ad52;
-  --color-status-success-bg: #dcfce7;
-  --color-status-warning: #d97706;
-  --color-status-warning-bg: #fef3c7;
+  /* Semáforo G/Y/R e Informativo armonizados con marca esmeralda */
+  --color-status-success: #057a44;
+  --color-status-success-bg: #ecfdf3;
+  --color-status-success-border: #a7f3c8;
+  --color-status-warning: #b45309;
+  --color-status-warning-bg: #fffbeb;
+  --color-status-warning-border: #fcd34d;
   --color-status-danger: #dc2626;
-  --color-status-danger-bg: #fee2e2;
-  --color-status-info: #0284c7;
-  --color-status-info-bg: #e0f2fe;
+  --color-status-danger-hover: #b91c1c;
+  --color-status-danger-bg: #fef2f2;
+  --color-status-danger-border: #fecaca;
+  --color-status-info: #0369a1;
+  --color-status-info-bg: #f0f9ff;
+  --color-status-info-border: #bae6fd;
 
-  /* Radios y Elevaciones */
+  /* Fondo adaptativo del LoginForm (Modo Claro: esmeralda-teal profundo con contraste AA >= 4.5:1) */
+  --login-bg-from: #047340;
+  --login-bg-via: #046242;
+  --login-bg-to: #0a5554;
+  --login-glow: rgba(52, 211, 153, 0.22);
+
+  /* Radios atenuados (esquinas más sobrias y profesionales) */
   --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  --radius-md: 0.3125rem;
+  --radius-lg: 0.4375rem;
+  --radius-xl: 0.5625rem;
+  --radius-2xl: 0.75rem;
+  --radius-3xl: 1rem;
 
-  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(15 23 42 / 0.07), 0 2px 4px -2px rgb(15 23 42 / 0.05);
-  --shadow-lg: 0 10px 15px -3px rgb(15 23 42 / 0.08), 0 4px 6px -4px rgb(15 23 42 / 0.05);
+  --shadow-2xs: 0 1px 0 0 rgb(15 23 20 / 0.04);
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 20 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(15 23 20 / 0.07), 0 1px 2px -1px rgb(15 23 20 / 0.05);
+  --shadow-md: 0 6px 14px -3px rgb(15 23 20 / 0.08), 0 2px 6px -2px rgb(15 23 20 / 0.05);
+  --shadow-lg: 0 16px 32px -6px rgb(15 23 20 / 0.12), 0 6px 12px -4px rgb(15 23 20 / 0.06);
 }
 
 :root:has(> head > meta[name="color-scheme"][content="light"]) {
@@ -79,53 +138,95 @@
 .dark {
   color-scheme: dark;
 
-  /* Superficies (Kinetic Obsidian - Dark Mode) */
-  --color-bg-canvas: #0b1120;
-  --color-bg-canvas-subtle: #0f172a;
-  --color-bg-surface: #131c31;
-  --color-bg-surface-hover: #1e293b;
-  --color-bg-surface-active: #334155;
-  --color-bg-elevated: #1e293b;
+  /* Superficies (Dark Mode — Obsidiana profundo empotrado + tarjetas carbón elevadas) */
+  --color-bg-canvas: #060908;
+  --color-bg-canvas-subtle: #0e1412;
+  --color-bg-surface: #121816;
+  --color-bg-surface-hover: #1a2320;
+  --color-bg-surface-active: #232f2b;
+  --color-bg-elevated: #17201d;
 
-  /* Chrome (Sidebar, Header y Footer con tonalidad verde bosque oscuro de alto contraste) */
-  --color-chrome-sidebar: #091a15;
-  --color-chrome-bar: #0c201a;
-  --color-chrome-surface: #122b23;
-  --color-chrome-hover: #18382e;
-  --color-chrome-border: #1e4337;
+  /* Chrome ZaramaGYM Dark: Sidebar Pino Obsidiana + Header/Footer Bosque Elevado con contraste nítido */
+  --color-chrome-sidebar: #081812;
+  --color-chrome-sidebar-surface: #0f291e;
+  --color-chrome-sidebar-hover: #143628;
+  --color-chrome-sidebar-border: #163428;
+  --color-chrome-sidebar-text: #eef7f2;
+  --color-chrome-sidebar-text-secondary: #b6d2c4;
+  --color-chrome-sidebar-text-muted: #82a897;
+  --color-chrome-sidebar-active-bg: #0c3d28;
+  --color-chrome-sidebar-active-text: #ecfdf5;
+  --color-chrome-sidebar-active-icon: #34d399;
+  --color-chrome-sidebar-active-border: #10b981;
+  --color-chrome-sidebar-danger: #fca5a5;
+  --color-chrome-sidebar-danger-bg: rgba(220, 38, 38, 0.2);
+  --color-chrome-sidebar-danger-border: rgba(248, 113, 113, 0.38);
+  --color-chrome-sidebar-scrollbar: #366955;
+  --color-chrome-sidebar-glow: rgba(16, 185, 129, 0.12);
 
-  /* Bordes */
-  --color-border-subtle: #1e293b;
-  --color-border-strong: #475569;
-  --color-border-elevated: #334155;
+  --color-chrome-bar: #0d2219;
+  --color-chrome-bar-surface: #143225;
+  --color-chrome-bar-input: #081610;
+  --color-chrome-bar-hover: #1b4232;
+  --color-chrome-bar-border: #193b2d;
+  --color-chrome-bar-text: #eef7f2;
+  --color-chrome-bar-text-muted: #a1c2b3;
+  --color-chrome-bar-accent: #10b981;
+
+  /* Alias legacy chrome */
+  --color-chrome-surface: var(--color-chrome-bar-surface);
+  --color-chrome-hover: var(--color-chrome-bar-hover);
+  --color-chrome-border: var(--color-chrome-bar-border);
+
+  /* Bordes (hairlines atenuados para menor brillo perceptible en oscuro) */
+  --color-border-subtle: #1a2320;
+  --color-border-strong: #44534d;
+  --color-border-elevated: #26312d;
   --color-border-focus: #10b981;
 
   /* Textos */
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-text-inverse: #0b1120;
+  --color-text-primary: #f2f6f4;
+  --color-text-secondary: #a1b0aa;
+  --color-text-muted: #768780;
+  --color-text-inverse: #090c0b;
 
-  /* Marca y Acentos */
-  --color-brand-primary: #05ad52;
-  --color-brand-hover: #10b981;
-  --color-brand-text: #ffffff;
+  /* Marca y Acentos (esmeralda luminoso con texto obsidiana AAA >= 8:1) */
+  --color-brand-primary: #10b981;
+  --color-brand-hover: #34d399;
+  --color-brand-text: #041e12;
   --color-accent-indigo: #818cf8;
   --color-accent-sky: #38bdf8;
 
-  /* Semáforo G/Y/R e Informativo */
-  --color-status-success: #10b981;
-  --color-status-success-bg: #052e16;
+  /* Semáforo G/Y/R e Informativo Dark */
+  --color-status-success: #34d399;
+  --color-status-success-bg: #072619;
+  --color-status-success-border: #135136;
   --color-status-warning: #fbbf24;
-  --color-status-warning-bg: #451a03;
+  --color-status-warning-bg: #2b1a06;
+  --color-status-warning-border: #78420c;
   --color-status-danger: #f87171;
-  --color-status-danger-bg: #450a0a;
+  --color-status-danger-hover: #ef4444;
+  --color-status-danger-bg: #2d0e11;
+  --color-status-danger-border: #7f1d24;
   --color-status-info: #38bdf8;
-  --color-status-info-bg: #082f49;
+  --color-status-info-bg: #082438;
+  --color-status-info-border: #0c4a6e;
+
+  /* Fondo adaptativo del LoginForm (Modo Oscuro: obsidiana-esmeralda nocturno atenuado) */
+  --login-bg-from: #050f0c;
+  --login-bg-via: #081c16;
+  --login-bg-to: #071115;
+  --login-glow: rgba(16, 185, 129, 0.14);
+
+  --shadow-2xs: 0 1px 0 0 rgb(0 0 0 / 0.35);
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.45);
+  --shadow-sm: 0 2px 6px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 10px 24px -4px rgb(0 0 0 / 0.6), 0 4px 8px -2px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 20px 44px -8px rgb(0 0 0 / 0.72), 0 8px 16px -4px rgb(0 0 0 / 0.5);
 }
 
 /* ============================================================================
-   CONTENEDOR RAÍZ DE APLICACIÓN (EVITA DOBLE SCROLL FUERA DE MAIN)
+   CONTENEDOR RAÍZ DE APLICACIÓN Y TIPOGRAFÍA NÍTIDA
    ============================================================================ */
 
 html,
@@ -134,6 +235,167 @@ body,
   margin: 0;
   height: 100%;
   overflow: hidden;
+}
+
+body {
+  background-color: var(--color-bg-canvas);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Shell Chrome de Marca ZaramaGYM (Sidebar oscuro con color-scheme propio + Header/Footer enmarcados) */
+.zg-chrome-sidebar {
+  color-scheme: dark;
+  background-color: var(--color-chrome-sidebar);
+  background-image: linear-gradient(
+    180deg,
+    var(--color-chrome-sidebar-glow) 0%,
+    transparent 220px
+  );
+  color: var(--color-chrome-sidebar-text);
+  accent-color: var(--color-brand-primary);
+  scrollbar-color: var(--color-chrome-sidebar-scrollbar) transparent;
+}
+
+.zg-chrome-header {
+  box-shadow:
+    inset 0 2px 0 0 var(--color-chrome-bar-accent),
+    var(--shadow-xs);
+}
+
+.zg-chrome-footer {
+  box-shadow: 0 -1px 3px 0 rgb(9 35 25 / 0.06);
+}
+
+.dark .zg-chrome-footer {
+  box-shadow: 0 -1px 6px 0 rgb(0 0 0 / 0.35);
+}
+
+/* Ámbito aislado Claro / Oscuro para el Simulador del Escáner Móvil (paridad 1:1 con /scanner) */
+.zg-mobile-preview[data-scanner-theme="light"] {
+  color-scheme: light;
+  --color-bg-canvas: #f4f6f5;
+  --color-bg-canvas-subtle: #f7faf8;
+  --color-bg-surface: #ffffff;
+  --color-bg-surface-hover: #eef3f0;
+  --color-chrome-bar: #e6f0ea;
+  --color-chrome-bar-surface: #ffffff;
+  --color-chrome-bar-hover: #dce9e2;
+  --color-chrome-bar-border: #c1d4ca;
+  --color-chrome-bar-text: #0f1714;
+  --color-chrome-bar-text-muted: #45564f;
+  --color-chrome-bar-accent: #057a44;
+  --color-border-subtle: #d7e1dc;
+  --color-border-strong: #9db0a6;
+  --color-border-elevated: #c4d3cb;
+  --color-border-focus: #057a44;
+  --color-text-primary: #0f1714;
+  --color-text-secondary: #45564f;
+  --color-text-muted: #65766f;
+  --color-text-inverse: #ffffff;
+  --color-brand-primary: #057a44;
+  --color-brand-hover: #046337;
+  --color-brand-text: #ffffff;
+  --color-status-success: #04683a;
+  --color-status-success-bg: #e8f6ee;
+  --color-status-success-border: #b3dfc6;
+  --color-status-warning: #8c4607;
+  --color-status-warning-bg: #fef7e6;
+  --color-status-warning-border: #e7c67e;
+  --color-status-danger: #b91c1c;
+  --color-status-danger-hover: #991b1b;
+  --color-status-danger-bg: #fef2f2;
+  --color-status-danger-border: #efc1c1;
+  background-color: var(--color-bg-canvas);
+  color: var(--color-text-primary);
+  accent-color: var(--color-brand-primary);
+}
+
+.zg-mobile-preview[data-scanner-theme="dark"] {
+  color-scheme: dark;
+  --color-bg-canvas: #090c0b;
+  --color-bg-canvas-subtle: #0e1412;
+  --color-bg-surface: #121816;
+  --color-bg-surface-hover: #18221e;
+  --color-chrome-bar: #0e1c16;
+  --color-chrome-bar-surface: #0c110f;
+  --color-chrome-bar-hover: #18221e;
+  --color-chrome-bar-border: #193429;
+  --color-chrome-bar-text: #edf3f0;
+  --color-chrome-bar-text-muted: #98aca3;
+  --color-chrome-bar-accent: #10b981;
+  --color-border-subtle: #1c2622;
+  --color-border-strong: #2d3c36;
+  --color-border-elevated: #26312d;
+  --color-border-focus: #10b981;
+  --color-text-primary: #edf3f0;
+  --color-text-secondary: #98aca3;
+  --color-text-muted: #6b7e75;
+  --color-text-inverse: #090c0b;
+  --color-brand-primary: #10b981;
+  --color-brand-hover: #0ea472;
+  --color-brand-text: #041e12;
+  --color-status-success: #4ade9d;
+  --color-status-success-bg: #0d271c;
+  --color-status-success-border: #1b4a36;
+  --color-status-warning: #f3c15b;
+  --color-status-warning-bg: #231a09;
+  --color-status-warning-border: #523b13;
+  --color-status-danger: #f29494;
+  --color-status-danger-hover: #dc2626;
+  --color-status-danger-bg: #241114;
+  --color-status-danger-border: #542329;
+  background-color: var(--color-bg-canvas);
+  color: var(--color-text-primary);
+  accent-color: var(--color-brand-primary);
+}
+
+@supports (background: linear-gradient(in oklab, white, black)) {
+  :root {
+    --in-oklab: in oklab;
+  }
+}
+
+/* Fondo adaptativo del Login con interpolación perceptual oklab y transición suave de tema */
+.zg-login-backdrop {
+  background-image: linear-gradient(
+    to bottom right var(--in-oklab),
+    var(--login-bg-from),
+    var(--login-bg-via),
+    var(--login-bg-to)
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .zg-login-backdrop {
+    transition:
+      --login-bg-from 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      --login-bg-via 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      --login-bg-to 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 200ms ease-out;
+  }
+}
+
+/* Fondo con textura sutil de puntos para el Login (1 sola capa GPU) */
+.zg-login-ambient {
+  background-image:
+    radial-gradient(circle at 50% 20%, var(--login-glow), transparent 58%),
+    radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+  background-size: 100% 100%, 28px 28px;
+}
+
+.dark .zg-login-ambient {
+  background-image:
+    radial-gradient(circle at 50% 20%, var(--login-glow), transparent 58%),
+    radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 100% 100%, 28px 28px;
 }
 
 /* ============================================================================
@@ -257,6 +519,23 @@ body,
     outline: 2px solid Highlight;
     outline-offset: 2px;
   }
+  [data-slot="button"]:focus-visible,
+  [data-slot="input"]:focus-visible,
+  [data-slot="textarea"]:focus-visible,
+  [data-slot="select"]:focus-visible,
+  [data-slot="checkbox"]:focus-visible,
+  [data-slot="switch"]:focus-visible,
+  [data-slot="tabs-trigger"]:focus-visible,
+  [data-slot="dropdown-menu-item"]:focus-visible,
+  [data-slot="dialog-close"]:focus-visible,
+  [data-slot="alert-dialog-action"]:focus-visible,
+  [data-slot="alert-dialog-cancel"]:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  [data-slot="tabs-trigger"][data-state="active"]::after {
+    border-color: Highlight;
+  }
 }
 
 /* Fallback legacy para navegadores WebKit sin soporte nativo de scrollbar-color */
@@ -272,6 +551,12 @@ body,
 
   ::-webkit-scrollbar-thumb {
     background-color: var(--color-border-strong);
+    border-radius: 4px;
+  }
+
+  .zg-chrome-sidebar::-webkit-scrollbar-thumb,
+  .zg-chrome-sidebar ::-webkit-scrollbar-thumb {
+    background-color: var(--color-chrome-sidebar-scrollbar);
     border-radius: 4px;
   }
 

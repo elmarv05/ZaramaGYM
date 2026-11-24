@@ -111,29 +111,31 @@ export const ThermalTicketPreview: React.FC<ThermalTicketPreviewProps> = ({
 
         <div className="flex flex-wrap items-center gap-1.5">
           {onWidthChange && (
-            <div className="inline-flex rounded-md shadow-sm border border-border p-0.5 bg-canvas">
-              <button
+            <div
+              role="group"
+              aria-label="Ancho de bobina térmica"
+              className="inline-flex rounded-md shadow-sm border border-border p-0.5 bg-canvas gap-0.5"
+            >
+              <Button
                 type="button"
+                size="sm"
+                variant={widthMm === 58 ? 'primary' : 'ghost'}
+                aria-pressed={widthMm === 58}
                 onClick={() => onWidthChange(58)}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded ${
-                  widthMm === 58
-                    ? 'bg-brand text-brand-text'
-                    : 'text-txt-secondary hover:text-txt-primary'
-                }`}
+                className="min-h-[26px] px-2.5 py-1 text-[11px] font-bold"
               >
                 58mm (32 cols)
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                size="sm"
+                variant={widthMm === 80 ? 'primary' : 'ghost'}
+                aria-pressed={widthMm === 80}
                 onClick={() => onWidthChange(80)}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded ${
-                  widthMm === 80
-                    ? 'bg-brand text-brand-text'
-                    : 'text-txt-secondary hover:text-txt-primary'
-                }`}
+                className="min-h-[26px] px-2.5 py-1 text-[11px] font-bold"
               >
                 80mm (48 cols)
-              </button>
+              </Button>
             </div>
           )}
 
@@ -169,7 +171,7 @@ export const ThermalTicketPreview: React.FC<ThermalTicketPreviewProps> = ({
 
       {/* Papel térmico con estilo visual simétrico */}
       <div className="flex justify-center p-2 bg-canvas/60 rounded-lg overflow-x-auto">
-        <pre className="w-fit max-w-full mx-auto my-0 px-4 py-4 font-mono text-[11px] leading-snug bg-white text-zinc-900 shadow-md rounded border border-zinc-300 whitespace-pre overflow-x-auto select-all">
+        <pre className="w-fit max-w-full mx-auto my-0 px-4 py-4 font-mono text-[11px] leading-snug bg-white text-black shadow-md rounded border border-border-strong whitespace-pre overflow-x-auto select-all">
           {displayText}
         </pre>
       </div>

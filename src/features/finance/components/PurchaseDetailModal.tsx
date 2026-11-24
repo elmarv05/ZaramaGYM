@@ -9,6 +9,14 @@ import { Badge } from '../../../components/primitives/Badge';
 import { Button } from '../../../components/primitives/Button';
 import { Icon } from '../../../components/primitives/Icon';
 import { Modal } from '../../../components/primitives/Modal';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../../components/primitives/Table';
 import { PURCHASE_INVOICE_LABELS, formatCurrency } from '../../../domain/finance';
 import { SupplierPurchaseDetailDto } from '../../../types/finance';
 
@@ -43,7 +51,7 @@ export const PurchaseDetailModal: React.FC<PurchaseDetailModalProps> = ({
       <div className="flex flex-col gap-4 text-xs">
         {/* Banner de Estado Anulado si aplica */}
         {!isActiva && (
-          <div className="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-300 dark:border-rose-900 rounded-lg text-rose-800 dark:text-rose-300">
+          <div className="p-3 bg-status-danger-bg border border-status-danger-border rounded-lg text-status-danger">
             <div className="flex items-center gap-2 font-bold mb-1">
               <Icon name="warning" className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>COMPRA ANULADA EN KARDEX</span>
@@ -98,36 +106,34 @@ export const PurchaseDetailModal: React.FC<PurchaseDetailModalProps> = ({
         {/* Tabla de Productos Comprados */}
         <div className="flex flex-col gap-2">
           <span className="font-bold text-txt-primary">Líneas de Detalle ({items.length} productos):</span>
-          <div className="overflow-x-auto border border-border rounded-lg">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-canvas-subtle text-txt-muted">
-                <tr>
-                  <th className="p-2">SKU</th>
-                  <th className="p-2">Producto</th>
-                  <th className="p-2 text-right">Cantidad</th>
-                  <th className="p-2 text-right">Costo Unitario</th>
-                  <th className="p-2 text-right">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {items.map((it) => (
-                  <tr key={it.id} className="hover:bg-surface/50">
-                    <td className="p-2 font-mono text-txt-muted">{it.producto_sku}</td>
-                    <td className="p-2 font-medium text-txt-primary">{it.producto_nombre}</td>
-                    <td className="p-2 text-right font-bold text-txt-primary">{it.cantidad}</td>
-                    <td className="p-2 text-right text-txt-primary">S/ {it.costo_unitario}</td>
-                    <td className="p-2 text-right font-bold text-txt-primary">S/ {it.subtotal}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table containerLabel="Líneas de detalle de productos comprados" className="text-xs">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="py-2 px-2.5 normal-case tracking-normal">SKU</TableHead>
+                <TableHead className="py-2 px-2.5 normal-case tracking-normal">Producto</TableHead>
+                <TableHead className="py-2 px-2.5 text-right normal-case tracking-normal">Cantidad</TableHead>
+                <TableHead className="py-2 px-2.5 text-right normal-case tracking-normal">Costo Unitario</TableHead>
+                <TableHead className="py-2 px-2.5 text-right normal-case tracking-normal">Subtotal</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((it) => (
+                <TableRow key={it.id}>
+                  <TableCell className="py-2 px-2.5 font-mono text-txt-muted">{it.producto_sku}</TableCell>
+                  <TableCell className="py-2 px-2.5 font-medium text-txt-primary">{it.producto_nombre}</TableCell>
+                  <TableCell className="py-2 px-2.5 text-right font-bold text-txt-primary">{it.cantidad}</TableCell>
+                  <TableCell className="py-2 px-2.5 text-right text-txt-primary">S/ {it.costo_unitario}</TableCell>
+                  <TableCell className="py-2 px-2.5 text-right font-bold text-txt-primary">S/ {it.subtotal}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
 
         {/* Total General */}
         <div className="flex justify-between items-center p-3 bg-canvas-subtle rounded-lg border border-border">
           <span className="font-bold text-sm text-txt-primary">Total Liquidado de Compra:</span>
-          <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+          <span className="text-lg font-black text-status-success">
             {formatCurrency(purchase.total_compra)}
           </span>
         </div>

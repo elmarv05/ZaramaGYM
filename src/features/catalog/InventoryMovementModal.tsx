@@ -4,13 +4,16 @@
 // Ubicación: src/features/catalog/InventoryMovementModal.tsx
 // ============================================================================
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { Alert } from '../../components/primitives/Alert';
+import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
 import { Icon } from '../../components/primitives/Icon';
 import { Input } from '../../components/primitives/Input';
+import { Label } from '../../components/primitives/Label';
 import { Modal } from '../../components/primitives/Modal';
 import { Select } from '../../components/primitives/Select';
+import { Textarea } from '../../components/primitives/Textarea';
 import { validateInventoryMovementForm } from '../../domain/catalog';
 import {
   ProductListItem,
@@ -39,6 +42,7 @@ export const InventoryMovementModal: React.FC<InventoryMovementModalProps> = ({
   onSubmit,
   isLoading = false,
 }) => {
+  const justificacionId = useId();
   const [productId, setProductId] = useState<number>(0);
   const [tipoMovimiento, setTipoMovimiento] = useState<
     'MERMA_DANIO' | 'MERMA_VENCIMIENTO' | 'CONSUMO_PROPIO' | 'ENTRADA_AJUSTE'
@@ -179,7 +183,7 @@ export const InventoryMovementModal: React.FC<InventoryMovementModalProps> = ({
         <div
           className={`p-3 rounded-lg border flex items-center justify-between ${
             isStockNegativo
-              ? 'bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-900'
+              ? 'bg-status-danger-bg border-status-danger-border'
               : 'bg-canvas-subtle border-border'
           }`}
         >
@@ -201,9 +205,9 @@ export const InventoryMovementModal: React.FC<InventoryMovementModalProps> = ({
             </div>
           </div>
           {isStockNegativo && (
-            <span className="text-xs font-bold text-status-danger uppercase tracking-wider bg-red-100 dark:bg-red-900/50 px-2 py-1 rounded">
+            <Badge variant="danger" size="sm" className="uppercase tracking-wider font-bold">
               Stock Negativo
-            </span>
+            </Badge>
           )}
         </div>
 
@@ -215,9 +219,9 @@ export const InventoryMovementModal: React.FC<InventoryMovementModalProps> = ({
 
         <div className="flex flex-col gap-1.5 text-left">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-txt-secondary uppercase tracking-wider select-none">
-              Motivo o Justificación Obligatoria <span className="text-status-danger">*</span>
-            </label>
+            <Label htmlFor={justificacionId} required>
+              Motivo o Justificación Obligatoria
+            </Label>
             <span
               className={`text-[11px] font-mono ${
                 justificacion.trim().length >= 5 ? 'text-txt-muted' : 'text-status-danger font-bold'
@@ -226,21 +230,15 @@ export const InventoryMovementModal: React.FC<InventoryMovementModalProps> = ({
               {justificacion.trim().length}/5 mín.
             </span>
           </div>
-          <textarea
+          <Textarea
+            id={justificacionId}
             rows={2}
-            className={`w-full bg-surface border rounded-md text-sm text-txt-primary p-2.5 outline-none focus:ring-1 ${
-              errors.motivo_justificacion
-                ? 'border-status-danger focus:ring-status-danger'
-                : 'border-border focus:border-border-focus focus:ring-border-focus'
-            }`}
             placeholder="Describe detalladamente la causa de la merma, rotura o consumo..."
             value={justificacion}
             onChange={(e) => setJustificacion(e.target.value)}
+            error={errors.motivo_justificacion}
             required
           />
-          {errors.motivo_justificacion && (
-            <span className="text-xs text-status-danger">{errors.motivo_justificacion}</span>
-          )}
         </div>
 
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border mt-2">

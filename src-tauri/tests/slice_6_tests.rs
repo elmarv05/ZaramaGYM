@@ -1136,8 +1136,8 @@ async fn test_cp_lan_17_scanner_v2_ui_controls_and_ping_health() {
         .await
         .unwrap();
     let manifest_json: serde_json::Value = serde_json::from_slice(&manifest_bytes).unwrap();
-    assert_eq!(manifest_json["background_color"], "#090e1a");
-    assert_eq!(manifest_json["theme_color"], "#090e1a");
+    assert_eq!(manifest_json["background_color"], "#090c0b");
+    assert_eq!(manifest_json["theme_color"], "#090c0b");
 
     // 3. Verificar nuevos controles UI V2 y conservación de elementos críticos en /scanner
     let scanner_res = app
@@ -1161,6 +1161,9 @@ async fn test_cp_lan_17_scanner_v2_ui_controls_and_ping_health() {
         "INGRESO MANUAL / RESPALDO",
         "btnTorch",
         "btnSwitchCam",
+        "btnThemeToggle",
+        "color-scheme",
+        "data-theme",
         "lastPassBar",
         "unlinkModal",
         "SQLite Local-First",

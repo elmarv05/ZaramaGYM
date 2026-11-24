@@ -458,34 +458,38 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
             aria-label="Modo de visualización de usuarios"
             className="inline-flex items-center rounded-lg bg-canvas-subtle p-0.5 border border-border"
           >
-            <button
+            <Button
               type="button"
+              variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+              size="sm"
               onClick={() => setViewMode('cards')}
               aria-pressed={viewMode === 'cards'}
               title="Vista de tarjetas interactivas"
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+              leftIcon={<Icon name="dashboard" className="w-3.5 h-3.5" aria-hidden="true" />}
+              className={`min-h-[28px] px-2.5 py-1 text-xs font-semibold ${
                 viewMode === 'cards'
-                  ? 'bg-surface text-txt-primary shadow-xs border border-border'
-                  : 'text-txt-muted hover:text-txt-primary'
+                  ? 'shadow-xs'
+                  : 'text-txt-muted hover:text-txt-primary border border-transparent'
               }`}
             >
-              <Icon name="dashboard" className="w-3.5 h-3.5" />
-              <span>Tarjetas</span>
-            </button>
-            <button
+              Tarjetas
+            </Button>
+            <Button
               type="button"
+              variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+              size="sm"
               onClick={() => setViewMode('table')}
               aria-pressed={viewMode === 'table'}
               title="Vista de tabla clásica"
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+              leftIcon={<Icon name="menu" className="w-3.5 h-3.5" aria-hidden="true" />}
+              className={`min-h-[28px] px-2.5 py-1 text-xs font-semibold ${
                 viewMode === 'table'
-                  ? 'bg-surface text-txt-primary shadow-xs border border-border'
-                  : 'text-txt-muted hover:text-txt-primary'
+                  ? 'shadow-xs'
+                  : 'text-txt-muted hover:text-txt-primary border border-transparent'
               }`}
             >
-              <Icon name="menu" className="w-3.5 h-3.5" />
-              <span>Tabla</span>
-            </button>
+              Tabla
+            </Button>
           </div>
 
           <Button
@@ -587,7 +591,7 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                         @{user.username}
                       </span>
                       {isCurrentUser && (
-                        <span className="text-[10px] text-sky-600 font-bold uppercase tracking-wider">
+                        <span className="text-[10px] text-status-info font-bold uppercase tracking-wider">
                           (Tu cuenta activa)
                         </span>
                       )}
@@ -639,8 +643,8 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                         }
                         className={
                           user.estado_activo
-                            ? 'text-status-danger border-red-300 hover:bg-status-danger-bg'
-                            : 'text-status-success border-emerald-300 hover:bg-status-success-bg'
+                            ? 'text-status-danger border-status-danger-border hover:bg-status-danger-bg'
+                            : 'text-status-success border-status-success-border hover:bg-status-success-bg'
                         }
                       >
                         {user.estado_activo ? 'Desactivar' : 'Activar'}
@@ -717,17 +721,21 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                         </div>
 
                         {canUploadPhoto && (
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleTriggerRowPhotoUpload(user.id)}
                             title="Cambiar foto de este usuario"
-                            className="absolute inset-0 bg-black/40 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            aria-label={`Cambiar foto de ${user.username}`}
+                            className="absolute inset-0 min-h-0 min-w-0 p-0 bg-black/40 hover:bg-black/55 text-white hover:text-white rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                           >
                             <svg
                               className="w-3.5 h-3.5"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
+                              aria-hidden="true"
                             >
                               <path
                                 strokeLinecap="round"
@@ -742,7 +750,7 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                                 d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
                               />
                             </svg>
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </TableCell>
@@ -751,7 +759,7 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                       <div className="flex flex-col">
                         <span className="font-semibold text-txt-primary">@{user.username}</span>
                         {isCurrentUser && (
-                          <span className="text-[10px] text-sky-600 font-bold uppercase tracking-wider">
+                          <span className="text-[10px] text-status-info font-bold uppercase tracking-wider">
                             (Tu cuenta activa)
                           </span>
                         )}
@@ -828,8 +836,8 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                           }
                           className={
                             user.estado_activo
-                              ? 'text-status-danger border-red-300 hover:bg-status-danger-bg'
-                              : 'text-status-success border-emerald-300 hover:bg-status-success-bg'
+                              ? 'text-status-danger border-status-danger-border hover:bg-status-danger-bg'
+                              : 'text-status-success border-status-success-border hover:bg-status-success-bg'
                           }
                         >
                           {user.estado_activo ? 'Desactivar' : 'Activar'}
@@ -894,37 +902,43 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
             <label className="text-xs font-bold text-txt-muted uppercase tracking-wider">
               Fase 1: Persona Natural Vinculada
             </label>
-            <div className="flex rounded-lg bg-canvas-subtle p-1 border border-border">
-              <button
+            <div className="flex rounded-lg bg-canvas-subtle p-1 border border-border gap-1">
+              <Button
                 type="button"
+                variant={creationMode === 'new' ? 'secondary' : 'ghost'}
+                size="sm"
+                aria-pressed={creationMode === 'new'}
                 onClick={() => {
                   setCreationMode('new');
                   setFormErrors({});
                 }}
-                className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
+                leftIcon={<Icon name="plus" className="w-3.5 h-3.5" aria-hidden="true" />}
+                className={`flex-1 min-h-[30px] text-xs ${
                   creationMode === 'new'
-                    ? 'bg-surface text-txt-primary shadow-xs font-bold'
-                    : 'text-txt-muted hover:text-txt-primary'
+                    ? 'shadow-xs font-bold'
+                    : 'text-txt-muted hover:text-txt-primary border border-transparent'
                 }`}
               >
-                <Icon name="plus" className="w-3.5 h-3.5" />
-                <span>Crear Nueva Persona</span>
-              </button>
-              <button
+                Crear Nueva Persona
+              </Button>
+              <Button
                 type="button"
+                variant={creationMode === 'existing' ? 'secondary' : 'ghost'}
+                size="sm"
+                aria-pressed={creationMode === 'existing'}
                 onClick={() => {
                   setCreationMode('existing');
                   setFormErrors({});
                 }}
-                className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
+                leftIcon={<Icon name="search" className="w-3.5 h-3.5" aria-hidden="true" />}
+                className={`flex-1 min-h-[30px] text-xs ${
                   creationMode === 'existing'
-                    ? 'bg-surface text-txt-primary shadow-xs font-bold'
-                    : 'text-txt-muted hover:text-txt-primary'
+                    ? 'shadow-xs font-bold'
+                    : 'text-txt-muted hover:text-txt-primary border border-transparent'
                 }`}
               >
-                <Icon name="search" className="w-3.5 h-3.5" />
-                <span>Elegir Persona Existente</span>
-              </button>
+                Elegir Persona Existente
+              </Button>
             </div>
           </div>
 
@@ -981,14 +995,16 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                     </div>
                   ) : (
                     availablePersonsForUser.map((p) => (
-                      <button
+                      <Button
                         key={p.id}
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           setSelectedPersonId(p.id);
                           setFormErrors({});
                         }}
-                        className="p-2 text-left rounded hover:bg-canvas-subtle flex items-center justify-between transition-colors"
+                        className="w-full h-auto p-2 text-left justify-between font-normal"
                       >
                         <div>
                           <span className="text-xs font-bold text-txt-primary block">
@@ -999,7 +1015,7 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                           </span>
                         </div>
                         <span className="text-xs text-brand font-semibold">Seleccionar</span>
-                      </button>
+                      </Button>
                     ))
                   )}
                 </div>
@@ -1210,29 +1226,35 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
             className="flex flex-col gap-4"
           >
             {/* Pestañas de Edición */}
-            <div className="flex border-b border-border">
-              <button
+            <div className="flex border-b border-border gap-1">
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
+                aria-pressed={editTab === 'account'}
                 onClick={() => setEditTab('account')}
-                className={`py-2 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
+                className={`rounded-none border-b-2 py-2 px-4 text-xs font-bold uppercase tracking-wider hover:bg-transparent ${
                   editTab === 'account'
-                    ? 'border-brand text-brand'
+                    ? 'border-brand text-brand hover:text-brand'
                     : 'border-transparent text-txt-muted hover:text-txt-primary'
                 }`}
               >
                 1. Cuenta y Permisos
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
+                aria-pressed={editTab === 'person'}
                 onClick={() => setEditTab('person')}
-                className={`py-2 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
+                className={`rounded-none border-b-2 py-2 px-4 text-xs font-bold uppercase tracking-wider hover:bg-transparent ${
                   editTab === 'person'
-                    ? 'border-brand text-brand'
+                    ? 'border-brand text-brand hover:text-brand'
                     : 'border-transparent text-txt-muted hover:text-txt-primary'
                 }`}
               >
                 2. Datos de la Persona
-              </button>
+              </Button>
             </div>
 
             {/* SECCIÓN 1: DATOS DE CUENTA */}
@@ -1334,7 +1356,7 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
                 </div>
 
                 {!canUnlockUserPersonalData && (
-                  <div className="p-2.5 bg-status-warning-bg border border-amber-300 rounded text-xs text-status-warning">
+                  <div className="p-2.5 bg-status-warning-bg border border-status-warning-border rounded text-xs text-status-warning">
                     Protegido por jerarquía RBAC: este usuario cuenta con privilegios superiores o iguales a tu rol y no puedes alterar sus datos personales.
                   </div>
                 )}

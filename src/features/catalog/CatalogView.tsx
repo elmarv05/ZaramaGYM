@@ -6,9 +6,16 @@
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
-import { Alert } from '../../components/primitives/Alert';
-import { ConfirmDialog } from '../../components/primitives/ConfirmDialog';
-import { Icon } from '../../components/primitives/Icon';
+import {
+  Alert,
+  Badge,
+  ConfirmDialog,
+  Icon,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '../../components/primitives';
 import { canMutateCatalog } from '../../domain/catalog';
 import { useCatalog } from '../../hooks/useCatalog';
 import { AppError, AuthSession } from '../../types/auth';
@@ -154,7 +161,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
     <div className="w-full flex flex-col gap-5">
       {/* Banner Informativo RBAC para Recepcionistas */}
       {!canMutate && (
-        <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl p-3.5 flex items-center gap-3 text-blue-900 dark:text-blue-200 text-xs">
+        <div className="bg-status-info-bg border border-status-info-border rounded-xl p-3.5 flex items-center gap-3 text-status-info text-xs">
           <Icon name="info" className="w-4 h-4 shrink-0" aria-hidden="true" />
           <div>
             <span className="font-bold">Modo Operativo de Recepción:</span>
@@ -165,88 +172,54 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
         </div>
       )}
 
-      {/* Navegación por pestañas accesibles */}
-      <div
-        role="tablist"
-        aria-label="Pestañas de Catálogo e Inventario"
-        className="flex flex-wrap items-center gap-2 border-b border-border pb-2"
+      {/* Navegación por pestañas accesibles (Radix Tabs) */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(nextValue) => setActiveTab(nextValue as CatalogSubTab)}
+        className="gap-6"
       >
-        <button
-          type="button"
-          role="tab"
-          id="tab-planes"
-          aria-selected={activeTab === 'planes'}
-          aria-controls="panel-planes"
-          onClick={() => setActiveTab('planes')}
-          className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-2 ${
-            activeTab === 'planes'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="calendar" className="w-4 h-4" aria-hidden="true" />
-          <span>Planes y Simulador</span>
-        </button>
+        <TabsList aria-label="Pestañas de Catálogo e Inventario">
+          <TabsTrigger value="planes">
+            <Icon name="calendar" className="w-4 h-4" aria-hidden="true" />
+            <span>Planes y Simulador</span>
+          </TabsTrigger>
 
-        <button
-          type="button"
-          role="tab"
-          id="tab-productos"
-          aria-selected={activeTab === 'productos'}
-          aria-controls="panel-productos"
-          onClick={() => setActiveTab('productos')}
-          className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors flex items-center gap-2 ${
-            activeTab === 'productos'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="package" className="w-4 h-4" aria-hidden="true" />
-          <span>Inventario de Productos</span>
-          {lowStockCount > 0 && (
-            <span
-              className="bg-amber-500 text-white font-mono px-1.5 py-0.2 rounded-full text-[10px]"
-              title={`${lowStockCount} producto(s) con stock bajo`}
-            >
-              {lowStockCount}
-            </span>
-          )}
-        </button>
+          <TabsTrigger value="productos">
+            <Icon name="package" className="w-4 h-4" aria-hidden="true" />
+            <span>Inventario de Productos</span>
+            {lowStockCount > 0 && (
+              <Badge
+                variant="warning"
+                size="sm"
+                className="font-mono px-1.5 py-0 text-[10px]"
+                title={`${lowStockCount} producto(s) con stock bajo`}
+              >
+                {lowStockCount}
+              </Badge>
+            )}
+          </TabsTrigger>
 
-        <button
-          type="button"
-          role="tab"
-          id="tab-kardex"
-          aria-selected={activeTab === 'kardex'}
-          aria-controls="panel-kardex"
-          onClick={() => setActiveTab('kardex')}
-          className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors inline-flex items-center gap-2 ${
-            activeTab === 'kardex'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="audit" className="w-4 h-4" aria-hidden="true" />
-          <span>Kardex y Mermas</span>
-        </button>
-      </div>
+          <TabsTrigger value="kardex">
+            <Icon name="audit" className="w-4 h-4" aria-hidden="true" />
+            <span>Kardex y Mermas</span>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Banner de Error Global */}
-      {error && (
-        <Alert
-          variant="danger"
-          title="Error en el módulo de catálogo e inventario"
-          actionText="Reintentar"
-          onAction={handleRefresh}
-          onClose={onClearError || hook.clearError}
-        >
-          {error.message}
-        </Alert>
-      )}
+        {/* Banner de Error Global */}
+        {error && (
+          <Alert
+            variant="danger"
+            title="Error en el módulo de catálogo e inventario"
+            actionText="Reintentar"
+            onAction={handleRefresh}
+            onClose={onClearError || hook.clearError}
+          >
+            {error.message}
+          </Alert>
+        )}
 
-      {/* Subvistas según pestaña activa */}
-      {activeTab === 'planes' && (
-        <div id="panel-planes" role="tabpanel" aria-labelledby="tab-planes">
+        {/* Subvistas según pestaña activa */}
+        <TabsContent value="planes">
           <PlanListTab
             plans={plans}
             isLoading={isLoading}
@@ -258,11 +231,9 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
             onTogglePlanActive={handleTogglePlanActive}
             onSimulate={propOnSimulate ?? hook.simulateExpiration}
           />
-        </div>
-      )}
+        </TabsContent>
 
-      {activeTab === 'productos' && (
-        <div id="panel-productos" role="tabpanel" aria-labelledby="tab-productos">
+        <TabsContent value="productos">
           <ProductListTab
             products={products}
             isLoading={isLoading}
@@ -274,11 +245,9 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
             onToggleProductActive={handleToggleProductActive}
             onRecordMovement={propOnRecordMovement ?? hook.recordMovement}
           />
-        </div>
-      )}
+        </TabsContent>
 
-      {activeTab === 'kardex' && (
-        <div id="panel-kardex" role="tabpanel" aria-labelledby="tab-kardex">
+        <TabsContent value="kardex">
           <MovementHistoryTab
             movements={movements}
             products={products}
@@ -288,8 +257,8 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
             onRefresh={handleRefresh}
             onRecordMovement={propOnRecordMovement ?? hook.recordMovement}
           />
-        </div>
-      )}
+        </TabsContent>
+      </Tabs>
 
       <ConfirmDialog
         isOpen={Boolean(confirmDeactivate)}

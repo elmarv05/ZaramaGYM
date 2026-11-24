@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { Alert } from '../../../components/primitives/Alert';
 import { Badge } from '../../../components/primitives/Badge';
 import { Button } from '../../../components/primitives/Button';
+import { CheckboxField } from '../../../components/primitives/Checkbox';
 import { Icon } from '../../../components/primitives/Icon';
 import { Input } from '../../../components/primitives/Input';
 import { Modal } from '../../../components/primitives/Modal';
@@ -113,7 +114,7 @@ export const ReceiptSeriesTab: React.FC<ReceiptSeriesTabProps> = ({
       </div>
 
       {/* Tabla de Series */}
-      <Table>
+      <Table containerLabel="Series documentales y correlativos">
         <TableHeader>
           <TableRow>
             <TableHead>Tipo de Comprobante</TableHead>
@@ -220,22 +221,14 @@ export const ReceiptSeriesTab: React.FC<ReceiptSeriesTabProps> = ({
             disabled={isActionLoading}
           />
 
-          <div className="flex items-center gap-2 pt-2">
-            <input
-              type="checkbox"
-              id="serieActivaCheck"
-              checked={editActivo}
-              onChange={(e) => setEditActivo(e.target.checked)}
-              disabled={isActionLoading}
-              className="w-4 h-4 text-brand rounded border-border focus:ring-brand"
-            />
-            <label
-              htmlFor="serieActivaCheck"
-              className="text-xs text-txt-primary font-medium cursor-pointer"
-            >
-              Serie activa para emisión de nuevos comprobantes
-            </label>
-          </div>
+          <CheckboxField
+            id="serieActivaCheck"
+            checked={editActivo}
+            onCheckedChange={(checked) => setEditActivo(checked === true)}
+            disabled={isActionLoading}
+            label="Serie activa para emisión de nuevos comprobantes"
+            className="min-h-[32px] py-0 items-center [&_span]:text-xs"
+          />
 
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
             <Button

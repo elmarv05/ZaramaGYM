@@ -921,20 +921,20 @@ export const App: React.FC = () => {
       {/* 1. SIDEBAR IZQUIERDO COLAPSABLE CON SCROLL INDEPENDIENTE */}
       <aside
         aria-label="Navegación lateral ZaramaGYM"
-        className={`fixed inset-y-0 left-0 z-40 md:static md:inset-auto h-full flex flex-col overflow-hidden bg-chrome-sidebar border-r border-chrome-border transition-[transform,width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform select-none w-72 ${
+        className={`zg-chrome-sidebar fixed inset-y-0 left-0 z-40 md:static md:inset-auto h-full flex flex-col overflow-hidden bg-chrome-sidebar text-chrome-sidebar-text border-r border-chrome-sidebar-border shadow-md transition-[transform,width] duration-200 ease-smooth will-change-transform select-none w-60 ${
           isMobileSidebarOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full md:translate-x-0'
-        } ${isSidebarCollapsed ? 'md:w-20' : 'md:w-64 lg:w-72'} shrink-0`}
+        } ${isSidebarCollapsed ? 'md:w-20' : 'md:w-56 lg:w-[232px]'} shrink-0`}
       >
         {/* Cabecera del Sidebar: Logo siempre visible (sin flecha duplicada; el toggle vive en el Header) */}
         <div
-          className={`h-16 border-b border-chrome-border flex items-center gap-2 shrink-0 ${
+          className={`h-16 border-b border-chrome-sidebar-border flex items-center gap-2 shrink-0 ${
             isSidebarCollapsed ? 'md:justify-center md:px-2 px-4 justify-between' : 'justify-between px-4'
           }`}
         >
             <button
               type="button"
               onClick={() => navigateToTab('home')}
-              className={`flex items-center gap-2.5 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus rounded-lg p-1 ${
+              className={`flex items-center gap-2.5 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-chrome-sidebar-active-border rounded-lg p-1 ${
                 isSidebarCollapsed ? 'md:justify-center' : ''
               }`}
               title="Ir a Inicio"
@@ -942,14 +942,14 @@ export const App: React.FC = () => {
               <img
                 src="/zaramagym-logo.png"
                 alt="ZaramaGYM"
-                className="w-9 h-9 rounded-lg object-contain shrink-0 bg-surface/90 p-0.5 border border-chrome-border shadow-xs"
+                className="w-9 h-9 rounded-full object-contain shrink-0 bg-white/95 p-0.5 ring-2 ring-chrome-sidebar-active-border/50 shadow-sm"
               />
               {!isSidebarCollapsed && (
                 <div className="min-w-0">
-                  <div className="text-sm font-black tracking-tight text-txt-primary truncate">
+                  <div className="text-sm font-black tracking-tight text-chrome-sidebar-text truncate">
                     Zarama GYM
                   </div>
-                  <div className="text-[10px] text-txt-secondary font-medium truncate">
+                  <div className="text-[10px] text-chrome-sidebar-muted font-medium truncate">
                     Sistema Integral
                   </div>
                 </div>
@@ -960,7 +960,7 @@ export const App: React.FC = () => {
               type="button"
               onClick={() => setIsMobileSidebarOpen(false)}
               aria-label="Cerrar menú lateral"
-              className="md:hidden inline-flex p-1.5 rounded-md text-txt-secondary hover:text-txt-primary hover:bg-chrome-hover transition-colors"
+              className="md:hidden inline-flex p-1.5 rounded-md text-chrome-sidebar-secondary hover:text-chrome-sidebar-text hover:bg-chrome-sidebar-hover transition-colors"
               title="Cerrar menú"
             >
               <Icon name="x" className="w-4 h-4" />
@@ -968,9 +968,9 @@ export const App: React.FC = () => {
           </div>
 
           {/* Tarjeta de Perfil del Usuario Autenticado */}
-          <div className="p-3 border-b border-chrome-border shrink-0">
+          <div className="p-3 border-b border-chrome-sidebar-border shrink-0">
             <div
-              className={`flex items-center gap-3 p-2 rounded-xl bg-chrome-surface/80 border border-chrome-border ${
+              className={`flex items-center gap-3 p-2 rounded-xl bg-chrome-sidebar-surface border border-chrome-sidebar-border shadow-2xs ${
                 isSidebarCollapsed ? 'md:justify-center' : ''
               }`}
             >
@@ -981,10 +981,10 @@ export const App: React.FC = () => {
                   disabled={isUploadingPhoto || isAuthActionLoading}
                   title="Haz clic para cambiar tu foto de perfil"
                   aria-label="Cambiar foto de perfil"
-                  className="w-10 h-10 rounded-full border-2 border-chrome-border overflow-hidden flex items-center justify-center bg-surface hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand transition-colors duration-150 cursor-pointer relative"
+                  className="w-10 h-10 rounded-full border-2 border-chrome-sidebar-active-border/55 overflow-hidden flex items-center justify-center bg-chrome-sidebar hover:border-chrome-sidebar-active-border focus:outline-none focus-visible:ring-2 focus-visible:ring-chrome-sidebar-active-border transition-colors duration-150 cursor-pointer relative"
                 >
                   {isUploadingPhoto ? (
-                    <span className="text-[10px] font-bold text-txt-muted animate-pulse">
+                    <span className="text-[10px] font-bold text-chrome-sidebar-muted animate-pulse">
                       ...
                     </span>
                   ) : currentPhoto ? (
@@ -994,7 +994,7 @@ export const App: React.FC = () => {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-xs font-bold text-txt-secondary">
+                    <span className="text-xs font-bold text-chrome-sidebar-text">
                       {getInitials(session.nombre_completo)}
                     </span>
                   )}
@@ -1012,17 +1012,22 @@ export const App: React.FC = () => {
 
               {!isSidebarCollapsed && (
                 <div className="flex flex-col min-w-0 flex-1 gap-0.5">
-                  <span className="text-xs font-bold text-txt-primary truncate">
+                  <span className="text-xs font-bold text-chrome-sidebar-text truncate">
                     {session.nombre_completo}
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Badge
                       variant={isAdmin ? 'default' : 'info'}
                       size="sm"
+                      className={
+                        isAdmin
+                          ? 'bg-chrome-sidebar/85 text-chrome-sidebar-text border-chrome-sidebar-border'
+                          : 'bg-status-info-bg/95 text-status-info border-status-info-border/80'
+                      }
                     >
                       {session.rol}
                     </Badge>
-                    <span className="text-[11px] text-txt-secondary font-mono truncate">
+                    <span className="text-[11px] text-chrome-sidebar-muted font-mono truncate">
                       @{session.username}
                     </span>
                   </div>
@@ -1039,7 +1044,7 @@ export const App: React.FC = () => {
             {groupedNavItems.map(({ group, items }) => (
               <div key={group} className="flex flex-col gap-1">
                 {!isSidebarCollapsed && (
-                  <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-txt-secondary">
+                  <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-chrome-sidebar-muted">
                     {group}
                   </div>
                 )}
@@ -1066,26 +1071,28 @@ export const App: React.FC = () => {
                           : item.label
                       }
                       aria-current={isActive ? 'page' : undefined}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-[background-color,color,border-color,transform] duration-150 ease-out active:scale-[0.99] motion-reduce:active:scale-100 text-left ${
+                      className={`group relative w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out active:scale-[0.99] motion-reduce:active:scale-100 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-chrome-sidebar-active-border ${
                         isSidebarCollapsed ? 'md:justify-center md:px-2' : ''
                       } ${
                         isActive
-                          ? 'bg-surface dark:bg-status-success-bg text-status-success border border-status-success/35 shadow-xs'
-                          : 'text-txt-secondary hover:text-txt-primary hover:bg-chrome-hover border border-transparent'
+                          ? 'bg-chrome-sidebar-active text-chrome-sidebar-active-text border border-chrome-sidebar-active-border/75 shadow-xs'
+                          : 'text-chrome-sidebar-secondary hover:text-chrome-sidebar-text hover:bg-chrome-sidebar-hover border border-transparent'
                       }`}
                     >
                       <span className="relative inline-flex shrink-0">
                         <Icon
                           name={item.icon}
                           className={`w-4 h-4 shrink-0 ${
-                            isActive ? 'text-status-success' : 'text-txt-secondary'
+                            isActive
+                              ? 'text-chrome-sidebar-active-icon'
+                              : 'text-chrome-sidebar-muted group-hover:text-chrome-sidebar-text'
                           }`}
                         />
                         {isSidebarCollapsed && moduleAlert && (
                           <span
                             data-testid={`sidebar-alert-${item.id}`}
                             aria-hidden="true"
-                            className="hidden md:inline-flex items-center justify-center absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white font-mono text-[9px] font-bold shadow-xs"
+                            className="hidden md:inline-flex items-center justify-center absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-status-warning text-txt-inverse ring-2 ring-chrome-sidebar font-mono text-[9px] font-bold shadow-xs"
                           >
                             {moduleAlert.count > 99 ? '99+' : moduleAlert.count}
                           </span>
@@ -1098,7 +1105,7 @@ export const App: React.FC = () => {
                             <span
                               data-testid={`sidebar-alert-${item.id}`}
                               title={moduleAlert.label}
-                              className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-amber-500 text-white font-mono text-[10px] font-bold shrink-0 shadow-xs"
+                              className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-status-warning text-txt-inverse ring-1 ring-status-warning-border/70 font-mono text-[10px] font-bold shrink-0 shadow-xs"
                             >
                               {moduleAlert.count > 99 ? '99+' : moduleAlert.count}
                             </span>
@@ -1113,7 +1120,7 @@ export const App: React.FC = () => {
           </nav>
 
         {/* Pie del Sidebar: Cerrar Sesión */}
-        <div className="p-3 border-t border-chrome-border flex flex-col gap-2 shrink-0 bg-chrome-surface/60">
+        <div className="p-3 border-t border-chrome-sidebar-border flex flex-col gap-2 shrink-0 bg-chrome-sidebar-surface/75">
           <Button
             type="button"
             variant="ghost"
@@ -1122,7 +1129,7 @@ export const App: React.FC = () => {
             disabled={isAuthActionLoading}
             aria-label="Cerrar Sesión"
             title="Cerrar Sesión"
-            className="w-full px-2.5 text-status-danger hover:bg-status-danger-bg hover:text-status-danger border border-status-danger/25"
+            className="w-full px-2.5 text-chrome-sidebar-danger hover:bg-chrome-sidebar-danger-bg hover:text-chrome-sidebar-text border border-chrome-sidebar-danger-border focus-visible:ring-chrome-sidebar-danger"
             leftIcon={<Icon name="logout" className="w-3.5 h-3.5" />}
           >
             {!isSidebarCollapsed ? 'Cerrar Sesión' : ''}
@@ -1133,14 +1140,14 @@ export const App: React.FC = () => {
       {/* COLUMNA PRINCIPAL (HEADER FIJO + MAIN SCROLLABLE + FOOTER FIJO) */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* 2. HEADER SUPERIOR CON HAMBURGUESA + BUSCADOR CTRL+K */}
-        <header className="h-16 bg-chrome-bar border-b border-chrome-border px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0 z-20">
+        <header className="zg-chrome-header h-16 bg-chrome-bar text-chrome-bar-text border-b border-chrome-bar-border px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0 z-20">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               type="button"
               onClick={handleToggleSidebar}
               aria-label="Alternar barra lateral"
               title={isSidebarCollapsed ? 'Expandir menú lateral' : 'Minimizar menú lateral'}
-              className="p-2 rounded-lg border border-chrome-border bg-chrome-surface/80 hover:bg-chrome-hover text-txt-secondary hover:text-txt-primary transition-colors shrink-0"
+              className="p-2 rounded-lg border border-chrome-bar-border bg-chrome-bar-surface hover:bg-chrome-bar-hover text-chrome-bar-text shadow-2xs transition-colors shrink-0 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
             >
               <Icon name="menu" className="w-4 h-4" />
             </button>
@@ -1151,7 +1158,7 @@ export const App: React.FC = () => {
                 <div className="relative flex items-center">
                   <Icon
                     name="search"
-                    className="w-4 h-4 text-txt-muted absolute left-3 pointer-events-none"
+                    className="w-4 h-4 text-chrome-bar-muted absolute left-3 pointer-events-none"
                   />
                   <input
                     ref={searchInputRef}
@@ -1190,9 +1197,9 @@ export const App: React.FC = () => {
                     }}
                     placeholder="Buscar módulos, submódulos o funciones (ej. RUC 20, arqueo, mermas, QR, backup)..."
                     aria-label="Buscador inteligente de módulos y submódulos"
-                    className="w-full bg-surface/90 border border-chrome-border rounded-xl pl-9 pr-3 sm:pr-16 py-2 text-xs sm:text-sm text-txt-primary placeholder:text-txt-muted focus:outline-none focus:bg-surface focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                    className="w-full h-9 bg-chrome-bar-input hover:border-border-strong border border-chrome-bar-border rounded-lg pl-9 pr-3 sm:pr-16 text-xs sm:text-sm text-chrome-bar-text placeholder:text-chrome-bar-muted shadow-2xs focus:outline-none focus-visible:border-border-focus focus-visible:ring-[3px] focus-visible:ring-ring/25 transition-[background-color,border-color,box-shadow] duration-150"
                   />
-                  <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded bg-chrome-surface border border-chrome-border font-mono text-[10px] font-bold text-txt-secondary absolute right-2.5 pointer-events-none">
+                  <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded bg-chrome-bar border border-chrome-bar-border font-mono text-[10px] font-bold text-chrome-bar-muted absolute right-2.5 pointer-events-none">
                     Ctrl+K
                   </kbd>
                 </div>
@@ -1203,7 +1210,7 @@ export const App: React.FC = () => {
                 <div
                   role="listbox"
                   aria-label="Resultados de navegación"
-                  className="zg-dropdown-enter absolute left-0 right-0 mt-2 bg-surface border border-elevated rounded-xl shadow-lg overflow-hidden z-50 max-h-80 overflow-y-auto"
+                  className="zg-dropdown-enter absolute left-0 right-0 mt-2 bg-elevated border border-elevated-border rounded-xl shadow-lg overflow-hidden z-50 max-h-80 overflow-y-auto"
                 >
                   {searchResults.length === 0 ? (
                     <div className="p-4 text-center text-xs text-txt-muted">
@@ -1267,7 +1274,7 @@ export const App: React.FC = () => {
                   ? 'Modo Oscuro activo (clic para cambiar a Claro)'
                   : 'Modo Claro activo (clic para cambiar a Oscuro)'
               }
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-chrome-surface/80 hover:bg-chrome-hover border border-chrome-border text-txt-primary transition-colors"
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-semibold bg-chrome-bar-surface hover:bg-chrome-bar-hover border border-chrome-bar-border text-chrome-bar-text shadow-2xs transition-colors focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
             >
               <Icon
                 name={theme === 'dark' ? 'moon' : 'sun'}
@@ -1286,8 +1293,8 @@ export const App: React.FC = () => {
               disabled={isAuthActionLoading}
               aria-label="Proteger Estación"
               title="Proteger Estación / Bloquear Turno"
-              className="px-2.5 sm:px-3"
-              leftIcon={<Icon name="lock" className="w-3.5 h-3.5 text-txt-muted" />}
+              className="px-2.5 sm:px-3 bg-chrome-bar-surface hover:bg-chrome-bar-hover border-chrome-bar-border text-chrome-bar-text"
+              leftIcon={<Icon name="lock" className="w-3.5 h-3.5 text-chrome-bar-muted" />}
             >
               <span className="hidden sm:inline">Bloquear</span>
             </Button>
@@ -1676,16 +1683,16 @@ export const App: React.FC = () => {
         </main>
 
         {/* 4. FOOTER INFERIOR COMPACTO FIJO */}
-        <footer className="min-h-[42px] border-t border-chrome-border bg-chrome-bar px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-txt-secondary shrink-0">
+        <footer className="zg-chrome-footer min-h-[42px] border-t border-chrome-bar-border bg-chrome-bar px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-chrome-bar-muted shrink-0">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-status-success" aria-hidden="true" />
+            <span className="w-2 h-2 rounded-full bg-brand ring-2 ring-brand/25 shrink-0" aria-hidden="true" />
             <span>
               © 2026 ZaramaGYM • Pucallpa - Perú •  {' '}
               <button
                 type="button"
                 onClick={() => setIsDeveloperCardOpen(true)}
                 title="Ver información de contacto de Max Rios"
-                className="font-semibold text-txt-primary hover:text-brand underline decoration-border-strong underline-offset-2 hover:decoration-brand transition-colors rounded-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
+                className="font-semibold text-chrome-bar-text hover:text-brand underline decoration-chrome-bar-border underline-offset-2 hover:decoration-brand transition-colors rounded-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
               >
                 Contacto: Max Rios
               </button>
@@ -1693,19 +1700,19 @@ export const App: React.FC = () => {
           </div>
 
           <div className="hidden sm:flex items-center gap-2 flex-wrap">
-            <span className="px-2 py-0.5 rounded bg-chrome-surface border border-chrome-border font-mono text-[10px]">
+            <span className="px-2 py-0.5 rounded-md bg-chrome-bar-surface border border-chrome-bar-border text-chrome-bar-text shadow-2xs font-mono text-[10px] font-medium">
               Ctrl+K Buscar
             </span>
-            <span aria-hidden="true">•</span>
-            <span className="px-2 py-0.5 rounded bg-chrome-surface border border-chrome-border font-mono text-[10px]">
+            <span aria-hidden="true" className="text-chrome-bar-muted/70">•</span>
+            <span className="px-2 py-0.5 rounded-md bg-chrome-bar-surface border border-chrome-bar-border text-chrome-bar-text shadow-2xs font-mono text-[10px] font-medium">
               F2 Directorio
             </span>
-            <span aria-hidden="true">•</span>
-            <span className="px-2 py-0.5 rounded bg-chrome-surface border border-chrome-border font-mono text-[10px]">
+            <span aria-hidden="true" className="text-chrome-bar-muted/70">•</span>
+            <span className="px-2 py-0.5 rounded-md bg-chrome-bar-surface border border-chrome-bar-border text-chrome-bar-text shadow-2xs font-mono text-[10px] font-medium">
               F4 Asistencias
             </span>
-            <span aria-hidden="true">•</span>
-            <span className="px-2 py-0.5 rounded bg-chrome-surface border border-chrome-border font-mono text-[10px]">
+            <span aria-hidden="true" className="text-chrome-bar-muted/70">•</span>
+            <span className="px-2 py-0.5 rounded-md bg-chrome-bar-surface border border-chrome-bar-border text-chrome-bar-text shadow-2xs font-mono text-[10px] font-medium">
               F9 Caja POS
             </span>
           </div>

@@ -5,9 +5,7 @@
 // ============================================================================
 
 import React, { useState } from 'react';
-import { Alert } from '../../../components/primitives/Alert';
-import { Button } from '../../../components/primitives/Button';
-import { Modal } from '../../../components/primitives/Modal';
+import { Alert, Button, Modal, Textarea } from '../../../components/primitives';
 import { ResolveStruckAction, ResolveStruckSaleInput, SaleDetailDto, SaleListItemDto } from '../../../types/pos';
 import { preventEnterKeySubmit } from '../../../utils/formSafety';
 
@@ -86,17 +84,19 @@ export const ResolveStruckModal: React.FC<ResolveStruckModalProps> = ({
         </div>
 
         {/* Selector de Acción */}
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-bold text-txt-primary">Selecciona la Decisión Administrativa:</span>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-xs font-bold text-txt-primary mb-1">
+            Selecciona la Decisión Administrativa:
+          </legend>
 
-          <label className="flex items-start gap-3 p-3 rounded-lg border border-border bg-surface cursor-pointer hover:border-red-400 transition-colors">
+          <label className="flex items-start gap-3 p-3 rounded-lg border border-border bg-surface cursor-pointer hover:border-status-danger transition-colors">
             <input
               type="radio"
               name="resolve_action"
               value="CONFIRMAR_ANULACION"
               checked={accion === 'CONFIRMAR_ANULACION'}
               onChange={() => setAccion('CONFIRMAR_ANULACION')}
-              className="mt-0.5"
+              className="mt-0.5 accent-brand"
             />
             <div className="flex flex-col text-xs">
               <span className="font-bold text-txt-primary">Confirmar Anulación Definitiva</span>
@@ -108,7 +108,7 @@ export const ResolveStruckModal: React.FC<ResolveStruckModalProps> = ({
 
           <label
             className={`flex items-start gap-3 p-3 rounded-lg border border-border bg-surface cursor-pointer transition-colors ${
-              turnoAbierto ? 'hover:border-emerald-400' : 'opacity-50 cursor-not-allowed'
+              turnoAbierto ? 'hover:border-status-success' : 'opacity-50 cursor-not-allowed'
             }`}
           >
             <input
@@ -118,7 +118,7 @@ export const ResolveStruckModal: React.FC<ResolveStruckModalProps> = ({
               disabled={!turnoAbierto}
               checked={accion === 'REVERTIR_TACHADO'}
               onChange={() => setAccion('REVERTIR_TACHADO')}
-              className="mt-0.5"
+              className="mt-0.5 accent-brand"
             />
             <div className="flex flex-col text-xs">
               <span className="font-bold text-txt-primary">Revertir Tachado (Reactivar Venta)</span>
@@ -128,22 +128,17 @@ export const ResolveStruckModal: React.FC<ResolveStruckModalProps> = ({
               </span>
             </div>
           </label>
-        </div>
+        </fieldset>
 
         {/* Nota opcional */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="resolve-note" className="text-xs font-bold text-txt-primary">
-            Nota de Resolución Administrativa (Opcional)
-          </label>
-          <textarea
-            id="resolve-note"
-            rows={2}
-            value={nota}
-            onChange={(e) => setNota(e.target.value)}
-            placeholder="Comentarios de auditoría o autorización de gerencia..."
-            className="w-full text-xs rounded-lg border border-border bg-surface px-3 py-2 text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
-          />
-        </div>
+        <Textarea
+          id="resolve-note"
+          label="Nota de Resolución Administrativa (Opcional)"
+          rows={2}
+          value={nota}
+          onChange={(e) => setNota(e.target.value)}
+          placeholder="Comentarios de auditoría o autorización de gerencia..."
+        />
 
         <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
           <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>

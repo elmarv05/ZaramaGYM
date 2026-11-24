@@ -242,16 +242,16 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
           className="w-full max-w-[340px] bg-surface rounded-2xl border-2 border-border shadow-md overflow-hidden flex flex-col items-center select-none"
         >
           {/* Header de la Tarjeta */}
-          <div className="w-full bg-slate-900 text-white p-4 flex flex-col items-center gap-1">
-            <span className="text-lg font-black tracking-widest text-brand">ZARAMAGYM</span>
-            <span className="text-[10px] tracking-wider uppercase text-slate-300">
+          <div className="w-full bg-brand text-brand-text p-4 flex flex-col items-center gap-1">
+            <span className="text-lg font-black tracking-widest">ZARAMAGYM</span>
+            <span className="text-[10px] tracking-wider uppercase text-brand-text/85">
               Credencial Digital de Socio
             </span>
           </div>
 
-          {/* Cuerpo QR */}
+          {/* Cuerpo QR (zona blanca de alto contraste para lectura óptica) */}
           <div className="p-5 flex flex-col items-center gap-4 bg-white w-full">
-            <div className="p-2 border border-slate-200 rounded-xl bg-white shadow-xs">
+            <div className="p-2 border border-border rounded-xl bg-white shadow-xs">
               {qrDataUrl ? (
                 <img
                   src={qrDataUrl}
@@ -260,17 +260,17 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
                   style={{ imageRendering: 'pixelated' }}
                 />
               ) : (
-                <div className="w-48 h-48 flex items-center justify-center bg-slate-50 text-xs text-txt-muted animate-pulse">
+                <div className="w-48 h-48 flex items-center justify-center bg-canvas-subtle text-xs text-txt-muted animate-pulse">
                   Generando QR local...
                 </div>
               )}
             </div>
 
             <div className="flex flex-col items-center text-center gap-1">
-              <span className="text-base font-bold text-slate-900 leading-tight">
+              <span className="text-base font-bold text-black leading-tight">
                 {fullName}
               </span>
-              <span className="text-xs font-mono text-slate-500">
+              <span className="text-xs font-mono text-black/70">
                 {activeClient.tipo_documento}: {activeClient.numero_documento}
               </span>
               <div className="mt-1">
@@ -282,7 +282,7 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
           </div>
 
           {/* Footer de Tarjeta */}
-          <div className="w-full bg-slate-50 border-t border-slate-200 px-4 py-2.5 flex items-center justify-between text-[11px] text-slate-500">
+          <div className="w-full bg-canvas-subtle border-t border-border px-4 py-2.5 flex items-center justify-between text-[11px] text-txt-muted">
             <span>Acceso Seguro</span>
             <span className="font-semibold text-brand">ZaramaGYM</span>
           </div>
@@ -290,12 +290,12 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
 
         {/* Panel de Regeneración Peligrosa */}
         {showConfirmRegenerate ? (
-          <div className="w-full p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl flex flex-col gap-2">
+          <div className="w-full p-3.5 bg-status-warning-bg border border-status-warning-border rounded-xl flex flex-col gap-2">
             <div className="flex items-start gap-2">
-              <svg className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5 text-status-warning shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <div className="text-xs text-amber-900 dark:text-amber-200">
+              <div className="text-xs text-status-warning">
                 <span className="font-bold">¿Regenerar credencial QR?</span> El código actual será invalidado de inmediato y cualquier credencial impresa previa dejará de funcionar.
               </div>
             </div>
@@ -309,12 +309,11 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
                 Cancelar
               </Button>
               <Button
-                variant="primary"
+                variant="danger"
                 size="sm"
                 onClick={handleConfirmRegenerate}
                 isLoading={isRegenerating}
                 disabled={isRegenerating}
-                className="bg-amber-600 hover:bg-amber-700 text-white"
               >
                 Sí, Regenerar QR
               </Button>
@@ -359,20 +358,21 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
             </Button>
 
             {whatsAppLink ? (
-              <a
-                key={whatsAppLink}
-                href={whatsAppLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={handleOpenWhatsApp}
-                aria-busy={isOpeningWhatsApp}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer"
-              >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
-                </svg>
-                <span>{isOpeningWhatsApp ? 'Abriendo WhatsApp...' : 'Enviar WhatsApp'}</span>
-              </a>
+              <Button asChild variant="primary" size="md" className="flex-1 font-semibold">
+                <a
+                  key={whatsAppLink}
+                  href={whatsAppLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={handleOpenWhatsApp}
+                  aria-busy={isOpeningWhatsApp}
+                >
+                  <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
+                  </svg>
+                  <span>{isOpeningWhatsApp ? 'Abriendo WhatsApp...' : 'Enviar WhatsApp'}</span>
+                </a>
+              </Button>
             ) : (
               <span
                 className="text-xs text-txt-muted text-center flex-1 px-2 py-1 bg-canvas-subtle rounded border border-border"
@@ -385,13 +385,15 @@ export const QrCredentialModal: React.FC<QrCredentialModalProps> = ({
 
           {!showConfirmRegenerate && (
             <div className="flex items-center justify-between pt-2">
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="sm"
                 onClick={() => setShowConfirmRegenerate(true)}
-                className="text-xs text-status-danger hover:underline font-medium"
+                className="text-xs text-status-danger hover:text-status-danger font-medium"
               >
                 Regenerar nuevo token QR...
-              </button>
+              </Button>
 
               <Button variant="ghost" size="sm" onClick={onClose}>
                 Cerrar

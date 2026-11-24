@@ -7,6 +7,7 @@ import React, { useId, useRef, useState } from 'react';
 import { Alert } from '../../../components/primitives/Alert';
 import { Badge } from '../../../components/primitives/Badge';
 import { Button } from '../../../components/primitives/Button';
+import { CheckboxField } from '../../../components/primitives/Checkbox';
 import { Icon } from '../../../components/primitives/Icon';
 import { Input } from '../../../components/primitives/Input';
 import { Modal } from '../../../components/primitives/Modal';
@@ -521,22 +522,14 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="gdriveCheck"
-              checked={gdriveEnabled}
-              onChange={(e) => setGdriveEnabled(e.target.checked)}
-              disabled={isActionLoading}
-              className="w-4 h-4 text-brand rounded border-border focus:ring-brand"
-            />
-            <label
-              htmlFor="gdriveCheck"
-              className="text-xs text-txt-primary font-medium cursor-pointer"
-            >
-              Habilitar subida automática de respaldos a Google Drive API v3
-            </label>
-          </div>
+          <CheckboxField
+            id="gdriveCheck"
+            checked={gdriveEnabled}
+            onCheckedChange={(checked) => setGdriveEnabled(checked === true)}
+            disabled={isActionLoading}
+            label="Habilitar subida automática de respaldos a Google Drive API v3"
+            className="min-h-[32px] py-0 items-center [&_span]:text-xs"
+          />
 
           <div className="p-2.5 rounded-lg bg-canvas-subtle border border-border text-[11px] text-txt-secondary flex items-start gap-2">
             <Icon name="clock" className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden="true" />
@@ -655,7 +648,7 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
           </Button>
         </div>
 
-        <Table>
+        <Table containerLabel="Historial cronológico de respaldos">
           <TableHeader>
             <TableRow>
               <TableHead>Fecha y Hora</TableHead>
@@ -848,8 +841,8 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
             <div
               className={`p-3.5 rounded-xl border flex items-center justify-between ${
                 activeIntegrityReport.is_valid
-                  ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
-                  : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-900 dark:text-red-200'
+                  ? 'bg-status-success-bg border-status-success-border text-status-success'
+                  : 'bg-status-danger-bg border-status-danger-border text-status-danger'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -898,7 +891,7 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
             </div>
 
             {activeIntegrityReport.missing_core_tables.length > 0 && (
-              <div className="bg-amber-50 dark:bg-amber-950/30 p-3 rounded-xl border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200">
+              <div className="bg-status-warning-bg p-3 rounded-xl border border-status-warning-border text-status-warning">
                 <span className="font-bold inline-flex items-center gap-1.5">
                   <Icon name="warning" className="w-4 h-4 shrink-0" aria-hidden="true" />
                   Tablas maestras ausentes:
@@ -1141,7 +1134,7 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
             </p>
           </div>
 
-          <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 flex items-start gap-2.5">
+          <div className="p-3 rounded-lg bg-status-success-bg border border-status-success-border text-status-success flex items-start gap-2.5">
             <Icon name="lock" className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
             <div className="flex flex-col gap-0.5">
               <span className="font-bold">

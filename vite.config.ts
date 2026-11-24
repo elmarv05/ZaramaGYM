@@ -28,6 +28,9 @@ export default defineConfig({
           if (id.includes('lucide-react')) {
             return 'vendor-icons';
           }
+          if (id.includes('@radix-ui') || id.includes('class-variance-authority')) {
+            return 'vendor-radix';
+          }
           if (id.includes('qrcode') || id.includes('jsqr')) {
             return 'vendor-qr';
           }

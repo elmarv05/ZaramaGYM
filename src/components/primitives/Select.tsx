@@ -1,4 +1,7 @@
-import React, { forwardRef, useId } from 'react';
+import * as React from 'react';
+import { useId } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../utils/cn';
 
 export interface SelectOption {
@@ -7,86 +10,110 @@ export interface SelectOption {
   disabled?: boolean;
 }
 
-export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+export const selectVariants = cva(
+  'w-full bg-surface border rounded-lg text-txt-primary shadow-2xs transition-[border-color,box-shadow,background-color] duration-150 cursor-pointer appearance-none focus:outline-none focus-visible:ring-[3px] focus-visible:ring-offset-0 disabled:bg-canvas-subtle disabled:text-txt-muted disabled:cursor-not-allowed',
+  {
+    variants: {
+      state: {
+        default:
+          'border-border hover:border-border-elevated focus-visible:border-border-focus focus-visible:ring-ring/25',
+        error:
+          'border-status-danger focus-visible:border-status-danger focus-visible:ring-status-danger/25',
+      },
+      selectSize: {
+        sm: 'h-8 px-2.5 pr-8 text-xs',
+        md: 'h-9 px-3 pr-8 text-sm',
+        lg: 'h-10 px-3.5 pr-9 text-sm',
+      },
+    },
+    defaultVariants: {
+      state: 'default',
+      selectSize: 'md',
+    },
+  }
+);
+
+export interface SelectProps
+  extends React.ComponentProps<'select'>,
+    Omit<VariantProps<typeof selectVariants>, 'state'> {
   label?: string;
   error?: string;
   hint?: string;
   options: SelectOption[];
 }
 
-export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, hint, options, className, id, required, ...props }, ref) => {
-    const generatedId = useId();
-    const selectId = id || generatedId;
-    const errorId = `${selectId}-error`;
-    const hintId = `${selectId}-hint`;
+export function Select({
+  label,
+  error,
+  hint,
+  options,
+  selectSize = 'md',
+  className,
+  id,
+  required,
+  ...props
+}: SelectProps) {
+  const generatedId = useId();
+  const selectId = id || generatedId;
+  const errorId = `${selectId}-error`;
+  const hintId = `${selectId}-hint`;
 
-    return (
-      <div className="w-full flex flex-col gap-1.5 text-left">
-        {label && (
-          <label
-            htmlFor={selectId}
-            className="text-xs font-semibold text-txt-secondary uppercase tracking-wider select-none flex items-center justify-between"
-          >
-            <span>{label}</span>
-            {required && <span className="text-status-danger text-xs">*</span>}
-          </label>
-        )}
+  return (
+    <div data-slot="select-field" className="w-full flex flex-col gap-1.5 text-left">
+      {label && (
+        <label
+          data-slot="select-label"
+          htmlFor={selectId}
+          className="text-xs font-semibold text-txt-primary tracking-[-0.01em] select-none flex items-center justify-between"
+        >
+          <span>{label}</span>
+          {required && (
+            <span aria-hidden="true" className="text-status-danger text-xs">
+              *
+            </span>
+          )}
+        </label>
+      )}
 
-        <div className="relative flex items-center">
-          <select
-            ref={ref}
-            id={selectId}
-            aria-invalid={Boolean(error)}
-            aria-describedby={error ? errorId : hint ? hintId : undefined}
-            required={required}
-            className={cn(
-              'w-full bg-surface border rounded-md text-sm text-txt-primary transition-colors cursor-pointer',
-              'py-2 px-3 pr-8 appearance-none',
-              error
-                ? 'border-status-danger focus:border-status-danger focus:ring-1 focus:ring-status-danger'
-                : 'border-border focus:border-border-focus focus:ring-1 focus:ring-border-focus',
-              'disabled:bg-canvas-subtle disabled:text-txt-muted disabled:cursor-not-allowed',
-              className
-            )}
-            {...props}
-          >
-            {options.map((option) => (
-              <option key={option.value} value={option.value} disabled={option.disabled}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+      <div data-slot="select-wrapper" className="relative flex items-center">
+        <select
+          data-slot="select"
+          id={selectId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : hint ? hintId : undefined}
+          required={required}
+          className={cn(
+            selectVariants({ state: error ? 'error' : 'default', selectSize }),
+            className
+          )}
+          {...props}
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value} disabled={option.disabled}>
+              {option.label}
+            </option>
+          ))}
+        </select>
 
-          <div className="pointer-events-none absolute right-3 flex items-center text-txt-muted">
-            <svg
-              className="h-4 w-4 fill-current"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute right-2.5 flex items-center text-txt-muted"
+        >
+          <ChevronDown className="h-4 w-4" aria-hidden="true" />
         </div>
-
-        {error && (
-          <p id={errorId} role="alert" className="text-xs text-status-danger font-medium">
-            {error}
-          </p>
-        )}
-
-        {!error && hint && (
-          <p id={hintId} className="text-xs text-txt-muted">
-            {hint}
-          </p>
-        )}
       </div>
-    );
-  }
-);
 
-Select.displayName = 'Select';
+      {error && (
+        <p data-slot="select-error" id={errorId} role="alert" className="text-xs text-status-danger font-medium">
+          {error}
+        </p>
+      )}
+
+      {!error && hint && (
+        <p data-slot="select-hint" id={hintId} className="text-xs text-txt-muted">
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+}

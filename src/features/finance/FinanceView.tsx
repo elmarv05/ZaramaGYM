@@ -5,10 +5,16 @@
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
-import { Alert } from '../../components/primitives/Alert';
-import { Badge } from '../../components/primitives/Badge';
-import { Button } from '../../components/primitives/Button';
-import { Icon } from '../../components/primitives/Icon';
+import {
+  Alert,
+  Badge,
+  Button,
+  Icon,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '../../components/primitives';
 import {
   triggerBase64FileDownload,
   triggerBase64PdfDownload,
@@ -265,90 +271,46 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         </Alert>
       )}
 
-      {/* Navegación por Sub-Pestañas Accesibles */}
-      <nav
-        role="tablist"
-        aria-label="Pestañas de Finanzas"
-        className="flex flex-wrap items-center gap-2 border-b border-border pb-2"
+      {/* Navegación por Sub-Pestañas Accesibles (Radix Tabs) */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(nextValue) => setActiveTab(nextValue as FinanceMainTab)}
+        className="gap-6"
       >
-        {/* Pestaña 1: Dashboard Financiero */}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'dashboard'}
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
-            activeTab === 'dashboard'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="bar-chart" className="w-4 h-4" aria-hidden="true" />
-          <span>Dashboard Financiero</span>
-        </button>
+        <TabsList aria-label="Pestañas de Finanzas">
+          <TabsTrigger value="dashboard">
+            <Icon name="bar-chart" className="w-4 h-4" aria-hidden="true" />
+            <span>Dashboard Financiero</span>
+          </TabsTrigger>
 
-        {/* Pestaña 2: Compras a Proveedores */}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'compras'}
-          onClick={() => setActiveTab('compras')}
-          className={`flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
-            activeTab === 'compras'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="package" className="w-4 h-4" aria-hidden="true" />
-          <span>Compras a Proveedores</span>
-        </button>
+          <TabsTrigger value="compras">
+            <Icon name="package" className="w-4 h-4" aria-hidden="true" />
+            <span>Compras a Proveedores</span>
+          </TabsTrigger>
 
-        {/* Pestaña 3: Gastos Operativos (Admin Exclusivo) */}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'gastos'}
-          onClick={() => setActiveTab('gastos')}
-          className={`flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
-            activeTab === 'gastos'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name={isAdmin ? 'receipt' : 'lock'} className="w-4 h-4" aria-hidden="true" />
-          <span>Gastos Operativos</span>
-          {!isAdmin && (
-            <Badge variant="warning" size="sm">
-              Solo Admin
-            </Badge>
-          )}
-        </button>
+          <TabsTrigger value="gastos">
+            <Icon name={isAdmin ? 'receipt' : 'lock'} className="w-4 h-4" aria-hidden="true" />
+            <span>Gastos Operativos</span>
+            {!isAdmin && (
+              <Badge variant="warning" size="sm">
+                Solo Admin
+              </Badge>
+            )}
+          </TabsTrigger>
 
-        {/* Pestaña 4: Bandeja Global de Tachados */}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'tachados'}
-          onClick={() => setActiveTab('tachados')}
-          className={`flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
-            activeTab === 'tachados'
-              ? 'bg-surface text-txt-primary shadow-sm border border-border font-bold'
-              : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
-          }`}
-        >
-          <Icon name="shield" className="w-4 h-4" aria-hidden="true" />
-          <span>Bandeja Global de Tachados</span>
-          {tachadasCount > 0 && (
-            <Badge variant="warning" size="sm">
-              {tachadasCount}
-            </Badge>
-          )}
-        </button>
-      </nav>
+          <TabsTrigger value="tachados">
+            <Icon name="shield" className="w-4 h-4" aria-hidden="true" />
+            <span>Bandeja Global de Tachados</span>
+            {tachadasCount > 0 && (
+              <Badge variant="warning" size="sm">
+                {tachadasCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Contenido de la Sub-Pestaña Activa */}
-      <section aria-label="Contenido de pestaña seleccionada">
-        {activeTab === 'dashboard' && (
+        {/* Contenido de la Sub-Pestaña Activa */}
+        <TabsContent value="dashboard">
           <FinancialDashboardTab
             dashboard={dashboard}
             activeChannelView={hook.activeChannelView}
@@ -361,9 +323,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             isLoading={isLoading}
             onNavigateToStruckTray={() => setActiveTab('tachados')}
           />
-        )}
+        </TabsContent>
 
-        {activeTab === 'compras' && (
+        <TabsContent value="compras">
           <SupplierPurchasesTab
             purchases={purchases}
             suppliers={suppliers}
@@ -382,9 +344,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             onCancelPurchase={hook.cancelPurchase}
             userRole={currentSession.rol}
           />
-        )}
+        </TabsContent>
 
-        {activeTab === 'gastos' && (
+        <TabsContent value="gastos">
           <OperationalExpensesTab
             expenses={expenses}
             isLoading={isLoading}
@@ -400,9 +362,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             onToggleActive={hook.toggleExpenseActive}
             userRole={currentSession.rol}
           />
-        )}
+        </TabsContent>
 
-        {activeTab === 'tachados' && (
+        <TabsContent value="tachados">
           <StruckSalesTrayTab
             items={struckSalesTray}
             isLoading={isLoading}
@@ -416,8 +378,8 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             onResolveStruckSale={hook.resolveStruckSale}
             userRole={currentSession.rol}
           />
-        )}
-      </section>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

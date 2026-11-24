@@ -5,12 +5,15 @@
 // ============================================================================
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert } from '../../../components/primitives/Alert';
-import { Badge } from '../../../components/primitives/Badge';
-import { Button } from '../../../components/primitives/Button';
-import { Icon } from '../../../components/primitives/Icon';
-import { Input } from '../../../components/primitives/Input';
-import { Modal } from '../../../components/primitives/Modal';
+import {
+  Alert,
+  Badge,
+  Button,
+  Icon,
+  Input,
+  Modal,
+  Textarea,
+} from '../../../components/primitives';
 import { calculateCashDifference, formatMoney } from '../../../domain/pos';
 import { CashShiftDto, CloseCashShiftInput } from '../../../types/pos';
 import {
@@ -110,8 +113,8 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
               <span className="font-semibold text-txt-primary">S/ {formatMoney(shift.total_ventas_efectivo)}</span>
             </div>
             <div className="flex justify-between py-0.5 pt-1 border-t border-border font-bold">
-              <span className="text-emerald-700 dark:text-emerald-400">Total Esperado:</span>
-              <span className="text-emerald-700 dark:text-emerald-400 text-sm">
+              <span className="text-status-success">Total Esperado:</span>
+              <span className="text-status-success text-sm">
                 S/ {formatMoney(shift.total_efectivo_esperado)}
               </span>
             </div>
@@ -141,8 +144,8 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
               </span>
             </div>
             <div className="flex justify-between py-0.5 pt-1 border-t border-border font-bold">
-              <span className="text-sky-700 dark:text-sky-400">Total Digital:</span>
-              <span className="text-sky-700 dark:text-sky-400 text-sm">
+              <span className="text-status-info">Total Digital:</span>
+              <span className="text-status-info text-sm">
                 S/ {formatMoney(shift.total_ventas_digital)}
               </span>
             </div>
@@ -205,19 +208,14 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
         </div>
 
         {/* Observaciones de Cierre */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="close-shift-notes" className="text-xs font-bold text-txt-primary">
-            Notas de Cierre y Justificación de Arqueo
-          </label>
-          <textarea
-            id="close-shift-notes"
-            rows={2}
-            value={notas}
-            onChange={(e) => setNotas(e.target.value)}
-            placeholder="Observaciones de caja, conteo de billetes, justificativo si hubo faltante..."
-            className="w-full text-xs rounded-lg border border-border bg-surface px-3 py-2 text-txt-primary focus:outline-none focus:ring-2 focus:ring-brand"
-          />
-        </div>
+        <Textarea
+          id="close-shift-notes"
+          label="Notas de Cierre y Justificación de Arqueo"
+          rows={2}
+          value={notas}
+          onChange={(e) => setNotas(e.target.value)}
+          placeholder="Observaciones de caja, conteo de billetes, justificativo si hubo faltante..."
+        />
 
         <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
           <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>

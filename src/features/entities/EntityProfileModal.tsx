@@ -6,7 +6,6 @@
 // ============================================================================
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
 import {
   ClientDetail,
@@ -57,6 +56,8 @@ import {
 } from '../../components/primitives/InteractiveLineChart';
 import { Select } from '../../components/primitives/Select';
 import { Alert } from '../../components/primitives/Alert';
+import { Dialog, DialogContent, DialogTitle } from '../../components/primitives/Modal';
+import { useModalScrollLock } from '../../components/primitives/modalScrollLock';
 
 export type ProfileEntitySubject =
   | { kind: 'client'; data: ClientListItem | ClientDetail }
@@ -138,10 +139,6 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
     } as ProfileEntitySubject;
   }, [hydratedSubject, propSubject]);
 
-  // Control de animación de entrada y salida suave
-  const [isRendered, setIsRendered] = useState(isOpen);
-  const [isClosing, setIsClosing] = useState(false);
-
   // Pestaña interna y modo edición inline
   const [activeTab, setActiveTab] = useState<ProfileSectionTab>('general');
   const [isEditing, setIsEditing] = useState(false);
@@ -186,68 +183,23 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
   const [username, setUsername] = useState('');
   const [userRol, setUserRol] = useState<UserRole>('RECEPCIONISTA');
 
-  // Sincronización de montaje/desmontaje animado
+  // Reinicio de estado interno al abrir el modal
   useEffect(() => {
-    if (isOpen) {
-      setIsRendered(true);
-      setIsClosing(false);
-      setActiveTab('general');
-      setIsEditing(false);
-      setFeedback(null);
-      setFormErrors({});
-      setShowConfirmRegen(false);
-      setWeightError(null);
-    } else if (isRendered) {
-      const prefersReducedMotion =
-        typeof window !== 'undefined' &&
-        typeof window.matchMedia === 'function' &&
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-      if (prefersReducedMotion) {
-        setIsRendered(false);
-        setIsClosing(false);
-        return;
-      }
-
-      setIsClosing(true);
-      const timer = window.setTimeout(() => {
-        setIsRendered(false);
-        setIsClosing(false);
-      }, 180);
-      return () => window.clearTimeout(timer);
-    }
-  }, [isOpen, isRendered]);
+    if (!isOpen) return;
+    setActiveTab('general');
+    setIsEditing(false);
+    setFeedback(null);
+    setFormErrors({});
+    setShowConfirmRegen(false);
+    setWeightError(null);
+  }, [isOpen]);
 
   const handleRequestClose = () => {
     if (isSaving || isActionLoading) return;
-    const prefersReducedMotion =
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (prefersReducedMotion) {
-      onClose();
-      return;
-    }
-
-    setIsClosing(true);
-    window.setTimeout(() => {
-      onClose();
-    }, 170);
+    onClose();
   };
 
-  // Tecla Escape para cerrar con animación suave
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        handleRequestClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSaving, isActionLoading]);
+  useModalScrollLock(isOpen);
 
   // Cargar detalle completo (*Detail: fecha_nacimiento, direccion, etc.) al abrir el perfil
   useEffect(() => {
@@ -553,7 +505,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
     };
   }, [subject]);
 
-  if ((!isOpen && !isRendered) || !subject || !headerInfo) return null;
+  if (!isOpen || !subject || !headerInfo) return null;
 
   // Permisos para editar datos personales vinculados ("Caso Juan Pérez")
   const canEditLinkedPerson = (() => {
@@ -963,29 +915,31 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
     </div>
   );
 
-  const modalNode = (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Perfil de ${headerInfo.title}`}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto overscroll-contain"
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          handleRequestClose();
+        }
+      }}
     >
-      {/* Backdrop con animación suave de entrada y salida */}
-      <div
-        onClick={handleRequestClose}
-        aria-hidden="true"
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 ${
-          isClosing ? 'opacity-0' : 'opacity-100 zg-modal-backdrop'
-        }`}
-      />
-
-      {/* Panel Principal del Perfil */}
-      <div
-        className={`relative w-full max-w-4xl my-auto max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2.5rem)] bg-surface border border-elevated rounded-xl shadow-lg flex flex-col z-10 overflow-hidden transition-all duration-200 ${
-          isClosing
-            ? 'opacity-0 translate-y-2 scale-[0.98]'
-            : 'opacity-100 translate-y-0 scale-100 zg-modal-panel'
-        }`}
+      <DialogContent
+        aria-describedby={undefined}
+        onEscapeKeyDown={(event) => {
+          event.preventDefault();
+          handleRequestClose();
+        }}
+        onPointerDownOutside={(event) => {
+          event.preventDefault();
+          handleRequestClose();
+        }}
+        onInteractOutside={(event) => {
+          if (isSaving || isActionLoading) {
+            event.preventDefault();
+          }
+        }}
+        className="max-w-4xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2.5rem)] rounded-xl"
       >
         {/* ================================================================ */}
         {/* CABECERA DEL PERFIL (ESTILO STITCH LIGHT & DARK)                 */}
@@ -1020,9 +974,10 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
             {/* Nombre, Documento y Chips de Rol */}
             <div className="flex flex-col gap-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg sm:text-xl font-bold text-txt-primary truncate">
+                <DialogTitle className="text-lg sm:text-xl font-bold text-txt-primary truncate">
+                  <span className="sr-only">Perfil de </span>
                   {headerInfo.title}
-                </h2>
+                </DialogTitle>
                 <span className="px-2 py-0.5 rounded-md bg-canvas-subtle border border-border font-mono text-xs font-semibold text-txt-secondary">
                   {headerInfo.docLabel}
                 </span>
@@ -1053,9 +1008,9 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleOpenWhatsApp}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-status-success-bg text-status-success border border-emerald-300/80 hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-status-success-bg text-status-success border border-status-success-border hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               >
-                <Icon name="smartphone" className="w-3.5 h-3.5" />
+                <Icon name="smartphone" className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>WhatsApp ({headerInfo.phone})</span>
               </a>
             )}
@@ -1107,22 +1062,24 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                 onClick={() => onToggleActive(headerInfo.id, headerInfo.isActive)}
                 className={
                   headerInfo.isActive
-                    ? 'text-status-danger border-red-300 hover:bg-status-danger-bg/50'
-                    : 'text-status-success border-emerald-300 hover:bg-status-success-bg/50'
+                    ? 'text-status-danger border-status-danger-border hover:bg-status-danger-bg/50'
+                    : 'text-status-success border-status-success-border hover:bg-status-success-bg/50'
                 }
               >
                 {headerInfo.isActive ? 'Desactivar' : 'Activar'}
               </Button>
             )}
 
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={handleRequestClose}
               aria-label="Cerrar perfil"
-              className="p-1.5 rounded-lg text-txt-muted hover:text-txt-primary hover:bg-canvas-subtle border border-transparent hover:border-border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              className="min-h-0 min-w-0 p-1.5 rounded-lg text-txt-muted hover:text-txt-primary hover:bg-canvas-subtle border border-transparent hover:border-border"
             >
-              <Icon name="x" className="w-5 h-5" />
-            </button>
+              <Icon name="x" className="w-5 h-5" aria-hidden="true" />
+            </Button>
           </div>
         </div>
 
@@ -1131,47 +1088,56 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
         {/* ================================================================ */}
         {subject.kind === 'client' && (
           <div className="shrink-0 px-6 bg-canvas-subtle/60 border-b border-border flex items-center gap-2 overflow-x-auto">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
+              aria-pressed={activeTab === 'general'}
               onClick={() => setActiveTab('general')}
-              className={`py-2.5 px-3 text-xs font-semibold border-b-2 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
+              leftIcon={<Icon name="user" className="w-3.5 h-3.5" aria-hidden="true" />}
+              className={`rounded-none py-2.5 px-3 text-xs font-semibold border-b-2 hover:bg-transparent whitespace-nowrap ${
                 activeTab === 'general'
-                  ? 'border-brand text-brand'
+                  ? 'border-brand text-brand hover:text-brand'
                   : 'border-transparent text-txt-muted hover:text-txt-primary'
               }`}
             >
-              <Icon name="user" className="w-3.5 h-3.5" />
-              <span>1. Datos Generales</span>
-            </button>
+              1. Datos Generales
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
+              aria-pressed={activeTab === 'qr'}
               onClick={() => setActiveTab('qr')}
-              className={`py-2.5 px-3 text-xs font-semibold border-b-2 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
+              leftIcon={<Icon name="qr" className="w-3.5 h-3.5" aria-hidden="true" />}
+              className={`rounded-none py-2.5 px-3 text-xs font-semibold border-b-2 hover:bg-transparent whitespace-nowrap ${
                 activeTab === 'qr'
-                  ? 'border-brand text-brand'
+                  ? 'border-brand text-brand hover:text-brand'
                   : 'border-transparent text-txt-muted hover:text-txt-primary'
               }`}
             >
-              <Icon name="qr" className="w-3.5 h-3.5" />
-              <span>2. Credencial QR</span>
-            </button>
+              2. Credencial QR
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
+              aria-pressed={activeTab === 'weight'}
               onClick={() => setActiveTab('weight')}
-              className={`py-2.5 px-3 text-xs font-semibold border-b-2 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
+              leftIcon={<Icon name="activity" className="w-3.5 h-3.5" aria-hidden="true" />}
+              className={`rounded-none py-2.5 px-3 text-xs font-semibold border-b-2 hover:bg-transparent whitespace-nowrap ${
                 activeTab === 'weight'
-                  ? 'border-brand text-brand'
+                  ? 'border-brand text-brand hover:text-brand'
                   : 'border-transparent text-txt-muted hover:text-txt-primary'
               }`}
             >
-              <Icon name="activity" className="w-3.5 h-3.5" />
               <span>3. Historial de Peso</span>
               <span className="px-1.5 py-0.2 rounded bg-surface border border-border font-mono text-[10px] text-txt-secondary">
                 {formatKg(activeClientWeightKg)}
               </span>
-            </button>
+            </Button>
           </div>
         )}
 
@@ -1426,26 +1392,26 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                   <>
                     {/* Tarjeta de Credencial Digital QR */}
                     <div className="bg-surface rounded-xl border border-border overflow-hidden shadow-sm">
-                      <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
+                      <div className="bg-brand text-brand-text px-4 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Icon name="qr" className="w-4 h-4 text-emerald-400" />
+                          <Icon name="qr" className="w-4 h-4 text-brand-text" aria-hidden="true" />
                           <div>
                             <span className="text-xs font-bold tracking-wider uppercase block">
                               Credencial QR
                             </span>
-                            <span className="text-[10px] text-slate-300 font-mono">
+                            <span className="text-[10px] text-brand-text/85 font-mono">
                               Pase de Acceso Local
                             </span>
                           </div>
                         </div>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-950 text-emerald-400 border border-emerald-700">
+                        <Badge variant="success" size="sm" className="bg-surface/95 text-status-success border-transparent uppercase text-[10px]">
                           Token Activo
-                        </span>
+                        </Badge>
                       </div>
 
                       <div className="p-4 flex flex-col items-center gap-3">
                         {/* Zona blanca segura para lectura óptica en Modo Claro y Oscuro */}
-                        <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-center">
+                        <div className="p-3 bg-white rounded-xl border border-border shadow-xs flex items-center justify-center">
                           {qrDataUrl ? (
                             <img
                               src={qrDataUrl}
@@ -1453,7 +1419,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                               className="w-40 h-40 object-contain"
                             />
                           ) : (
-                            <div className="w-40 h-40 flex items-center justify-center text-xs text-slate-500 font-mono">
+                            <div className="w-40 h-40 flex items-center justify-center text-xs text-txt-muted font-mono">
                               Generando QR...
                             </div>
                           )}
@@ -1464,13 +1430,15 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                           <span className="font-mono text-xs font-bold text-txt-primary truncate">
                             {qrToken}
                           </span>
-                          <button
+                          <Button
                             type="button"
+                            variant="link"
+                            size="sm"
                             onClick={handleCopyToken}
-                            className="text-xs font-semibold text-brand hover:underline shrink-0"
+                            className="text-xs font-semibold shrink-0 h-auto min-h-0 p-0"
                           >
                             {copiedToken ? '¡Copiado!' : 'Copiar'}
-                          </button>
+                          </Button>
                         </div>
 
                         {/* Acciones del QR */}
@@ -1483,7 +1451,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                               onClick={handleOpenWhatsApp}
                               className="w-full py-2 px-3 rounded-lg bg-brand hover:bg-brand-hover text-brand-text text-xs font-semibold inline-flex items-center justify-center gap-2 shadow-xs transition-colors"
                             >
-                              <Icon name="smartphone" className="w-4 h-4" />
+                              <Icon name="smartphone" className="w-4 h-4" aria-hidden="true" />
                               <span>Enviar QR a WhatsApp</span>
                             </a>
                           ) : (
@@ -1502,6 +1470,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                               <Icon
                                 name={downloadedQrPng ? 'check' : 'download'}
                                 className="w-3.5 h-3.5"
+                                aria-hidden="true"
                               />
                             }
                             className="w-full"
@@ -1510,17 +1479,19 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                           </Button>
 
                           {onRegenerateQr && !showConfirmRegen && (
-                            <button
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="sm"
                               onClick={() => setShowConfirmRegen(true)}
-                              className="text-[11px] font-semibold text-txt-muted hover:text-status-danger transition-colors py-1"
+                              className="text-[11px] font-semibold text-txt-muted hover:text-status-danger hover:bg-transparent py-1 min-h-0"
                             >
                               Regenerar token QR (invalidar anterior)
-                            </button>
+                            </Button>
                           )}
 
                           {showConfirmRegen && (
-                            <div className="w-full p-2.5 rounded-lg bg-status-danger-bg/50 border border-red-300 flex flex-col gap-2">
+                            <div className="w-full p-2.5 rounded-lg bg-status-danger-bg/50 border border-status-danger-border flex flex-col gap-2">
                               <span className="text-[11px] text-status-danger font-medium">
                                 El código QR anterior dejará de funcionar de inmediato.
                               </span>
@@ -1553,18 +1524,20 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                     <div className="bg-surface rounded-xl border border-border p-4 shadow-sm flex flex-col gap-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Icon name="activity" className="w-4 h-4 text-brand" />
+                          <Icon name="activity" className="w-4 h-4 text-brand" aria-hidden="true" />
                           <h4 className="text-xs font-bold uppercase tracking-wider text-txt-secondary">
                             Control de Peso
                           </h4>
                         </div>
-                        <button
+                        <Button
                           type="button"
+                          variant="link"
+                          size="sm"
                           onClick={() => setActiveTab('weight')}
-                          className="text-xs font-semibold text-brand hover:underline"
+                          className="text-xs font-semibold h-auto min-h-0 p-0"
                         >
                           Ver historial
-                        </button>
+                        </Button>
                       </div>
 
                       <div className="flex items-baseline justify-between">
@@ -1697,7 +1670,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
           {/* PESTAÑA 2: CREDENCIAL QR ENFOCADA (CLIENTES) */}
           {subject.kind === 'client' && activeTab === 'qr' && clientData && (
             <div className="max-w-md mx-auto w-full bg-surface rounded-xl border border-border p-5 shadow-sm flex flex-col items-center gap-4">
-              <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+              <div className="p-4 bg-white rounded-xl border border-border shadow-xs">
                 {qrDataUrl ? (
                   <img
                     src={qrDataUrl}
@@ -1705,7 +1678,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                     className="w-52 h-52 object-contain"
                   />
                 ) : (
-                  <div className="w-52 h-52 flex items-center justify-center text-xs text-slate-500">
+                  <div className="w-52 h-52 flex items-center justify-center text-xs text-txt-muted">
                     Generando QR...
                   </div>
                 )}
@@ -1911,13 +1884,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
-
-  if (typeof document !== 'undefined' && document.body) {
-    return createPortal(modalNode, document.body);
-  }
-
-  return modalNode;
 };

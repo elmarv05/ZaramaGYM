@@ -5,10 +5,7 @@
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
-import { Alert } from '../../../components/primitives/Alert';
-import { Button } from '../../../components/primitives/Button';
-import { Icon } from '../../../components/primitives/Icon';
-import { Modal } from '../../../components/primitives/Modal';
+import { Alert, Button, Icon, Modal, Textarea } from '../../../components/primitives';
 import { validateStrikeSaleInput } from '../../../domain/pos';
 import { CashShiftState, SaleListItemDto, StrikeSaleInput } from '../../../types/pos';
 import { preventEnterKeySubmit } from '../../../utils/formSafety';
@@ -74,9 +71,9 @@ export const StrikeSaleModal: React.FC<StrikeSaleModalProps> = ({
           </Alert>
         )}
 
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg p-3 text-xs text-amber-900 dark:text-amber-200 flex flex-col gap-1.5">
+        <div className="bg-status-warning-bg border border-status-warning-border rounded-lg p-3 text-xs text-status-warning flex flex-col gap-1.5">
           <div className="flex items-center gap-2 font-bold">
-            <Icon name="warning" className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" aria-hidden="true" />
+            <Icon name="warning" className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>Efectos Inmediatos del Tachado en Caja:</span>
           </div>
           <ul className="list-disc list-inside space-y-0.5 text-txt-secondary text-[11px]">
@@ -97,27 +94,20 @@ export const StrikeSaleModal: React.FC<StrikeSaleModalProps> = ({
           <span className="font-extrabold text-txt-primary">S/ {sale.total_venta}</span>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="strike-reason" className="text-xs font-bold text-txt-primary">
-            Motivo Obligatorio del Tachado <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            id="strike-reason"
-            rows={3}
-            value={motivo}
-            onChange={(e) => {
-              setMotivo(e.target.value);
-              setErrorMsg(null);
-            }}
-            placeholder="Describe la razón (mínimo 5 caracteres), ej. Error en medio de pago seleccionado..."
-            required
-            className="w-full text-xs rounded-lg border border-border bg-surface px-3 py-2 text-txt-primary focus:outline-none focus:ring-2 focus:ring-red-500"
-            autoFocus
-          />
-          <span className="text-[10px] text-txt-muted text-right">
-            {motivo.trim().length} / 5 caracteres mínimos
-          </span>
-        </div>
+        <Textarea
+          id="strike-reason"
+          label="Motivo Obligatorio del Tachado"
+          rows={3}
+          value={motivo}
+          onChange={(e) => {
+            setMotivo(e.target.value);
+            setErrorMsg(null);
+          }}
+          placeholder="Describe la razón (mínimo 5 caracteres), ej. Error en medio de pago seleccionado..."
+          required
+          autoFocus
+          hint={`${motivo.trim().length} / 5 caracteres mínimos`}
+        />
 
         <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
           <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>

@@ -5,8 +5,22 @@
 // ============================================================================
 
 import React, { useState } from 'react';
-import { Badge } from '../../components/primitives/Badge';
-import { Icon } from '../../components/primitives/Icon';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Icon,
+  Input,
+  Select,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/primitives';
 import { formatAttendanceMode } from '../../domain/attendance';
 import {
   AttendanceCheckInMode,
@@ -23,6 +37,21 @@ export interface AttendanceHistoryTableProps {
   onRetry: () => void;
   onOpenManualModal?: () => void;
 }
+
+const SEMAFORO_FILTER_OPTIONS = [
+  { value: '', label: 'Todos los Semáforos' },
+  { value: 'VERDE', label: 'Verde (Acceso)' },
+  { value: 'AMARILLO', label: 'Amarillo (Alerta)' },
+  { value: 'ROJO', label: 'Rojo (Pase Crédito)' },
+];
+
+const MODO_FILTER_OPTIONS = [
+  { value: '', label: 'Todos los Modos' },
+  { value: 'QR_LOCAL', label: 'Escaneo QR Local' },
+  { value: 'MANUAL_OLVIDO_QR', label: 'Manual Olvido QR' },
+  { value: 'PASE_DIARIO_CREDITO_ROJO', label: 'Pase Diario a Crédito' },
+  { value: 'QR_MOVIL_LAN', label: 'Móvil LAN' },
+];
 
 export const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
   attendances,
@@ -55,216 +84,218 @@ export const AttendanceHistoryTable: React.FC<AttendanceHistoryTableProps> = ({
   // 1. ESTADO DE ERROR
   if (error && !isLoading) {
     return (
-      <div
-        role="alert"
-        className="w-full bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-800 rounded-2xl p-8 flex flex-col items-center justify-center text-center gap-3"
+      <Alert
+        variant="danger"
+        floating={false}
+        title="No se pudo cargar el historial de asistencias"
+        className="p-6 flex-col items-center text-center"
       >
-        <Icon name="warning" className="w-8 h-8 text-status-danger" />
-        <h4 className="text-base font-bold text-rose-800 dark:text-rose-200">
-          No se pudo cargar el historial de asistencias
-        </h4>
-        <p className="text-xs text-rose-600 dark:text-rose-300 max-w-md">{error}</p>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="mt-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors"
-        >
-          Reintentar Carga
-        </button>
-      </div>
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-xs max-w-md">{error}</p>
+          <Button type="button" variant="danger" size="sm" onClick={onRetry}>
+            Reintentar Carga
+          </Button>
+        </div>
+      </Alert>
     );
   }
 
   return (
     <div className="w-full flex flex-col gap-4">
       {/* Barra de Filtros */}
-      <form
-        onSubmit={handleFilterSubmit}
-        className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3"
-      >
-        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
-          {/* Input de Búsqueda */}
-          <div className="relative flex-1 min-w-[200px]">
-            <input
-              type="text"
-              placeholder="Buscar por socio, DNI o plan..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-canvas text-xs text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand"
-            />
-            <Icon
-              name="search"
-              className="w-3.5 h-3.5 absolute left-3 top-2.5 text-txt-muted pointer-events-none"
-            />
-          </div>
-
-          {/* Filtro por Color Semáforo */}
-          <select
-            value={selectedColor}
-            onChange={(e) => setSelectedColor(e.target.value as TrafficLightColor | '')}
-            className="px-3 py-2 rounded-lg border border-border bg-canvas text-xs font-semibold text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand"
+      <div role="search">
+        <Card padding="sm" className="shadow-2xs">
+          <form
+            onSubmit={handleFilterSubmit}
+            className="flex flex-wrap items-center justify-between gap-3"
           >
-            <option value="">Todos los Semáforos</option>
-            <option value="VERDE">Verde (Acceso)</option>
-            <option value="AMARILLO">Amarillo (Alerta)</option>
-            <option value="ROJO">Rojo (Pase Crédito)</option>
-          </select>
+            <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+              <div className="flex-1 min-w-[200px]">
+                <Input
+                  type="text"
+                  inputSize="sm"
+                  aria-label="Buscar por socio, DNI o plan"
+                  placeholder="Buscar por socio, DNI o plan..."
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  leftIcon={<Icon name="search" className="w-3.5 h-3.5" />}
+                />
+              </div>
 
-          {/* Filtro por Modo de Ingreso */}
-          <select
-            value={selectedModo}
-            onChange={(e) => setSelectedModo(e.target.value as AttendanceCheckInMode | '')}
-            className="px-3 py-2 rounded-lg border border-border bg-canvas text-xs font-semibold text-txt-primary focus:outline-hidden focus:ring-2 focus:ring-brand"
-          >
-            <option value="">Todos los Modos</option>
-            <option value="QR_LOCAL">Escaneo QR Local</option>
-            <option value="MANUAL_OLVIDO_QR">Manual Olvido QR</option>
-            <option value="PASE_DIARIO_CREDITO_ROJO">Pase Diario a Crédito</option>
-            <option value="QR_MOVIL_LAN">Móvil LAN</option>
-          </select>
-        </div>
+              <div className="w-full sm:w-44">
+                <Select
+                  selectSize="sm"
+                  aria-label="Filtrar por color de semáforo"
+                  value={selectedColor}
+                  onChange={(e) => setSelectedColor(e.target.value as TrafficLightColor | '')}
+                  options={SEMAFORO_FILTER_OPTIONS}
+                />
+              </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-brand-text text-xs font-bold transition-colors shadow-2xs"
-          >
-            Filtrar
-          </button>
-          {(busqueda || selectedColor || selectedModo) && (
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="px-3 py-2 rounded-lg bg-canvas text-txt-muted hover:text-txt-primary text-xs font-medium border border-border transition-colors"
-            >
-              Limpiar
-            </button>
-          )}
-        </div>
-      </form>
+              <div className="w-full sm:w-48">
+                <Select
+                  selectSize="sm"
+                  aria-label="Filtrar por modo de ingreso"
+                  value={selectedModo}
+                  onChange={(e) => setSelectedModo(e.target.value as AttendanceCheckInMode | '')}
+                  options={MODO_FILTER_OPTIONS}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button type="submit" variant="primary" size="sm">
+                Filtrar
+              </Button>
+              {(busqueda || selectedColor || selectedModo) && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleResetFilters}
+                >
+                  Limpiar
+                </Button>
+              )}
+            </div>
+          </form>
+        </Card>
+      </div>
 
       {/* 2. ESTADO LOADING / SKELETON */}
       {isLoading ? (
-        <div data-testid="attendance-history-loading" className="w-full flex flex-col gap-2">
+        <div
+          data-testid="attendance-history-loading"
+          role="status"
+          aria-label="Cargando historial de asistencias"
+          className="w-full flex flex-col gap-2"
+        >
           {[1, 2, 3, 4, 5].map((i) => (
-            <div
-              key={i}
-              className="h-14 w-full bg-surface border border-border rounded-xl animate-pulse"
-            />
+            <Skeleton key={i} className="h-14 w-full rounded-xl border border-border" />
           ))}
         </div>
       ) : attendances.length === 0 ? (
         /* 3. EMPTY STATE ACCIONABLE */
-        <div
+        <Card
           data-testid="attendance-history-empty"
-          className="w-full bg-surface border border-dashed border-border rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-3"
+          className="border-dashed p-10 items-center justify-center text-center gap-3"
         >
-          <div className="w-14 h-14 rounded-full bg-canvas-subtle flex items-center justify-center text-txt-muted border border-border">
+          <div
+            aria-hidden="true"
+            className="w-14 h-14 rounded-full bg-canvas-subtle flex items-center justify-center text-txt-muted border border-border"
+          >
             <Icon name="audit" className="w-6 h-6" />
           </div>
           <h4 className="text-sm font-bold text-txt-primary">No se encontraron asistencias</h4>
           <p className="text-xs text-txt-muted max-w-sm">
-            Aún no hay registros que coincidan con los filtros seleccionados o no se han marcado ingresos hoy.
+            Aún no hay registros que coincidan con los filtros seleccionados o no se han marcado
+            ingresos hoy.
           </p>
           {onOpenManualModal && (
-            <button
+            <Button
               type="button"
+              variant="primary"
+              size="sm"
               onClick={onOpenManualModal}
-              className="mt-2 px-4 py-2 bg-brand text-brand-text text-xs font-bold rounded-lg shadow-xs hover:bg-brand-hover transition-colors"
+              className="mt-2"
             >
               Registrar Primer Ingreso
-            </button>
+            </Button>
           )}
-        </div>
+        </Card>
       ) : (
         /* 4. SUCCESS / DATA STATE */
-        <div className="overflow-x-auto border border-border rounded-xl bg-surface shadow-xs">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-border bg-canvas-subtle text-txt-secondary font-bold uppercase tracking-wider text-[11px]">
-                <th className="py-3 px-4">Fecha / Hora</th>
-                <th className="py-3 px-4">Socio / Documento</th>
-                <th className="py-3 px-4">Plan Vigente</th>
-                <th className="py-3 px-4">Semáforo</th>
-                <th className="py-3 px-4">Modo Ingreso</th>
-                <th className="py-3 px-4">Motivo / Estado</th>
-                <th className="py-3 px-4">Días Restantes</th>
-                <th className="py-3 px-4">Deuda</th>
-                <th className="py-3 px-4">Operador</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {attendances.map((item) => (
-                <tr key={item.id} className="hover:bg-canvas/50 transition-colors">
-                  <td className="py-3 px-4 whitespace-nowrap font-medium text-txt-primary">
-                    {item.fechaHoraIngreso || item.createdAt}
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-txt-primary">{item.nombreCompleto}</span>
-                      <span className="text-[11px] text-txt-muted">
-                        {item.tipoDocumento}: {item.numeroDocumento}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap font-medium text-txt-secondary">
-                    {item.nombrePlan || 'Pase Sin Plan'}
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    <Badge
-                      variant={
-                        item.colorSemaforo === 'VERDE'
-                          ? 'success'
-                          : item.colorSemaforo === 'AMARILLO'
-                          ? 'warning'
-                          : 'danger'
+        <Table
+          containerLabel="Historial de asistencias"
+          containerClassName="rounded-xl shadow-xs"
+          className="text-xs"
+        >
+          <TableHeader stickyHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Fecha / Hora</TableHead>
+              <TableHead>Socio / Documento</TableHead>
+              <TableHead>Plan Vigente</TableHead>
+              <TableHead>Semáforo</TableHead>
+              <TableHead>Modo Ingreso</TableHead>
+              <TableHead>Motivo / Estado</TableHead>
+              <TableHead>Días Restantes</TableHead>
+              <TableHead>Deuda</TableHead>
+              <TableHead>Operador</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {attendances.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="whitespace-nowrap font-medium">
+                  {item.fechaHoraIngreso || item.createdAt}
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-txt-primary">{item.nombreCompleto}</span>
+                    <span className="text-[11px] text-txt-muted">
+                      {item.tipoDocumento}: {item.numeroDocumento}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell className="whitespace-nowrap font-medium text-txt-secondary">
+                  {item.nombrePlan || 'Pase Sin Plan'}
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <Badge
+                    variant={
+                      item.colorSemaforo === 'VERDE'
+                        ? 'success'
+                        : item.colorSemaforo === 'AMARILLO'
+                        ? 'warning'
+                        : 'danger'
+                    }
+                    size="sm"
+                  >
+                    {item.colorSemaforo}
+                  </Badge>
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-txt-secondary">
+                  {formatAttendanceMode(item.modoIngreso)}
+                </TableCell>
+                <TableCell className="max-w-xs truncate" title={item.motivoSemaforo}>
+                  {item.motivoSemaforo}
+                  {item.creditoGeneradoId && (
+                    <span className="block text-[10px] font-bold text-status-danger">
+                      Crédito #{item.creditoGeneradoId}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="whitespace-nowrap font-semibold">
+                  {item.diasRestantesMomento !== null && item.diasRestantesMomento !== undefined ? (
+                    <span
+                      className={
+                        item.diasRestantesMomento <= 5
+                          ? 'text-status-warning font-bold'
+                          : 'text-txt-primary'
                       }
-                      size="sm"
                     >
-                      {item.colorSemaforo}
-                    </Badge>
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap text-txt-secondary">
-                    {formatAttendanceMode(item.modoIngreso)}
-                  </td>
-                  <td className="py-3 px-4 max-w-xs truncate text-txt-primary" title={item.motivoSemaforo}>
-                    {item.motivoSemaforo}
-                    {item.creditoGeneradoId && (
-                      <span className="block text-[10px] font-bold text-rose-600">
-                        Crédito #{item.creditoGeneradoId}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap font-semibold">
-                    {item.diasRestantesMomento !== null && item.diasRestantesMomento !== undefined ? (
-                      <span
-                        className={
-                          item.diasRestantesMomento <= 5 ? 'text-amber-600 font-bold' : 'text-txt-primary'
-                        }
-                      >
-                        {item.diasRestantesMomento} d
-                      </span>
-                    ) : (
-                      <span className="text-txt-muted">-</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap font-bold">
-                    {parseFloat(item.deudaPendienteMomento) > 0 ? (
-                      <span className="text-rose-600">
-                        S/ {parseFloat(item.deudaPendienteMomento).toFixed(2)}
-                      </span>
-                    ) : (
-                      <span className="text-emerald-600">S/ 0.00</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap text-txt-muted text-[11px]">
-                    {item.registradoPorNombre || `Op #${item.registradoPorUsuarioId}`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      {item.diasRestantesMomento} d
+                    </span>
+                  ) : (
+                    <span className="text-txt-muted">-</span>
+                  )}
+                </TableCell>
+                <TableCell className="whitespace-nowrap font-bold">
+                  {parseFloat(item.deudaPendienteMomento) > 0 ? (
+                    <span className="text-status-danger">
+                      S/ {parseFloat(item.deudaPendienteMomento).toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="text-status-success">S/ 0.00</span>
+                  )}
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-txt-muted text-[11px]">
+                  {item.registradoPorNombre || `Op #${item.registradoPorUsuarioId}`}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
     </div>
   );

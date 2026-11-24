@@ -7,6 +7,7 @@
 import React, { useState } from 'react';
 import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
+import { CheckboxField } from '../../components/primitives/Checkbox';
 import { Icon } from '../../components/primitives/Icon';
 import { Input } from '../../components/primitives/Input';
 import { Select } from '../../components/primitives/Select';
@@ -135,33 +136,33 @@ export const ProductListTab: React.FC<ProductListTabProps> = ({
 
         <div className="flex flex-wrap items-center gap-3">
           {/* Switch rápido de Stock Bajo */}
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
+            aria-pressed={soloStockBajo}
             onClick={() => setSoloStockBajo((prev) => !prev)}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${
+            leftIcon={<Icon name="warning" className="w-3.5 h-3.5" aria-hidden="true" />}
+            className={`text-xs font-semibold rounded-lg ${
               soloStockBajo
-                ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-700 shadow-xs'
+                ? 'bg-status-warning-bg text-status-warning border-status-warning-border hover:bg-status-warning-bg shadow-xs'
                 : 'bg-canvas-subtle text-txt-secondary border-border hover:bg-surface-hover'
             }`}
           >
-            <Icon name="warning" className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Solo Stock Bajo</span>
             {lowStockCount > 0 && (
-              <span className="bg-amber-500 text-white font-mono px-1.5 py-0.2 rounded-full text-[10px]">
+              <span className="bg-status-warning text-txt-inverse font-mono px-1.5 py-0.2 rounded-full text-[10px]">
                 {lowStockCount}
               </span>
             )}
-          </button>
+          </Button>
 
-          <label className="flex items-center gap-2 text-xs text-txt-secondary cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={soloActivos}
-              onChange={(e) => setSoloActivos(e.target.checked)}
-              className="rounded border-border text-brand focus:ring-brand"
-            />
-            <span>Solo activos</span>
-          </label>
+          <CheckboxField
+            label="Solo activos"
+            checked={soloActivos}
+            onCheckedChange={(checked) => setSoloActivos(checked === true)}
+            className="min-h-[32px] py-0 items-center [&_span]:text-xs [&_span]:text-txt-secondary"
+          />
 
           {onRefresh && (
             <Button
@@ -196,7 +197,7 @@ export const ProductListTab: React.FC<ProductListTabProps> = ({
       </div>
 
       {/* Tabla de Productos */}
-      <Table>
+      <Table containerLabel="Inventario de productos">
         <TableHeader>
           <TableRow>
             <TableHead>SKU</TableHead>
@@ -289,7 +290,7 @@ export const ProductListTab: React.FC<ProductListTabProps> = ({
                           isSinStock
                             ? 'text-status-danger'
                             : isLowStock
-                            ? 'text-amber-600 dark:text-amber-400'
+                            ? 'text-status-warning'
                             : 'text-txt-primary'
                         }`}
                       >
@@ -370,8 +371,8 @@ export const ProductListTab: React.FC<ProductListTabProps> = ({
                           onClick={() => onToggleProductActive(prod.id, prod.estado_activo)}
                           className={
                             prod.estado_activo
-                              ? 'text-status-danger border-red-300'
-                              : 'text-status-success border-emerald-300'
+                              ? 'text-status-danger border-status-danger-border'
+                              : 'text-status-success border-status-success-border'
                           }
                         >
                           {prod.estado_activo ? 'Desactivar' : 'Activar'}

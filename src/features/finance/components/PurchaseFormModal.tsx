@@ -4,13 +4,24 @@
 // Ubicación: src/features/finance/components/PurchaseFormModal.tsx
 // ============================================================================
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import { Alert } from '../../../components/primitives/Alert';
 import { Badge } from '../../../components/primitives/Badge';
 import { Button } from '../../../components/primitives/Button';
 import { Icon } from '../../../components/primitives/Icon';
 import { Input } from '../../../components/primitives/Input';
+import { Label } from '../../../components/primitives/Label';
 import { Modal } from '../../../components/primitives/Modal';
+import { Select, SelectOption } from '../../../components/primitives/Select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../../components/primitives/Table';
+import { Textarea } from '../../../components/primitives/Textarea';
 import {
   PURCHASE_INVOICE_LABELS,
   calculatePurchaseItemsTotal,
@@ -52,6 +63,21 @@ interface DraftItem {
   subtotal: string;
 }
 
+const INVOICE_TYPE_OPTIONS: SelectOption[] = (
+  Object.keys(PURCHASE_INVOICE_LABELS) as PurchaseInvoiceType[]
+).map((type) => ({
+  value: type,
+  label: PURCHASE_INVOICE_LABELS[type],
+}));
+
+const PAYMENT_METHOD_OPTIONS: SelectOption[] = [
+  { value: 'EFECTIVO', label: 'EFECTIVO (Caja Física)' },
+  { value: 'YAPE', label: 'YAPE (Digital)' },
+  { value: 'PLIN', label: 'PLIN (Digital)' },
+  { value: 'TRANSFERENCIA', label: 'TRANSFERENCIA BANCARIA (Digital)' },
+  { value: 'TARJETA', label: 'TARJETA POS (Digital)' },
+];
+
 export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
   isOpen,
   onClose,
@@ -60,6 +86,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
   products,
   isLoading = false,
 }) => {
+  const metodoPagoId = useId();
   const [proveedorId, setProveedorId] = useState<number>(suppliers[0]?.id || 0);
   const [tipoComprobante, setTipoComprobante] = useState<PurchaseInvoiceType>('FACTURA');
   const [numeroComprobante, setNumeroComprobante] = useState<string>('');
@@ -144,6 +171,31 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
   const { totalCompra } = calculatePurchaseItemsTotal(draftItems);
   const canalCaja = derivePaymentChannel(metodoPago);
 
+  const supplierOptions = useMemo<SelectOption[]>(
+    () => [
+      { value: '0', label: '-- Selecciona un Proveedor --' },
+      ...suppliers.map((s) => ({
+        value: String(s.id),
+        label:
+          s.tipo_proveedor === 'EMPRESA'
+            ? `[RUC] ${s.nombre_o_razon_social}${s.nombre_comercial ? ` (${s.nombre_comercial})` : ''}`
+            : `[${s.tipo_documento}] ${s.nombre_o_razon_social}`,
+      })),
+    ],
+    [suppliers]
+  );
+
+  const productOptions = useMemo<SelectOption[]>(
+    () => [
+      { value: '0', label: '-- Selecciona un Producto --' },
+      ...products.map((p) => ({
+        value: String(p.id),
+        label: `${p.codigo_sku} - ${p.nombre} (Stock: ${p.stock_actual})`,
+      })),
+    ],
+    [products]
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors([]);
@@ -210,76 +262,49 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
 
         {/* 1. Datos del Proveedor y Comprobante */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-canvas-subtle rounded-lg border border-border">
-          <div>
-            <label className="font-bold text-txt-primary block mb-1">
-              Proveedor: <span className="text-rose-500">*</span>
-            </label>
-            <select
-              value={proveedorId}
-              onChange={(e) => setProveedorId(Number(e.target.value))}
-              aria-label="Seleccionar Proveedor"
-              required
-              className="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-            >
-              <option value={0}>-- Selecciona un Proveedor --</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.tipo_proveedor === 'EMPRESA'
-                    ? `[RUC] ${s.nombre_o_razon_social}${s.nombre_comercial ? ` (${s.nombre_comercial})` : ''}`
-                    : `[${s.tipo_documento}] ${s.nombre_o_razon_social}`}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            label="Seleccionar Proveedor"
+            selectSize="sm"
+            value={String(proveedorId)}
+            onChange={(e) => setProveedorId(Number(e.target.value))}
+            required
+            options={supplierOptions}
+          />
 
-          <div>
-            <label className="font-bold text-txt-primary block mb-1">
-              Tipo de Comprobante: <span className="text-rose-500">*</span>
-            </label>
-            <select
-              value={tipoComprobante}
-              onChange={(e) => setTipoComprobante(e.target.value as PurchaseInvoiceType)}
-              aria-label="Tipo de Comprobante"
-              required
-              className="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-            >
-              {(Object.keys(PURCHASE_INVOICE_LABELS) as PurchaseInvoiceType[]).map((type) => (
-                <option key={type} value={type}>
-                  {PURCHASE_INVOICE_LABELS[type]}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            label="Tipo de Comprobante"
+            selectSize="sm"
+            value={tipoComprobante}
+            onChange={(e) => setTipoComprobante(e.target.value as PurchaseInvoiceType)}
+            required
+            options={INVOICE_TYPE_OPTIONS}
+          />
 
-          <div>
-            <label className="font-bold text-txt-primary block mb-1">Número de Comprobante:</label>
-            <Input
-              value={numeroComprobante}
-              onChange={(e) => setNumeroComprobante(e.target.value)}
-              placeholder="Ej. F001-000456 o Serie"
-            />
-          </div>
+          <Input
+            label="Número de Comprobante"
+            inputSize="sm"
+            value={numeroComprobante}
+            onChange={(e) => setNumeroComprobante(e.target.value)}
+            placeholder="Ej. F001-000456 o Serie"
+          />
 
-          <div>
-            <label className="font-bold text-txt-primary block mb-1">
-              Método de Pago: <span className="text-rose-500">*</span>
-              <Badge variant={canalCaja === 'FISICA' ? 'success' : 'info'} className="ml-2">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-1">
+              <Label htmlFor={metodoPagoId} required className="normal-case">
+                Método de Pago
+              </Label>
+              <Badge variant={canalCaja === 'FISICA' ? 'success' : 'info'} size="sm">
                 Canal {canalCaja}
               </Badge>
-            </label>
-            <select
+            </div>
+            <Select
+              id={metodoPagoId}
+              selectSize="sm"
               value={metodoPago}
               onChange={(e) => setMetodoPago(e.target.value as PaymentMethod)}
-              aria-label="Método de Pago"
               required
-              className="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-            >
-              <option value="EFECTIVO">EFECTIVO (Caja Física)</option>
-              <option value="YAPE">YAPE (Digital)</option>
-              <option value="PLIN">PLIN (Digital)</option>
-              <option value="TRANSFERENCIA">TRANSFERENCIA BANCARIA (Digital)</option>
-              <option value="TARJETA">TARJETA POS (Digital)</option>
-            </select>
+              options={PAYMENT_METHOD_OPTIONS}
+            />
           </div>
         </div>
 
@@ -293,29 +318,21 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
           </div>
 
           {/* Formulario mini para añadir ítem */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end p-2.5 bg-canvas rounded-lg border border-border">
-            <div className="sm:col-span-2">
-              <label className="font-semibold text-txt-secondary block mb-1">Producto:</label>
-              <select
-                value={selectedProductId}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end p-2.5 bg-canvas rounded-lg border border-border">
+            <div className="sm:col-span-6">
+              <Select
+                label="Seleccionar Producto a comprar"
+                selectSize="sm"
+                value={String(selectedProductId)}
                 onChange={(e) => handleSelectProductChange(Number(e.target.value))}
-                aria-label="Seleccionar Producto a comprar"
-                className="w-full px-2 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-              >
-                <option value={0}>-- Selecciona un Producto --</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.codigo_sku} - {p.nombre} (Stock: {p.stock_actual})
-                  </option>
-                ))}
-              </select>
+                options={productOptions}
+              />
             </div>
 
-            <div>
-              <label className="font-semibold text-txt-secondary block mb-1">
-                Cantidad: <span className="text-rose-500">*</span>
-              </label>
-              <input
+            <div className="sm:col-span-3">
+              <Input
+                label="Cantidad a comprar"
+                inputSize="sm"
                 type="text"
                 inputMode="numeric"
                 value={itemQtyStr}
@@ -329,16 +346,14 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
                     setItemQtyStr(String(n));
                   }
                 }}
-                aria-label="Cantidad a comprar"
-                className="w-full px-2 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
+                required
               />
             </div>
 
-            <div>
-              <label className="font-semibold text-txt-secondary block mb-1">
-                Costo Unit. (S/): <span className="text-rose-500">*</span>
-              </label>
-              <input
+            <div className="sm:col-span-3">
+              <Input
+                label="Costo Unitario (S/)"
+                inputSize="sm"
                 type="text"
                 inputMode="decimal"
                 value={itemUnitCost}
@@ -348,12 +363,11 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
                   setItemUnitCost(formatDecimalOnBlur(e.target.value, { min: 0, fallback: '' }));
                 }}
                 placeholder="0.00"
-                aria-label="Costo Unitario"
-                className="w-full px-2 py-1.5 rounded-md border border-border bg-surface text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
+                required
               />
             </div>
 
-            <div className="sm:col-span-4 flex justify-end">
+            <div className="sm:col-span-12 flex justify-end">
               <Button type="button" variant="secondary" size="sm" onClick={handleAddItem}>
                 + Añadir al Detalle
               </Button>
@@ -366,67 +380,65 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
               Aún no has añadido productos a esta compra.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border border-border rounded">
-                <thead className="bg-canvas-subtle text-txt-muted">
-                  <tr>
-                    <th className="p-2">Producto</th>
-                    <th className="p-2 text-right">Cant.</th>
-                    <th className="p-2 text-right">Costo Unit.</th>
-                    <th className="p-2 text-right">Subtotal</th>
-                    <th className="p-2 text-center">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {draftItems.map((item) => {
-                    const prod = products.find((p) => p.id === item.producto_id);
-                    return (
-                      <tr key={item.tempId} className="hover:bg-surface/50">
-                        <td className="p-2 text-txt-primary font-medium">
-                          {prod ? `${prod.codigo_sku} - ${prod.nombre}` : `Prod #${item.producto_id}`}
-                        </td>
-                        <td className="p-2 text-right text-txt-primary">{item.cantidad}</td>
-                        <td className="p-2 text-right text-txt-primary">S/ {item.costo_unitario}</td>
-                        <td className="p-2 text-right font-bold text-txt-primary">S/ {item.subtotal}</td>
-                        <td className="p-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(item.tempId)}
-                            className="text-rose-500 hover:text-rose-700 font-bold p-1 inline-flex items-center justify-center"
-                            title="Quitar ítem"
-                            aria-label="Quitar ítem"
-                          >
-                            <Icon name="x" className="w-4 h-4" aria-hidden="true" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <Table containerLabel="Productos añadidos a la compra" className="text-xs">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="py-2 px-2.5 normal-case tracking-normal">Producto</TableHead>
+                  <TableHead className="py-2 px-2.5 text-right normal-case tracking-normal">Cant.</TableHead>
+                  <TableHead className="py-2 px-2.5 text-right normal-case tracking-normal">Costo Unit.</TableHead>
+                  <TableHead className="py-2 px-2.5 text-right normal-case tracking-normal">Subtotal</TableHead>
+                  <TableHead className="py-2 px-2.5 text-center normal-case tracking-normal">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {draftItems.map((item) => {
+                  const prod = products.find((p) => p.id === item.producto_id);
+                  return (
+                    <TableRow key={item.tempId}>
+                      <TableCell className="py-2 px-2.5 text-txt-primary font-medium">
+                        {prod ? `${prod.codigo_sku} - ${prod.nombre}` : `Prod #${item.producto_id}`}
+                      </TableCell>
+                      <TableCell className="py-2 px-2.5 text-right text-txt-primary">{item.cantidad}</TableCell>
+                      <TableCell className="py-2 px-2.5 text-right text-txt-primary">S/ {item.costo_unitario}</TableCell>
+                      <TableCell className="py-2 px-2.5 text-right font-bold text-txt-primary">S/ {item.subtotal}</TableCell>
+                      <TableCell className="py-2 px-2.5 text-center">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveItem(item.tempId)}
+                          className="min-h-[28px] min-w-[28px] p-1 text-status-danger hover:bg-status-danger-bg hover:text-status-danger"
+                          title="Quitar ítem"
+                          aria-label="Quitar ítem"
+                        >
+                          <Icon name="x" className="w-4 h-4" aria-hidden="true" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
 
           {/* Resumen Total */}
           <div className="flex justify-end items-center gap-3 pt-2 border-t border-border">
             <span className="font-bold text-sm text-txt-primary">Total Compra:</span>
-            <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+            <span className="text-base font-black text-status-success">
               {formatCurrency(totalCompra)}
             </span>
           </div>
         </div>
 
         {/* 3. Notas Adicionales */}
-        <div>
-          <label className="font-bold text-txt-primary block mb-1">Notas u Observaciones (Opcional):</label>
-          <textarea
-            value={notas}
-            onChange={(e) => setNotas(e.target.value)}
-            placeholder="Detalles de entrega, lote o condiciones del proveedor..."
-            rows={2}
-            className="w-full px-2.5 py-1.5 rounded-md border border-border bg-canvas text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-          />
-        </div>
+        <Textarea
+          label="Notas u Observaciones (Opcional)"
+          value={notas}
+          onChange={(e) => setNotas(e.target.value)}
+          placeholder="Detalles de entrega, lote o condiciones del proveedor..."
+          rows={2}
+          className="text-xs bg-canvas"
+        />
 
         {/* Botones de Acción */}
         <div className="flex justify-end items-center gap-2 pt-2 border-t border-border">

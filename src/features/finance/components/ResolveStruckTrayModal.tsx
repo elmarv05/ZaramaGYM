@@ -9,6 +9,7 @@ import { Alert } from '../../../components/primitives/Alert';
 import { Badge } from '../../../components/primitives/Badge';
 import { Button } from '../../../components/primitives/Button';
 import { Modal } from '../../../components/primitives/Modal';
+import { Textarea } from '../../../components/primitives/Textarea';
 import { formatCurrency } from '../../../domain/finance';
 import { StruckSaleTrayItemDto } from '../../../types/finance';
 import { ResolveStruckAction, ResolveStruckSaleInput } from '../../../types/pos';
@@ -105,11 +106,11 @@ export const ResolveStruckTrayModal: React.FC<ResolveStruckTrayModalProps> = ({
           </div>
 
           {item.motivo_tachado && (
-            <div className="p-2 bg-amber-50 dark:bg-amber-950/20 rounded border border-amber-200 dark:border-amber-900/50 mt-1">
-              <span className="text-amber-800 dark:text-amber-300 font-bold block text-[11px]">
+            <div className="p-2 bg-status-warning-bg rounded border border-status-warning-border mt-1">
+              <span className="text-status-warning font-bold block text-[11px]">
                 Motivo declarado por el operador (@{item.tachado_por_username || 'Cajero'}):
               </span>
-              <p className="italic text-amber-900 dark:text-amber-200 mt-0.5">
+              <p className="italic text-txt-primary mt-0.5">
                 &quot;{item.motivo_tachado}&quot;
               </p>
             </div>
@@ -117,21 +118,29 @@ export const ResolveStruckTrayModal: React.FC<ResolveStruckTrayModalProps> = ({
         </div>
 
         {/* Selector de Dictamen Administrativo */}
-        <div className="flex flex-col gap-2">
-          <span className="font-bold text-txt-primary">Selecciona la Decisión del Administrador:</span>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="font-bold text-txt-primary mb-2">
+            Selecciona la Decisión del Administrador:
+          </legend>
 
           {/* Opción 1: Confirmar Anulación */}
-          <label className="flex items-start gap-3 p-3 rounded-lg border border-border bg-surface cursor-pointer hover:border-rose-400 transition-colors">
+          <label
+            className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+              accion === 'CONFIRMAR_ANULACION'
+                ? 'border-status-danger bg-status-danger-bg/40'
+                : 'border-border bg-surface hover:border-status-danger-border'
+            }`}
+          >
             <input
               type="radio"
               name="resolve_action_tray"
               value="CONFIRMAR_ANULACION"
               checked={accion === 'CONFIRMAR_ANULACION'}
               onChange={() => setAccion('CONFIRMAR_ANULACION')}
-              className="mt-0.5"
+              className="mt-0.5 accent-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             />
             <div className="flex flex-col">
-              <span className="font-bold text-rose-600 dark:text-rose-400">
+              <span className="font-bold text-status-danger">
                 Confirmar Anulación Definitiva (Ratificar Tachado)
               </span>
               <span className="text-[11px] text-txt-muted mt-0.5">
@@ -145,7 +154,9 @@ export const ResolveStruckTrayModal: React.FC<ResolveStruckTrayModalProps> = ({
             className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
               !isTurnoAbierto
                 ? 'opacity-50 cursor-not-allowed bg-canvas border-border'
-                : 'cursor-pointer hover:border-emerald-400 bg-surface border-border'
+                : accion === 'REVERTIR_TACHADO'
+                ? 'cursor-pointer border-status-success bg-status-success-bg/40'
+                : 'cursor-pointer hover:border-status-success-border bg-surface border-border'
             }`}
           >
             <input
@@ -155,11 +166,11 @@ export const ResolveStruckTrayModal: React.FC<ResolveStruckTrayModalProps> = ({
               disabled={!isTurnoAbierto}
               checked={accion === 'REVERTIR_TACHADO'}
               onChange={() => isTurnoAbierto && setAccion('REVERTIR_TACHADO')}
-              className="mt-0.5"
+              className="mt-0.5 accent-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             />
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                <span className="font-bold text-status-success">
                   Revertir Tachado (Restaurar Venta a COMPLETADA)
                 </span>
                 {!isTurnoAbierto && (
@@ -173,21 +184,17 @@ export const ResolveStruckTrayModal: React.FC<ResolveStruckTrayModalProps> = ({
               </span>
             </div>
           </label>
-        </div>
+        </fieldset>
 
         {/* Nota de Resolución */}
-        <div>
-          <label className="font-bold text-txt-primary block mb-1">
-            Nota de Resolución Administrativa (Opcional):
-          </label>
-          <textarea
-            value={nota}
-            onChange={(e) => setNota(e.target.value)}
-            placeholder="Observaciones de auditoría o sustento de la decisión..."
-            rows={2}
-            className="w-full px-2.5 py-1.5 rounded-md border border-border bg-canvas text-txt-primary text-xs focus:ring-1 focus:ring-brand outline-none"
-          />
-        </div>
+        <Textarea
+          label="Nota de Resolución Administrativa (Opcional)"
+          value={nota}
+          onChange={(e) => setNota(e.target.value)}
+          placeholder="Observaciones de auditoría o sustento de la decisión..."
+          rows={2}
+          className="text-xs bg-canvas"
+        />
 
         {/* Botones */}
         <div className="flex justify-end items-center gap-2 pt-2 border-t border-border">

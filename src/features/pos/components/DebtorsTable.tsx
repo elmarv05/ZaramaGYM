@@ -5,12 +5,22 @@
 // ============================================================================
 
 import React, { useMemo, useState } from 'react';
-import { Alert } from '../../../components/primitives/Alert';
-import { Badge } from '../../../components/primitives/Badge';
-import { Button } from '../../../components/primitives/Button';
-import { Icon } from '../../../components/primitives/Icon';
-import { Input } from '../../../components/primitives/Input';
-import { Skeleton } from '../../../components/primitives/Skeleton';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Icon,
+  Input,
+  Select,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../../components/primitives';
 import { formatMoney } from '../../../domain/pos';
 import { triggerBase64FileDownload } from '../../../domain/printingBackup';
 import { normalizeAppError } from '../../../services/ipc/client';
@@ -25,6 +35,20 @@ export interface DebtorsTableProps {
   onRefresh?: () => void;
   onExportPortfolio?: (format: ExportFormat) => Promise<ExportFileResult | void>;
 }
+
+const ESTADO_OPTIONS = [
+  { value: 'PENDIENTE', label: 'Solo Pendientes (Con Deuda)' },
+  { value: 'TODOS', label: 'Todos los Estados' },
+  { value: 'PAGADO', label: 'Totalmente Pagados' },
+  { value: 'ANULADO', label: 'Anulados por Tachado' },
+];
+
+const ORIGEN_OPTIONS = [
+  { value: 'TODOS', label: 'Todos los Orígenes' },
+  { value: 'MEMBRESIA_PAGO_PARCIAL', label: 'Membresía (Pago Parcial)' },
+  { value: 'PRODUCTO_CREDITO', label: 'Producto a Crédito' },
+  { value: 'PASE_DIARIO_SEMAFORO_ROJO', label: 'Pase Diario Semáforo Rojo' },
+];
 
 export const DebtorsTable: React.FC<DebtorsTableProps> = ({
   credits,
@@ -45,19 +69,11 @@ export const DebtorsTable: React.FC<DebtorsTableProps> = ({
 
   const filteredCredits = useMemo(() => {
     return credits.filter((c) => {
-      // Filtro de texto (nombre o documento)
       const matchesSearch =
         c.cliente_nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.cliente_numero_documento.includes(searchTerm);
-
-      // Filtro de estado
-      const matchesEstado =
-        estadoFilter === 'TODOS' || c.estado === estadoFilter;
-
-      // Filtro de origen
-      const matchesOrigen =
-        origenFilter === 'TODOS' || c.origen_credito === origenFilter;
-
+      const matchesEstado = estadoFilter === 'TODOS' || c.estado === estadoFilter;
+      const matchesOrigen = origenFilter === 'TODOS' || c.origen_credito === origenFilter;
       return matchesSearch && matchesEstado && matchesOrigen;
     });
   }, [credits, searchTerm, estadoFilter, origenFilter]);
@@ -126,27 +142,25 @@ export const DebtorsTable: React.FC<DebtorsTableProps> = ({
   };
 
   return (
-    <div className="w-full bg-surface border border-border rounded-xl p-4 sm:p-5 shadow-xs flex flex-col gap-4">
+    <Card padding="md" className="w-full gap-4">
       {/* Cabecera y Métricas de Deuda */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold text-txt-primary text-base sm:text-lg flex items-center gap-2">
-              <Icon name="credit-card" className="w-5 h-5 text-brand" aria-hidden="true" />
-              Cartera de Cuentas por Cobrar
-            </h3>
-          </div>
+          <h3 className="font-bold text-txt-primary text-base sm:text-lg flex items-center gap-2">
+            <Icon name="credit-card" className="w-5 h-5 text-brand" aria-hidden="true" />
+            Cartera de Cuentas por Cobrar
+          </h3>
           <p className="text-xs text-txt-secondary">
             Control centralizado de créditos generados por membresías con pago parcial, productos a crédito o pases diarios.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 px-3 py-1.5 rounded-lg flex flex-col">
-            <span className="text-[10px] uppercase font-bold text-amber-800 dark:text-amber-300">
+          <div className="bg-status-warning-bg border border-status-warning-border px-3 py-1.5 rounded-lg flex flex-col">
+            <span className="text-[10px] uppercase font-bold text-status-warning">
               Total Cartera Pendiente
             </span>
-            <span className="text-sm font-black text-amber-700 dark:text-amber-400">
+            <span className="text-sm font-black text-status-warning">
               S/ {formatMoney(totalDeudaPendiente)}
             </span>
           </div>
@@ -177,15 +191,16 @@ export const DebtorsTable: React.FC<DebtorsTableProps> = ({
           </div>
 
           {onRefresh && (
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="icon"
               onClick={onRefresh}
               title="Refrescar cartera"
               aria-label="Refrescar cartera"
-              className="p-2 border border-border rounded-lg bg-canvas-subtle hover:bg-slate-200 dark:hover:bg-slate-700 text-xs text-txt-secondary hover:text-txt-primary transition-colors"
             >
               <Icon name="refresh" className="w-4 h-4" aria-hidden="true" />
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -201,37 +216,30 @@ export const DebtorsTable: React.FC<DebtorsTableProps> = ({
       )}
 
       {/* Barra de Filtros */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div role="search" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Input
+          inputSize="sm"
+          aria-label="Buscar por socio o DNI"
           placeholder="Buscar por socio o DNI..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="text-xs"
         />
 
-        <select
+        <Select
+          selectSize="sm"
           value={estadoFilter}
           onChange={(e) => setEstadoFilter(e.target.value)}
           aria-label="Filtrar por estado de crédito"
-          className="text-xs rounded-lg border border-border bg-surface px-3 py-2 text-txt-primary focus:outline-none focus:ring-1 focus:ring-brand font-medium"
-        >
-          <option value="PENDIENTE">Solo Pendientes (Con Deuda)</option>
-          <option value="TODOS">Todos los Estados</option>
-          <option value="PAGADO">Totalmente Pagados</option>
-          <option value="ANULADO">Anulados por Tachado</option>
-        </select>
+          options={ESTADO_OPTIONS}
+        />
 
-        <select
+        <Select
+          selectSize="sm"
           value={origenFilter}
           onChange={(e) => setOrigenFilter(e.target.value)}
           aria-label="Filtrar por origen de crédito"
-          className="text-xs rounded-lg border border-border bg-surface px-3 py-2 text-txt-primary focus:outline-none focus:ring-1 focus:ring-brand font-medium"
-        >
-          <option value="TODOS">Todos los Orígenes</option>
-          <option value="MEMBRESIA_PAGO_PARCIAL">Membresía (Pago Parcial)</option>
-          <option value="PRODUCTO_CREDITO">Producto a Crédito</option>
-          <option value="PASE_DIARIO_SEMAFORO_ROJO">Pase Diario Semáforo Rojo</option>
-        </select>
+          options={ORIGEN_OPTIONS}
+        />
       </div>
 
       {/* 1. Loading */}
@@ -250,7 +258,10 @@ export const DebtorsTable: React.FC<DebtorsTableProps> = ({
           aria-label="Cartera de Deudores Vacía"
           className="w-full bg-surface border border-dashed border-border rounded-xl p-8 flex flex-col items-center justify-center text-center gap-2"
         >
-          <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-status-success flex items-center justify-center">
+          <div
+            aria-hidden="true"
+            className="w-12 h-12 rounded-full bg-status-success-bg text-status-success flex items-center justify-center"
+          >
             <Icon name="check" className="w-6 h-6" aria-hidden="true" />
           </div>
           <h4 className="text-sm font-bold text-txt-primary">No hay cuentas pendientes de cobro</h4>
@@ -262,81 +273,83 @@ export const DebtorsTable: React.FC<DebtorsTableProps> = ({
 
       {/* 3. Tabla de Resultados */}
       {!isLoading && filteredCredits.length > 0 && (
-        <div className="border border-border rounded-xl overflow-hidden shadow-xs">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-canvas-subtle text-[11px] text-txt-muted uppercase font-bold border-b border-border">
-              <tr>
-                <th className="px-4 py-3">Cliente / DNI</th>
-                <th className="px-3 py-3">Origen y Concepto</th>
-                <th className="px-3 py-3 text-right">Monto Total</th>
-                <th className="px-3 py-3 text-right">Amortizado</th>
-                <th className="px-3 py-3 text-right">Saldo Deudor</th>
-                <th className="px-3 py-3 text-center">Estado</th>
-                <th className="px-4 py-3 text-center">Acción</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredCredits.map((credit) => (
-                <tr key={credit.id} className="hover:bg-canvas-subtle/40 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-txt-primary">
-                        {credit.cliente_nombre_completo}
-                      </span>
-                      <span className="text-[11px] text-txt-muted">
-                        DNI: {credit.cliente_numero_documento}
-                        {credit.cliente_telefono && ` • Tel: ${credit.cliente_telefono}`}
-                      </span>
-                    </div>
-                  </td>
+        <Table
+          containerLabel="Cartera de cuentas por cobrar"
+          containerClassName="rounded-xl shadow-xs"
+          className="text-xs"
+        >
+          <TableHeader stickyHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="px-4 py-3 text-[11px]">Cliente / DNI</TableHead>
+              <TableHead className="px-3 py-3 text-[11px]">Origen y Concepto</TableHead>
+              <TableHead className="px-3 py-3 text-right text-[11px]">Monto Total</TableHead>
+              <TableHead className="px-3 py-3 text-right text-[11px]">Amortizado</TableHead>
+              <TableHead className="px-3 py-3 text-right text-[11px]">Saldo Deudor</TableHead>
+              <TableHead className="px-3 py-3 text-center text-[11px]">Estado</TableHead>
+              <TableHead className="px-4 py-3 text-center text-[11px]">Acción</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredCredits.map((credit) => (
+              <TableRow key={credit.id}>
+                <TableCell className="px-4 py-3">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-txt-primary">
+                      {credit.cliente_nombre_completo}
+                    </span>
+                    <span className="text-[11px] text-txt-muted">
+                      DNI: {credit.cliente_numero_documento}
+                      {credit.cliente_telefono && ` • Tel: ${credit.cliente_telefono}`}
+                    </span>
+                  </div>
+                </TableCell>
 
-                  <td className="px-3 py-3">
-                    <div className="flex flex-col gap-0.5">
-                      <div>{getOriginBadge(credit.origen_credito)}</div>
-                      <span className="text-txt-secondary text-[11px] line-clamp-1">
-                        {credit.descripcion}
-                      </span>
-                    </div>
-                  </td>
+                <TableCell className="px-3 py-3">
+                  <div className="flex flex-col gap-0.5">
+                    <div>{getOriginBadge(credit.origen_credito)}</div>
+                    <span className="text-txt-secondary text-[11px] line-clamp-1">
+                      {credit.descripcion}
+                    </span>
+                  </div>
+                </TableCell>
 
-                  <td className="px-3 py-3 text-right text-txt-secondary font-medium">
-                    S/ {formatMoney(credit.monto_total)}
-                  </td>
+                <TableCell className="px-3 py-3 text-right text-txt-secondary font-medium">
+                  S/ {formatMoney(credit.monto_total)}
+                </TableCell>
 
-                  <td className="px-3 py-3 text-right text-emerald-700 dark:text-emerald-400 font-medium">
-                    S/ {formatMoney(credit.monto_pagado)}
-                  </td>
+                <TableCell className="px-3 py-3 text-right text-status-success font-medium">
+                  S/ {formatMoney(credit.monto_pagado)}
+                </TableCell>
 
-                  <td className="px-3 py-3 text-right font-black text-amber-700 dark:text-amber-400 text-sm">
-                    S/ {formatMoney(credit.saldo_pendiente)}
-                  </td>
+                <TableCell className="px-3 py-3 text-right font-black text-status-warning text-sm">
+                  S/ {formatMoney(credit.saldo_pendiente)}
+                </TableCell>
 
-                  <td className="px-3 py-3 text-center">
-                    {getStatusBadge(credit.estado)}
-                  </td>
+                <TableCell className="px-3 py-3 text-center">
+                  {getStatusBadge(credit.estado)}
+                </TableCell>
 
-                  <td className="px-4 py-3 text-center">
-                    {credit.estado === 'PENDIENTE' && parseFloat(credit.saldo_pendiente) > 0 ? (
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        onClick={() => onAmortizeInPos(credit)}
-                        leftIcon={<Icon name="credit-card" className="w-4 h-4" aria-hidden="true" />}
-                        className="text-xs font-bold whitespace-nowrap shadow-xs"
-                      >
-                        Amortizar en POS
-                      </Button>
-                    ) : (
-                      <span className="text-[11px] text-txt-muted italic">Sin saldo</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                <TableCell className="px-4 py-3 text-center">
+                  {credit.estado === 'PENDIENTE' && parseFloat(credit.saldo_pendiente) > 0 ? (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => onAmortizeInPos(credit)}
+                      leftIcon={<Icon name="credit-card" className="w-4 h-4" aria-hidden="true" />}
+                      className="text-xs font-bold whitespace-nowrap shadow-xs"
+                    >
+                      Amortizar en POS
+                    </Button>
+                  ) : (
+                    <span className="text-[11px] text-txt-muted italic">Sin saldo</span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
-    </div>
+    </Card>
   );
 };

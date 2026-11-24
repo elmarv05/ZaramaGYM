@@ -214,6 +214,48 @@ describe('Iteración UX: Notificaciones Inteligentes en Sidebar, Contraste Chrom
       expect(within(sidebar).getByAltText('ZaramaGYM')).toBeInTheDocument();
       expect(within(sidebar).getByTestId('sidebar-alert-catalog')).toHaveTextContent('2');
     });
+
+    it('aplica tokens de contraste de marca ZaramaGYM en Sidebar, Header y Footer en modo Claro y Oscuro', async () => {
+      document.documentElement.classList.remove('dark');
+
+      mockedInvoke.mockImplementation(async (cmd) => {
+        if (cmd === 'get_current_session') return adminSession;
+        if (cmd === 'get_active_cash_shift' || cmd === 'get_cash_shift_summary') return null;
+        return [];
+      });
+
+      const user = userEvent.setup();
+      render(<App />);
+
+      const sidebar = await screen.findByLabelText(/navegación lateral zaramagym/i);
+      const header = screen.getByRole('banner');
+      const footer = screen.getByRole('contentinfo');
+      const main = screen.getByRole('main');
+
+      expect(sidebar.className).toContain('zg-chrome-sidebar');
+      expect(sidebar.className).toContain('bg-chrome-sidebar');
+      expect(sidebar.className).toContain('border-chrome-sidebar-border');
+      expect(header.className).toContain('zg-chrome-header');
+      expect(header.className).toContain('bg-chrome-bar');
+      expect(header.className).toContain('border-chrome-bar-border');
+      expect(footer.className).toContain('zg-chrome-footer');
+      expect(footer.className).toContain('bg-chrome-bar');
+      expect(footer.className).toContain('border-chrome-bar-border');
+      expect(main.className).toContain('bg-canvas');
+
+      // Alternar entre modo Claro y modo Oscuro desde el Header
+      const initialDark = document.documentElement.classList.contains('dark');
+      const themeToggle = within(header).getByRole('button', {
+        name: /cambiar a modo (oscuro|claro)/i,
+      });
+      await user.click(themeToggle);
+      expect(document.documentElement.classList.contains('dark')).toBe(!initialDark);
+
+      await user.click(
+        within(header).getByRole('button', { name: /cambiar a modo (oscuro|claro)/i })
+      );
+      expect(document.documentElement.classList.contains('dark')).toBe(initialDark);
+    });
   });
 
   describe('3. Seguridad de Formularios y Campos Numéricos', () => {

@@ -89,7 +89,7 @@ export const DeveloperContactModal: React.FC<DeveloperContactModalProps> = ({
           </div>
 
           {/* Quiet zone blanca garantizada para lectura óptica en Modo Claro y Oscuro */}
-          <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs">
+          <div className="bg-white p-2.5 rounded-xl border border-border shadow-xs">
             <img
               src="/max-rios-whatsapp-qr.png"
               alt="Código QR de WhatsApp de Max Rios"
