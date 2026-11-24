@@ -13,7 +13,6 @@ import { Alert } from '../../components/primitives/Alert';
 import { Button } from '../../components/primitives/Button';
 import { Icon } from '../../components/primitives/Icon';
 import { Input } from '../../components/primitives/Input';
-import { CURRENT_APP_VERSION } from '../../services/updater/appUpdater';
 
 export interface LoginFormProps {
   onLogin: (credentials: LoginCredentials) => Promise<boolean>;
@@ -24,6 +23,7 @@ export interface LoginFormProps {
   showDevHelpers?: boolean;
 }
 
+const CURRENT_APP_VERSION = '0.1.0';
 const WATERMARK_CELLS = Array.from({ length: 24 });
 
 export const LoginForm: React.FC<LoginFormProps> = ({

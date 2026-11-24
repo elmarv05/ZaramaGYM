@@ -7,7 +7,6 @@ import {
   AuthSession,
   CrashRecoveryNotice,
   LoginCredentials,
-  SafeUpdatePreparationDto,
 } from '../../types/auth';
 import { safeInvoke } from './client';
 
@@ -71,23 +70,5 @@ export const authIpc = {
    */
   async acknowledgeCrashRecoveryNotice(): Promise<void> {
     return safeInvoke<void>('acknowledge_crash_recovery_notice');
-  },
-
-  /**
-   * Prepara el sistema antes de una actualización OTA:
-   * valida caja cerrada, crea respaldo preventivo verificado y apaga bandera runtime
-   */
-  async prepareSafeAppUpdate(targetVersion: string): Promise<SafeUpdatePreparationDto> {
-    return safeInvoke<SafeUpdatePreparationDto>('prepare_safe_app_update', {
-      targetVersion,
-      target_version: targetVersion,
-    });
-  },
-
-  /**
-   * Restaura bandera runtime si la descarga OTA falló por red para mantener protección activa
-   */
-  async restoreRuntimeAfterFailedUpdate(): Promise<void> {
-    return safeInvoke<void>('restore_runtime_after_failed_update');
   },
 };

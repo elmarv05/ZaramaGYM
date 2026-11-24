@@ -44,16 +44,3 @@ pub struct CrashRecoveryNotice {
     pub restarted_at: String,
     pub message: String,
 }
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct SafeUpdatePreparationDto {
-    pub current_version: String,
-    pub target_version: String,
-    pub backup_id: i64,
-    pub backup_filename: String,
-    pub backup_path: String,
-    pub backup_size_bytes: i64,
-    pub backup_sha256: String,
-    pub integrity_verified: bool,
-    pub prepared_at: String,
-}

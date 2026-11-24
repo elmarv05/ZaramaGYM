@@ -11,8 +11,6 @@ use tauri::{Emitter, Manager};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // En desarrollo o producción desktop, resolver la ruta del archivo SQLite
             let app_handle = app.handle();
@@ -104,8 +102,6 @@ pub fn run() {
             commands::get_audit_logs,
             commands::get_crash_recovery_notice,
             commands::acknowledge_crash_recovery_notice,
-            commands::prepare_safe_app_update,
-            commands::restore_runtime_after_failed_update,
             // Slice 2: Directorio de Personas
             commands::list_persons,
             commands::get_person,

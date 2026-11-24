@@ -6,13 +6,11 @@
 // ============================================================================
 
 use crate::errors::AppError;
-use crate::models::{AuthSession, CloseBlockedPayload, CrashRecoveryNotice, SafeUpdatePreparationDto};
+use crate::models::{CloseBlockedPayload, CrashRecoveryNotice};
 use crate::services::audit_service::record_audit;
-use crate::services::printing_backup_service;
 use crate::state::AppState;
 use chrono::Local;
 use sqlx::{Row, SqlitePool};
-use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 pub const KEY_RUNTIME_RUNNING: &str = "APP_RUNTIME_RUNNING";
@@ -376,108 +374,4 @@ pub async fn handle_window_close_requested(
     mark_clean_shutdown(&pool).await?;
 
     Ok(None)
-}
-
-/// Prepara el sistema de forma segura antes de descargar e instalar una actualización OTA:
-/// 1. Exige rol ADMINISTRADOR.
-/// 2. Bloquea si existe cualquier turno de caja ABIERTO (exige Arqueo y Cierre previo).
-/// 3. Genera un respaldo local verificado (`VACUUM INTO` + SHA-256 + `PRAGMA integrity_check`).
-/// 4. Audita `APP_UPDATE_INITIATED` en la bitácora inmutable.
-/// 5. Marca cierre limpio (`APP_RUNTIME_RUNNING = "0"`) para evitar falso positivo de Crash Recovery al reiniciar.
-pub async fn prepare_safe_app_update(
-    state: &AppState,
-    session: &AuthSession,
-    target_version: &str,
-    backup_dir_override: Option<&Path>,
-) -> Result<SafeUpdatePreparationDto, AppError> {
-    session.require_admin()?;
-
-    let clean_target = target_version.trim();
-    if clean_target.is_empty() {
-        return Err(AppError::Validation(
-            "Debe especificar la versión destino de la actualización.".into(),
-        ));
-    }
-
-    let pool = state.pool();
-
-    // 1. Bloquear si existe un turno de caja ABIERTO
-    if let Some(shift) = get_open_cash_shift_brief(&pool).await? {
-        return Err(AppError::Validation(format!(
-            "No puedes actualizar ZaramaGYM mientras el Turno de Caja #{} (abierto por @{}) permanezca ABIERTO. Realiza primero el Arqueo y Cierre de Caja en el módulo POS.",
-            shift.shift_id, shift.usuario_apertura_username
-        )));
-    }
-
-    // 2. Resolver carpeta de respaldos preventivos
-    let backup_dir: PathBuf = if let Some(dir) = backup_dir_override {
-        dir.to_path_buf()
-    } else if let Some(db_path) = state.db_path() {
-        db_path
-            .parent()
-            .map(|p| p.join("backups"))
-            .unwrap_or_else(|| PathBuf::from("backups"))
-    } else {
-        PathBuf::from("backups")
-    };
-
-    // 3. Crear respaldo preventivo en caliente y verificar integridad
-    let backup_record =
-        printing_backup_service::create_local_backup(&pool, session, Some(&backup_dir)).await?;
-
-    let current_version = env!("CARGO_PKG_VERSION").to_string();
-    let prepared_at = current_local_timestamp();
-
-    // 4. Registrar evento de auditoría compacto (<200 bytes)
-    let audit_detail = serde_json::json!({
-        "desde": current_version,
-        "hacia": clean_target,
-        "backup_id": backup_record.id
-    })
-    .to_string();
-
-    let _ = record_audit(
-        &pool,
-        Some(session.user_id),
-        &session.username,
-        "APP_UPDATE_INITIATED",
-        "SISTEMA",
-        &audit_detail,
-        Some("OTA_UPDATER"),
-    )
-    .await;
-
-    // 5. Apagar bandera de ejecución para que el reinicio del instalador sea tratado como cierre limpio
-    mark_clean_shutdown(&pool).await?;
-
-    Ok(SafeUpdatePreparationDto {
-        current_version,
-        target_version: clean_target.to_string(),
-        backup_id: backup_record.id,
-        backup_filename: backup_record.nombre_archivo,
-        backup_path: backup_record.ruta_local,
-        backup_size_bytes: backup_record.tamano_bytes,
-        backup_sha256: backup_record.sha256_checksum,
-        integrity_verified: backup_record.estado == crate::models::BackupStatus::Completado,
-        prepared_at,
-    })
-}
-
-/// Restaura la bandera de ejecución activa (`APP_RUNTIME_RUNNING = "1"`) si la descarga/instalación
-/// de una actualización falló (ej. corte de Internet) para que la app siga protegida fluidamente.
-pub async fn restore_runtime_after_failed_update(
-    state: &AppState,
-    session: &AuthSession,
-) -> Result<(), AppError> {
-    session.require_admin()?;
-    let pool = state.pool();
-    upsert_runtime_key(
-        &pool,
-        KEY_RUNTIME_RUNNING,
-        "1",
-        "Bandera interna de ejecución activa (1=corriendo, 0=cierre limpio)",
-    )
-    .await?;
-    update_runtime_active_user(&pool, Some(session.user_id), Some(&session.username)).await?;
-    Ok(())
 }

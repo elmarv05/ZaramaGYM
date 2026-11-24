@@ -123,10 +123,9 @@ Se ordenan de menor a mayor riesgo de infraestructura para entregar valor increm
 
 - [x] **Slice R1:** Ícono ZaramaGYM + PWA Manifest para acceso directo móvil (`/assets/zaramagym-icon.png` + `/manifest.webmanifest` + `<head>` en `SCANNER_HTML` + tests Rust). -> Verificado ✅ (`slice_6_tests` 15/15 en verde).
 - [x] **Slice R2 (Hotspot Fix — Anti-NXDOMAIN):** IP local directa por defecto (`https://<IP-LAN>:3443/scanner`) en QR/enlace para compatibilidad total con Hotspot móvil, refresco dinámico de SANs TLS al cambiar IP de Hotspot, reparación de responder mDNS (`UDP 5353` con `SO_REUSEADDR` via `socket2`, multicast multi-interfaz, parser multi-pregunta RFC 6762 y `mdns_active` real) y regla Firewall `TCP 3443 + UDP 5353` (`lan_service.rs`, `state.rs`, `lan.ts`, `LanServerView.tsx`, `allow-lan-firewall.ps1` + tests Rust/Vitest). -> Verificado ✅ (`slice_6_tests` 16/16 + lib 4/4, `vitest` 31/31, `tsc && vite build` limpio).
-- [x] **Slice R3:** Actualizador Automático Nativo Remoto (`tauri-plugin-updater` + firma Ed25519 + comando `prepare_safe_app_update` + UI de actualización + workflow/guía de publicación + tests Rust/Vitest). -> Verificado ✅ (`lifecycle_integrity_tests` 7/7, `AppUpdater.test.tsx` 4/4, `tsc && vite build` limpio).
-- [x] **Validación Integral Pre-Producción:** Suite `cargo test` (`lifecycle_integrity_tests` 7/7 + `slice_6_tests` 16/16 + lib 3/3) + `vitest` (`AppUpdater` 4/4 + `CashIntegrityLifecycle` 4/4 + LAN 35/35) + `tsc && vite build` en verde sin regresiones antes de pasar a la Fase 4.2 de [end_roadmap.md](file:///c:/Users/USER/Desktop/Objeto/ZaramaGYM/odd/end_roadmap.md).
+- [x] **Slice R3 (Retirado tras `v1.0.0` por distribución privada manual):** Actualizador Automático Nativo Remoto (`tauri-plugin-updater`, `tauri-plugin-process`, `AppUpdateModal.tsx`, `appUpdater.ts`, `prepare_safe_app_update`, `.github/workflows/release.yml` y `guia-actualizaciones-remotas.md` removidos para evitar exponer instaladores en repositorios públicos de GitHub y eliminar llamadas/dependencias innecesarias). Las actualizaciones se aplican instalando el nuevo `.exe` localmente sobre la PC del gimnasio conservando intactos SQLite, Keyring y dispositivos vinculados.
 
 ---
 
-## 5. Decisión Confirmada para Slice R3
-- **Repositorio de Releases:** Se utilizará el repositorio actual **`https://github.com/elmarv05/ZaramaGYM`** (`https://github.com/elmarv05/ZaramaGYM/releases/latest/download/latest.json`).
+## 5. Decisión Final de Distribución
+- **Modelo adoptado:** Repositorio privado + entrega directa del instalador `.exe` (NSIS) sin canal OTA público.

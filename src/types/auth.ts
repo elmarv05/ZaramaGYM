@@ -123,15 +123,3 @@ export interface CrashRecoveryNotice {
   restarted_at: string;
   message: string;
 }
-
-export interface SafeUpdatePreparationDto {
-  current_version: string;
-  target_version: string;
-  backup_id: number;
-  backup_filename: string;
-  backup_path: string;
-  backup_size_bytes: number;
-  backup_sha256: string;
-  integrity_verified: boolean;
-  prepared_at: string;
-}

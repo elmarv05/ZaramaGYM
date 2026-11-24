@@ -27,12 +27,6 @@ import {
   CrashRecoveryModal,
 } from './features/auth/CashIntegrityModals';
 import { ChangePasswordModal } from './features/auth/ChangePasswordModal';
-import { AppUpdateModal } from './features/updates/AppUpdateModal';
-import {
-  AvailableAppUpdate,
-  CURRENT_APP_VERSION,
-  checkForAppUpdate,
-} from './services/updater/appUpdater';
 import { LockModal } from './features/auth/LockModal';
 import { LoginForm } from './features/auth/LoginForm';
 import { HomeDashboardView } from './features/home/HomeDashboardView';
@@ -175,8 +169,6 @@ export const App: React.FC = () => {
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isDeveloperCardOpen, setIsDeveloperCardOpen] = useState(false);
-  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
-  const [availableUpdate, setAvailableUpdate] = useState<AvailableAppUpdate | null>(null);
 
   // Estados de Integridad de Caja: Bloqueo de cierre (X) y Crash Recovery
   const [closeBlockedPayload, setCloseBlockedPayload] =
@@ -269,27 +261,6 @@ export const App: React.FC = () => {
       cancelled = true;
     };
   }, [session?.user_id, session?.is_locked]);
-
-  // Verificación silenciosa de actualizaciones OTA al iniciar sesión como Administrador
-  // (No molesta ni arroja errores cuando el gimnasio trabaja 100% offline)
-  useEffect(() => {
-    if (!session || session.is_locked || session.rol !== 'ADMINISTRADOR') return;
-    let cancelled = false;
-
-    checkForAppUpdate()
-      .then((update) => {
-        if (!cancelled && update) {
-          setAvailableUpdate(update);
-        }
-      })
-      .catch(() => {
-        // Operación offline silenciosa garantizada
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [session?.user_id, session?.is_locked, session?.rol]);
 
   const handleAcknowledgeCrashRecovery = async () => {
     setCrashRecoveryNotice(null);
@@ -1718,28 +1689,6 @@ export const App: React.FC = () => {
               >
                 Contacto: Max Rios
               </button>
-              {isAdmin && (
-                <>
-                  {' '}•{' '}
-                  <button
-                    type="button"
-                    onClick={() => setIsUpdateModalOpen(true)}
-                    title="Verificar e instalar actualizaciones remotas de ZaramaGYM"
-                    className={`inline-flex items-center gap-1 font-semibold rounded-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus ${
-                      availableUpdate
-                        ? 'text-status-success hover:underline'
-                        : 'text-txt-primary hover:text-brand underline decoration-border-strong underline-offset-2 hover:decoration-brand'
-                    }`}
-                  >
-                    <Icon name={availableUpdate ? 'download' : 'refresh'} className="w-3 h-3" />
-                    <span>
-                      {availableUpdate
-                        ? `Actualizar a v${availableUpdate.version}`
-                        : `v${CURRENT_APP_VERSION} • Actualizaciones`}
-                    </span>
-                  </button>
-                </>
-              )}
             </span>
           </div>
 
@@ -1805,20 +1754,6 @@ export const App: React.FC = () => {
         onGoToPos={handleGoToPosFromCrashRecovery}
         onGoToAudit={handleGoToAuditFromCrashRecovery}
       />
-
-      {/* Modal de Actualización Remota OTA (Solo Administrador) */}
-      {isAdmin && (
-        <AppUpdateModal
-          isOpen={isUpdateModalOpen}
-          onClose={() => setIsUpdateModalOpen(false)}
-          initialUpdate={availableUpdate}
-          onUpdateFound={(upd) => setAvailableUpdate(upd)}
-          onGoToPos={() => {
-            setPosInitialTab('pos');
-            setActiveTab('pos');
-          }}
-        />
-      )}
     </div>
   );
 };

@@ -22,12 +22,11 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' tauri: asset: http://asset.localhost https://asset.localhost blob: data:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost https://asset.localhost; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost tauri: https://api.github.com https://github.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+      "csp": "default-src 'self' tauri: asset: http://asset.localhost https://asset.localhost blob: data:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost https://asset.localhost; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost tauri:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     }
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": true,
     "targets": "all",
     "resources": {
       "../scripts/Instalar-Regla-Firewall-LAN.bat": "scripts/Instalar-Regla-Firewall-LAN.bat",
@@ -39,16 +38,5 @@
       "icons/icon.ico",
       "icons/icon.png"
     ]
-  },
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI0MjM4Mzg4NjVCMDc2ODIKUldTQ2RyQmxpSU1qSkFwRGlNZUdKY3J1cXdYK1d2YnNNcVBTaWUwQzExQmJyTXJzTUU3UDdRZ0QK",
-      "endpoints": [
-        "https://github.com/elmarv05/ZaramaGYM/releases/latest/download/latest.json"
-      ],
-      "windows": {
-        "installMode": "passive"
-      }
-    }
   }
 }

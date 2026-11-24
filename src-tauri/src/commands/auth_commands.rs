@@ -3,9 +3,9 @@
 use crate::errors::AppError;
 use crate::models::{
     AuditFilter, AuditLogItem, AuthSession, CrashRecoveryNotice, CreateUserInput, LoginCredentials,
-    SafeUpdatePreparationDto, UpdateUserInput, UpdateUserPhotoInput, UserListItem,
+    UpdateUserInput, UpdateUserPhotoInput, UserListItem,
 };
-use crate::services::{audit_service, auth_service, lifecycle_service};
+use crate::services::{audit_service, auth_service};
 use crate::state::AppState;
 use tauri::State;
 
@@ -117,25 +117,4 @@ pub async fn acknowledge_crash_recovery_notice(
 ) -> Result<(), AppError> {
     state.clear_crash_recovery_notice().await;
     Ok(())
-}
-
-#[tauri::command]
-pub async fn prepare_safe_app_update(
-    target_version: Option<String>,
-    targetVersion: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<SafeUpdatePreparationDto, AppError> {
-    let session = state.require_admin().await?;
-    let version = target_version
-        .or(targetVersion)
-        .unwrap_or_else(|| "nueva".to_string());
-    lifecycle_service::prepare_safe_app_update(&state, &session, &version, None).await
-}
-
-#[tauri::command]
-pub async fn restore_runtime_after_failed_update(
-    state: State<'_, AppState>,
-) -> Result<(), AppError> {
-    let session = state.require_admin().await?;
-    lifecycle_service::restore_runtime_after_failed_update(&state, &session).await
 }
