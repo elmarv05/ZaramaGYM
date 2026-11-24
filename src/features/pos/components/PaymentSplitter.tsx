@@ -169,8 +169,8 @@ export const PaymentSplitter: React.FC<PaymentSplitterProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {/* Input de Monto */}
-                <div className="relative">
-                  <span className="absolute left-2.5 top-2 text-txt-muted text-xs font-bold">S/</span>
+                <div className="relative flex items-center">
+                  <span className="absolute left-2.5 inset-y-0 flex items-center text-txt-muted text-xs font-bold pointer-events-none select-none z-10">S/</span>
                   <input
                     type="text"
                     inputMode="decimal"

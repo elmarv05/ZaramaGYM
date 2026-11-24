@@ -283,7 +283,7 @@ describe('Suite Frontend: Slice 7 - Compras a Proveedores, Gastos Operativos y F
       );
 
       // Clic en Vista Caja Física
-      const fisicaButton = screen.getByText('Caja Física (Efectivo)');
+      const fisicaButton = screen.getByText('Caja Física');
       fireEvent.click(fisicaButton);
 
       // En FÍSICA: Ingresos S/ 500.00, Compras S/ 100.00, Gastos S/ 0.00, Flujo Neto S/ 400.00
@@ -305,7 +305,7 @@ describe('Suite Frontend: Slice 7 - Compras a Proveedores, Gastos Operativos y F
       );
 
       // Clic en Vista Caja Digital
-      const digitalButton = screen.getByText('Caja Digital (Bancos / Apps)');
+      const digitalButton = screen.getByText('Caja Digital');
       fireEvent.click(digitalButton);
 
       // En DIGITAL: Ingresos S/ 300.00, Gastos S/ 50.00, Flujo Neto S/ 250.00
@@ -497,7 +497,7 @@ describe('Suite Frontend: Slice 7 - Compras a Proveedores, Gastos Operativos y F
       ).toBeDefined();
 
       // Botón "Resolver (Paso 2)" para venta pendiente en turno abierto
-      const resolverBtn = screen.getByRole('button', { name: /^Resolver \(Paso 2\)$/i });
+      const resolverBtn = screen.getByRole('button', { name: /^Resolver$/i });
       expect(resolverBtn).toBeDefined();
     });
 
@@ -515,7 +515,7 @@ describe('Suite Frontend: Slice 7 - Compras a Proveedores, Gastos Operativos y F
         />
       );
 
-      const resolverBtn = screen.getByRole('button', { name: /^Resolver \(Paso 2\)$/i });
+      const resolverBtn = screen.getByRole('button', { name: /^Resolver$/i });
       fireEvent.click(resolverBtn);
 
       expect(
@@ -567,7 +567,7 @@ describe('Suite Frontend: Slice 7 - Compras a Proveedores, Gastos Operativos y F
 
       expect(screen.getByText('Carlos Gómez')).toBeDefined();
       expect(screen.getByText('TACHADA EN TURNO')).toBeDefined();
-      expect(screen.queryByRole('button', { name: /^Resolver \(Paso 2\)$/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Resolver$/i })).toBeNull();
     });
   });
 });

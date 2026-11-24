@@ -477,7 +477,7 @@ pub struct PrintingBackupConfigDto {
     pub has_gdrive_client_secret_configured: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct UpdatePrintingBackupConfigRequest {
     pub empresa_nombre_comercial: Option<String>,
     pub empresa_razon_social: Option<String>,

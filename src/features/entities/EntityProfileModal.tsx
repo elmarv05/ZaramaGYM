@@ -1563,7 +1563,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                           onClick={() => setActiveTab('weight')}
                           className="text-xs font-semibold text-brand hover:underline"
                         >
-                          Ver historial ({weightHistory.length})
+                          Ver historial
                         </button>
                       </div>
 

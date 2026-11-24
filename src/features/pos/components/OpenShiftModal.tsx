@@ -81,27 +81,25 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({
           <label htmlFor="open-shift-amount" className="text-xs font-bold text-txt-primary">
             Fondo Inicial en Efectivo (S/) <span className="text-status-danger">*</span>
           </label>
-          <div className="relative">
-            <span className="absolute left-3 top-2.5 text-txt-muted font-bold text-sm">S/</span>
-            <Input
-              id="open-shift-amount"
-              type="text"
-              inputMode="decimal"
-              value={monto}
-              onFocus={selectIfZeroDefault}
-              onChange={(e) => {
-                setMonto(sanitizeDecimalInput(e.target.value));
-                setErrorMsg(null);
-              }}
-              onBlur={(e) => {
-                setMonto(formatDecimalOnBlur(e.target.value, { min: 0, fallback: '' }));
-              }}
-              required
-              className="pl-9 font-bold text-base"
-              placeholder="0.00"
-              autoFocus
-            />
-          </div>
+          <Input
+            id="open-shift-amount"
+            type="text"
+            inputMode="decimal"
+            value={monto}
+            onFocus={selectIfZeroDefault}
+            onChange={(e) => {
+              setMonto(sanitizeDecimalInput(e.target.value));
+              setErrorMsg(null);
+            }}
+            onBlur={(e) => {
+              setMonto(formatDecimalOnBlur(e.target.value, { min: 0, fallback: '' }));
+            }}
+            leftIcon={<span className="text-sm font-bold text-txt-muted">S/</span>}
+            required
+            className="font-bold text-base"
+            placeholder="0.00"
+            autoFocus
+          />
 
           {/* Atajos Rápidos */}
           <div className="flex items-center gap-2 pt-1">
@@ -111,7 +109,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({
                 key={v}
                 type="button"
                 onClick={() => handleShortcut(v)}
-                className="text-xs font-semibold px-2.5 py-1 rounded-md bg-canvas-subtle hover:bg-slate-200 dark:hover:bg-slate-700 text-txt-primary border border-border transition-colors"
+                className="text-xs font-semibold px-2.5 py-1 rounded-md bg-canvas-subtle hover:bg-surface-hover text-txt-primary border border-border transition-colors"
               >
                 S/ {v}
               </button>

@@ -141,7 +141,7 @@ export const ProductListTab: React.FC<ProductListTabProps> = ({
             className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${
               soloStockBajo
                 ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-700 shadow-xs'
-                : 'bg-canvas-subtle text-txt-secondary border-border hover:bg-slate-200 dark:hover:bg-slate-700'
+                : 'bg-canvas-subtle text-txt-secondary border-border hover:bg-surface-hover'
             }`}
           >
             <Icon name="warning" className="w-3.5 h-3.5" aria-hidden="true" />

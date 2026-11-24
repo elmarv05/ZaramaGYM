@@ -102,6 +102,7 @@ export const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({
                 { value: 'STOCK_INICIAL', label: 'Stock Inicial' },
                 { value: 'SALIDA_VENTA', label: 'Venta POS' },
                 { value: 'ENTRADA_COMPRA', label: 'Compra Proveedor' },
+                { value: 'REVERSION_TACHADO', label: 'Reversión Tachado' },
               ]}
               aria-label="Filtrar por tipo de movimiento"
             />

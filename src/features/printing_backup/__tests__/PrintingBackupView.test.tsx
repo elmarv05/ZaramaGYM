@@ -773,6 +773,106 @@ describe('Suite Frontend: Slice 8 - Impresión Térmica, PDFs y Respaldos', () =
         )
       ).toBeInTheDocument();
     });
+
+    it('al crear respaldo manual con Drive activo ejecuta respaldo local y sube a la nube automáticamente', async () => {
+      const cloudConfig: PrintingBackupConfigDto = {
+        ...mockConfig,
+        backup_auto_interval_hours: 2,
+        backup_gdrive_enabled: true,
+        backup_gdrive_folder_id: 'folder-abc-123',
+        has_gdrive_token_configured: true,
+      };
+      const createdLocal: BackupRecord = {
+        ...mockBackups[0],
+        id: 77,
+        nombre_archivo: 'zaramagym_backup_20261121_100000.db',
+      };
+      const syncedCloud: BackupRecord = {
+        ...createdLocal,
+        estado: 'SINCRONIZADO_CLOUD',
+        drive_file_id: 'drive_ok_77',
+      };
+      const handleCreateBackup = vi.fn().mockResolvedValue(createdLocal);
+      const handleSyncGdrive = vi.fn().mockResolvedValue(syncedCloud);
+
+      render(
+        <PrintingBackupView
+          currentSession={adminSession}
+          initialTab="backups"
+          config={cloudConfig}
+          series={mockSeries}
+          backups={mockBackups}
+          onCreateBackup={handleCreateBackup}
+          onSyncGdrive={handleSyncGdrive}
+        />
+      );
+
+      expect(
+        screen.getByText(/Programación activa cada 2 hora\(s\)/i)
+      ).toBeInTheDocument();
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /Crear Respaldo Ahora \(VACUUM INTO\)/i,
+        })
+      );
+
+      await waitFor(() => {
+        expect(handleCreateBackup).toHaveBeenCalledTimes(1);
+        expect(handleSyncGdrive).toHaveBeenCalledWith(77);
+        expect(
+          screen.getByText(/Respaldo local generado y subido a Google Drive exitosamente/i)
+        ).toBeInTheDocument();
+        expect(screen.getByText(/Drive ID: drive_ok_77/i)).toBeInTheDocument();
+      });
+    });
+
+    it('si falla la subida a Drive tras respaldo manual confirma que la copia local SÍ se guardó', async () => {
+      const cloudConfig: PrintingBackupConfigDto = {
+        ...mockConfig,
+        backup_auto_interval_hours: 2,
+        backup_gdrive_enabled: true,
+        backup_gdrive_folder_id: 'folder-abc-123',
+        has_gdrive_token_configured: true,
+      };
+      const createdLocal: BackupRecord = {
+        ...mockBackups[0],
+        id: 88,
+        nombre_archivo: 'zaramagym_backup_20261121_120000.db',
+      };
+      const handleCreateBackup = vi.fn().mockResolvedValue(createdLocal);
+      const handleSyncGdrive = vi
+        .fn()
+        .mockRejectedValue(new Error('401 Unauthorized: token vencido'));
+
+      render(
+        <PrintingBackupView
+          currentSession={adminSession}
+          initialTab="backups"
+          config={cloudConfig}
+          series={mockSeries}
+          backups={mockBackups}
+          onCreateBackup={handleCreateBackup}
+          onSyncGdrive={handleSyncGdrive}
+        />
+      );
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /Crear Respaldo Ahora \(VACUUM INTO\)/i,
+        })
+      );
+
+      await waitFor(() => {
+        expect(handleCreateBackup).toHaveBeenCalledTimes(1);
+        expect(handleSyncGdrive).toHaveBeenCalledWith(88);
+        expect(
+          screen.getByText(
+            /El respaldo local SÍ se guardó \(zaramagym_backup_20261121_120000\.db\), pero falló la subida automática a Google Drive: 401 Unauthorized: token vencido/i
+          )
+        ).toBeInTheDocument();
+      });
+    });
   });
 
   // ==========================================================================

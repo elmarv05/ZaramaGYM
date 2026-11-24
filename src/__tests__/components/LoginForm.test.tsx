@@ -56,17 +56,17 @@ describe('Component: LoginForm', () => {
     ).toBeInTheDocument();
   });
 
-  it('permite autocompletar credenciales y enviar formulario exitosamente', async () => {
+  it('permite ingresar credenciales y enviar formulario exitosamente', async () => {
     const handleLogin = vi.fn().mockResolvedValue(true);
     const user = userEvent.setup();
 
     render(<LoginForm onLogin={handleLogin} />);
 
-    // Clic en autocompletar credenciales semilla
-    await user.click(screen.getByRole('button', { name: /autocompletar admin/i }));
-
     const usernameInput = screen.getByLabelText(/usuario del sistema/i);
     const passwordInput = screen.getByLabelText(/^contraseña/i);
+
+    await user.type(usernameInput, 'admin');
+    await user.type(passwordInput, 'admin123');
 
     expect(usernameInput).toHaveValue('admin');
     expect(passwordInput).toHaveValue('admin123');
@@ -80,5 +80,35 @@ describe('Component: LoginForm', () => {
         password: 'admin123',
       });
     });
+  });
+
+  it('no muestra las etiquetas de estado, autocompletar ni el subtítulo de bienvenida', () => {
+    const handleLogin = vi.fn().mockResolvedValue(true);
+    render(<LoginForm onLogin={handleLogin} showDevHelpers={true} />);
+
+    expect(
+      screen.queryByRole('button', { name: /autocompletar admin/i })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/estado: desarrollo/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/bienvenido de nuevo/i)).not.toBeInTheDocument();
+  });
+
+  it('muestra el logo y el título centrados encima del formulario con fondo completo', () => {
+    const handleLogin = vi.fn().mockResolvedValue(true);
+    const { container } = render(<LoginForm onLogin={handleLogin} />);
+
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.className).toContain('bg-gradient-to-br');
+
+    const logo = screen.getByAltText(/logo zaramagym/i);
+    const brandTitle = screen.getByRole('heading', { level: 1, name: /zaramagym/i });
+    const form = screen.getByRole('form', { name: /iniciar sesión/i });
+
+    expect(
+      logo.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      brandTitle.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 });

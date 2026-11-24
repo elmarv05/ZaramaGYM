@@ -9,6 +9,7 @@ import { catalogIpc } from '../services/ipc/catalogIpc';
 import { entityIpc } from '../services/ipc/entityIpc';
 import { financeIpc } from '../services/ipc/financeIpc';
 import { posIpc } from '../services/ipc/posIpc';
+import { emitSidebarAlertsRefresh } from '../utils/sidebarAlerts';
 import { AppError } from '../types/auth';
 import { ProductListItem } from '../types/catalog';
 import { SupplierListItem } from '../types/entity';
@@ -138,6 +139,7 @@ export function useFinance(options: UseFinanceOptions = {}) {
           fetchDashboard(),
           fetchCatalogs(),
         ]);
+        emitSidebarAlertsRefresh();
         return created;
       } catch (err) {
         setError(err as AppError);
@@ -161,6 +163,7 @@ export function useFinance(options: UseFinanceOptions = {}) {
           fetchDashboard(),
           fetchCatalogs(),
         ]);
+        emitSidebarAlertsRefresh();
         return cancelled;
       } catch (err) {
         setError(err as AppError);
@@ -279,6 +282,7 @@ export function useFinance(options: UseFinanceOptions = {}) {
           fetchStruckSalesTray(),
           fetchDashboard(),
         ]);
+        emitSidebarAlertsRefresh();
         return result;
       } catch (err) {
         setError(err as AppError);

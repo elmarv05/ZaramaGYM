@@ -101,7 +101,7 @@ export const Modal: React.FC<ModalProps> = ({
         )}
       >
         {/* Header */}
-        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border">
           <div className="flex flex-col gap-0.5 pr-4 min-w-0">
             <h3 id={titleId} className="text-base font-bold text-txt-primary">
               {title}
@@ -132,13 +132,13 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="flex-1 min-h-0 px-6 py-5 text-sm text-txt-secondary leading-relaxed overflow-y-auto overscroll-contain">
+        <div className="flex-1 min-h-0 px-4 sm:px-6 py-4 sm:py-5 text-sm text-txt-secondary leading-relaxed overflow-y-auto overscroll-contain">
           {children}
         </div>
 
         {/* Footer */}
         {footer && (
-          <div className="shrink-0 flex flex-wrap items-center justify-end gap-3 px-6 py-3.5 bg-canvas-subtle border-t border-border">
+          <div className="shrink-0 flex flex-wrap items-center justify-end gap-3 px-4 sm:px-6 py-3.5 bg-canvas-subtle border-t border-border">
             {footer}
           </div>
         )}

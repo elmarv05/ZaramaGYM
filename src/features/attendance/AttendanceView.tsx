@@ -162,7 +162,11 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       {/* 1. BARRA SUPERIOR DE KPIS EN VIVO DE LA JORNADA */}
       <section
         aria-label="Métricas del Semáforo en Vivo"
-        className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3"
+        className={
+          isAdmin
+            ? 'grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3'
+            : 'grid grid-cols-2 sm:grid-cols-4 gap-3'
+        }
       >
         <div className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-col">
           <span className="text-[10px] uppercase font-bold text-txt-muted tracking-wider">
@@ -181,47 +185,47 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
         <div className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-col">
           <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wider inline-flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-status-success shrink-0" aria-hidden="true" />
-            <span>Verdes (Acceso Total)</span>
+            <span>Verdes</span>
           </span>
           <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
             {todaySummary?.totalVerde ?? 0}
           </span>
-          <span className="text-[11px] text-txt-secondary">Membresía activa al día</span>
+          <span className="text-[11px] text-txt-secondary">Membresía activa al día y sin deudas</span>
         </div>
 
         <div className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-col">
           <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 tracking-wider inline-flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-status-warning shrink-0" aria-hidden="true" />
-            <span>Amarillos (Alerta)</span>
+            <span>Amarillos</span>
           </span>
           <span className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
             {todaySummary?.totalAmarillo ?? 0}
           </span>
-          <span className="text-[11px] text-txt-secondary">Vencen $\le 5$d o deuda</span>
+          <span className="text-[11px] text-txt-secondary">Membresia por vender o deuda</span>
         </div>
 
         <div className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-col">
           <span className="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400 tracking-wider inline-flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-status-danger shrink-0" aria-hidden="true" />
-            <span>Pases a Crédito en Rojo</span>
+            <span>Rojos</span>
           </span>
           <span className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
             {todaySummary?.totalPaseCredito ?? todaySummary?.totalRojoAutorizados ?? 0}
           </span>
-          <span className="text-[11px] text-txt-secondary">Pases diarios autorizados</span>
+          <span className="text-[11px] text-txt-secondary">Pases diarios autorizados sin membresía</span>
         </div>
 
         {/* Acceso a Configuración de Semáforo (Exclusivo Administrador) */}
-        <div className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-col justify-between col-span-2 sm:col-span-4 lg:col-span-1">
-          <div className="flex flex-col">
-            <span className="text-[10px] uppercase font-bold text-txt-muted tracking-wider">
-              Parámetros Semáforo
-            </span>
-            <span className="text-xs font-semibold text-txt-secondary mt-0.5">
-              Umbral: {systemConfig?.diasAlertaAmarillo ?? 5}d • Anti-Rebote: {systemConfig?.minutosAntireboteQr ?? 3}m
-            </span>
-          </div>
-          {isAdmin && (
+        {isAdmin && (
+          <div className="bg-surface border border-border rounded-xl p-4 shadow-2xs flex flex-col justify-between col-span-2 sm:col-span-4 lg:col-span-1">
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase font-bold text-txt-muted tracking-wider">
+                Parámetros Semáforo
+              </span>
+              <span className="text-xs font-semibold text-txt-secondary mt-0.5">
+                Umbral: {systemConfig?.diasAlertaAmarillo ?? 5}d • Anti-Rebote: {systemConfig?.minutosAntireboteQr ?? 3}m
+              </span>
+            </div>
             <button
               type="button"
               data-testid="btn-open-system-config"
@@ -231,8 +235,8 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
               <Icon name="settings" className="w-4 h-4" />
               <span>Configuración</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </section>
 
       {/* Banner de Error Global si existe */}
@@ -290,11 +294,6 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
         >
           <Icon name="audit" className="w-4 h-4" />
           <span>Historial de Asistencias</span>
-          {attendances.length > 0 && (
-            <span className="text-[10px] bg-canvas px-1.5 py-0.5 rounded-full font-bold">
-              {attendances.length}
-            </span>
-          )}
         </button>
 
         <button
@@ -312,12 +311,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
           }`}
         >
           <Icon name="calendar" className="w-4 h-4" />
-          <span>Recuperación Manual de Días (Prórrogas)</span>
-          {extensions.length > 0 && (
-            <span className="text-[10px] bg-canvas px-1.5 py-0.5 rounded-full font-bold">
-              {extensions.length}
-            </span>
-          )}
+          <span>Recuperación Manual de Días</span>
         </button>
       </nav>
 

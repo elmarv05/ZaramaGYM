@@ -59,8 +59,8 @@ const mockRunningStatus: LanServerStatusDto = {
   port: 3443,
   localIps: ['192.168.1.45'],
   primaryIp: '192.168.1.45',
-  httpsUrl: 'https://zaramagym.local:3443/scanner',
-  httpUrl: 'http://zaramagym.local:3443/scanner',
+  httpsUrl: 'https://192.168.1.45:3443/scanner',
+  httpUrl: 'http://192.168.1.45:3443/scanner',
   mdnsHostname: 'zaramagym.local',
   mdnsActive: true,
   caCertPem: '-----BEGIN CERTIFICATE-----\nMIID...TEST\n-----END CERTIFICATE-----',
@@ -245,11 +245,11 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
   it('1. Renderiza el estado del Servidor LAN (EN LÍNEA, IP, mDNS, huella SHA-256) y permite detenerlo e iniciarlo', async () => {
     render(<LanServerView currentSession={adminSession} clients={mockClients} />);
 
-    // Verificar indicador visual y datos de conexión
+    // Verificar indicador visual y datos de conexión (IP directa por defecto anti-NXDOMAIN)
     expect(await screen.findByText('EN LÍNEA')).toBeInTheDocument();
     expect(screen.getByText('192.168.1.45:3443')).toBeInTheDocument();
     expect(screen.getByText('zaramagym.local:3443')).toBeInTheDocument();
-    expect(screen.getByText('https://zaramagym.local:3443/scanner')).toBeInTheDocument();
+    expect(screen.getByText('https://192.168.1.45:3443/scanner')).toBeInTheDocument();
     expect(screen.getByText(/SHA256: 7F:4A:B9:02/i)).toBeInTheDocument();
 
     // Botón Detener Servidor (visible para Administrador)
@@ -327,6 +327,7 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
     );
 
     // Debe mostrar la pantalla M1 con el input y el código formateado
+    expect(screen.getByRole('heading', { name: /Vincular Celular/i })).toBeInTheDocument();
     const inputCode = screen.getByLabelText(/Código de Vinculación/i);
     expect(inputCode).toHaveValue('ZG9988');
 
@@ -344,6 +345,8 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
     // Al recibir el token, pasa a la vista M2 mostrando el visor de cámara y el nombre del dispositivo
     expect(await screen.findByText(/ENFOCAR CREDENCIAL QR/i)).toBeInTheDocument();
     expect(screen.getByText(/Wi-Fi LAN :3443 Conectado/i)).toBeInTheDocument();
+    expect(screen.getByText(/ENTRADA DE VIDEO/i)).toBeInTheDocument();
+    expect(screen.getByText(/INGRESO MANUAL \/ RESPALDO/i)).toBeInTheDocument();
   });
 
   // --------------------------------------------------------------------------
@@ -383,9 +386,11 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
     expect(screen.getByText('Carlos Rodríguez Mendoza')).toBeInTheDocument();
     expect(screen.getByText(/¡Quedan 45 días de vigencia!/i)).toBeInTheDocument();
 
-    // Cerrar overlay para probar siguiente
+    // Cerrar overlay para probar siguiente y verificar barra Último pase: Acceso Autorizado
     const btnContinuar = screen.getByRole('button', { name: /Continuar/i });
     fireEvent.click(btnContinuar);
+    expect(screen.getByText(/Último pase:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Acceso Autorizado/i)).toBeInTheDocument();
 
     // 5.2 Caso Semáforo ROJO (Socio vencido)
     fireEvent.change(inputQr, { target: { value: 'ZG-F0E1D2C3B4A59687' } });
@@ -395,7 +400,11 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
     expect(await screen.findByText(/ACCESO BLOQUEADO/i)).toBeInTheDocument();
     expect(screen.getByText('María Luisa Torres')).toBeInTheDocument();
     expect(screen.getByText(/POR FAVOR DIRÍJASE A CAJA/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Cerrar y Escanear Siguiente/i })).toBeInTheDocument();
+    const btnCerrarRojo = screen.getByRole('button', { name: /Cerrar y Escanear Siguiente/i });
+    expect(btnCerrarRojo).toBeInTheDocument();
+
+    fireEvent.click(btnCerrarRojo);
+    expect(screen.getByText(/Acceso Denegado/i)).toBeInTheDocument();
   });
 
   // --------------------------------------------------------------------------
@@ -435,7 +444,7 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
     render(<LanServerView currentSession={adminSession} clients={mockClients} />);
 
     const firewallBtn = await screen.findByRole('button', {
-      name: /Guía Firewall Windows \(:3443\)/i,
+      name: /^Guía Firewall Windows$/i,
     });
     fireEvent.click(firewallBtn);
 
@@ -456,7 +465,7 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
 
     await waitFor(() => {
       expect(writeTextMock).toHaveBeenCalledWith(
-        'New-NetFirewallRule -DisplayName "ZaramaGYM - Servidor Escaner Movil LAN (TCP 3443)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3443 -RemoteAddress LocalSubnet -Profile Private,Domain,Public -Enabled True'
+        'New-NetFirewallRule -DisplayName "ZaramaGYM - Servidor Escaner Movil LAN (TCP 3443)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3443 -RemoteAddress LocalSubnet -Profile Private,Domain,Public -Enabled True; New-NetFirewallRule -DisplayName "ZaramaGYM - Descubrimiento mDNS Local (UDP 5353)" -Direction Inbound -Action Allow -Protocol UDP -LocalPort 5353 -RemoteAddress LocalSubnet -Profile Private,Domain,Public -Enabled True'
       );
     });
   });
@@ -476,5 +485,50 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
         input: { nombreDispositivo: 'iPhone Recepción Puerta 1' },
       });
     });
+  });
+
+  // --------------------------------------------------------------------------
+  // CP-9: BÚSQUEDA DIRECTA POR DNI (AMARILLO), ÚLTIMO PASE Y DESVINCULACIÓN
+  // --------------------------------------------------------------------------
+  it('9. En M2 permite ingreso manual directo por DNI (AMARILLO), actualiza Último pase y limpia al desvincular', async () => {
+    render(
+      <MobileScannerSimulatorModal
+        isOpen={true}
+        onClose={vi.fn()}
+        initialPairingCode="ZG9988"
+        clients={mockClients}
+      />
+    );
+
+    expect(screen.getByText(/HTTPS 3443/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Vincular este Teléfono/i }));
+
+    await screen.findByText(/ENTRADA DE VIDEO/i);
+    expect(screen.getByText(/Sin lecturas/i)).toBeInTheDocument();
+    expect(screen.getByText(/En espera/i)).toBeInTheDocument();
+
+    const dniInput = screen.getByPlaceholderText(/Ingreso manual por DNI \/ CE/i);
+    fireEvent.change(dniInput, { target: { value: '44556677' } });
+
+    const btnDni = screen.getByRole('button', { name: /^DNI$/i });
+    fireEvent.click(btnDni);
+
+    await waitFor(() => {
+      expect(mockSafeInvoke).toHaveBeenCalledWith('mobile_scan_qr', {
+        input: expect.objectContaining({
+          numeroDocumento: '44556677',
+        }),
+      });
+    });
+
+    expect(await screen.findByText(/ALERTA PREVENTIVA/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
+
+    expect(screen.getByText(/Último pase:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Alerta Preventiva/i)).toBeInTheDocument();
+
+    // Desvincular limpia sesión y regresa a M1
+    fireEvent.click(screen.getByRole('button', { name: /Desvincular/i }));
+    expect(await screen.findByRole('heading', { name: /Vincular Celular/i })).toBeInTheDocument();
   });
 });

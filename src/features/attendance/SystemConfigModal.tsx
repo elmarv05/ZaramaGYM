@@ -170,8 +170,8 @@ export const SystemConfigModal: React.FC<SystemConfigModalProps> = ({
             <label htmlFor="input-precio-pase-def" className="text-xs font-bold text-txt-secondary">
               Precio Pase Diario a Crédito por Defecto (S/) <span className="text-status-danger">*</span>
             </label>
-            <div className="relative">
-              <span className="absolute left-3.5 top-2 text-sm font-bold text-txt-muted">
+            <div className="relative flex items-center">
+              <span className="absolute left-3.5 inset-y-0 flex items-center text-sm font-bold text-txt-muted pointer-events-none select-none z-10">
                 S/
               </span>
               <input

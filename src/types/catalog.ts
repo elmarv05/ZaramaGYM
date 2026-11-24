@@ -32,7 +32,11 @@ export type InventoryMovementType =
   | 'MERMA_DANIO'
   | 'MERMA_VENCIMIENTO'
   | 'CONSUMO_PROPIO'
-  | 'REVERSION_TACHADO';
+  | 'REVERSION_TACHADO'
+  | 'MERMA'
+  | 'CONSUMO_INTERNO'
+  | 'AJUSTE_POSITIVO'
+  | 'AJUSTE_NEGATIVO';
 export type TipoMovimientoInventario = InventoryMovementType;
 
 // ============================================================================

@@ -373,6 +373,30 @@ describe('Fase 2: Home Dashboard Interactivo y Exportaciones CSV / XLSX / PDF', 
       expect(clickSpy).toHaveBeenCalledTimes(3);
       clickSpy.mockRestore();
     });
+
+    it('muestra la hora de inicio de sesión y actualización en lenguaje natural en la tarjeta superior', () => {
+      const rfcSession: AuthSession = {
+        ...adminSession,
+        login_at: '2026-11-21T13:21:01.053754100+00:00',
+      };
+
+      render(
+        <HomeDashboardView
+          session={rfcSession}
+          metrics={{
+            ...liveMetricsAdmin,
+            generated_at: '2026-11-21T13:35:00.123456+00:00',
+          }}
+          isLoading={false}
+          error={null}
+          onNavigate={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/Iniciada /i)).toBeInTheDocument();
+      expect(screen.getByText(/Actualizado /i)).toBeInTheDocument();
+      expect(screen.queryByText(/053754100/)).not.toBeInTheDocument();
+    });
   });
 
   describe('Tarea 2.3 — Exportaciones en Vistas Operativas (Directorio, Deudores y Finanzas)', () => {

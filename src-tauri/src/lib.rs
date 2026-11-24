@@ -19,7 +19,7 @@ pub fn run() {
             let app_dir = app_handle
                 .path()
                 .app_data_dir()
-                .unwrap_or_else(|_| std::path::PathBuf::from("."));
+                .unwrap_or_else(|_| std::env::temp_dir().join("ZaramaGYM"));
 
             if !app_dir.exists() {
                 let _ = std::fs::create_dir_all(&app_dir);
@@ -28,17 +28,29 @@ pub fn run() {
             let db_path = app_dir.join("zaramagym.db");
             let db_url = format!("sqlite://{}", db_path.to_string_lossy());
 
-            // Bloquear en hilo async de tokio durante el setup para inicializar SQLite y migraciones
-            tauri::async_runtime::block_on(async {
+            // Inicializar SQLite, migraciones y detección de Crash Recovery antes de registrar el estado
+            let state = tauri::async_runtime::block_on(async {
                 let pool = db::init_db(&db_url)
                     .await
                     .expect("Fallo crítico al inicializar base de datos SQLite");
                 let state = AppState::new_with_db_path(pool.clone(), db_path);
 
-                // Detectar cierre forzado previo (Crash Recovery) y activar bandera + heartbeat
+                // Detectar cierre forzado previo (Crash Recovery) y activar bandera de ejecución
                 let _ = services::lifecycle_service::detect_and_mark_startup(&pool, &state).await;
 
-                // Auto-arranque del servidor LAN si está habilitado por configuración
+                state
+            });
+
+            app.manage(state.clone());
+
+            // Tareas en segundo plano no bloqueantes para arranque instantáneo de ventana:
+            // Heartbeat de integridad, Auto-Respaldo cada 2h y Servidor LAN HTTPS/mDNS
+            let state_for_bg = state.clone();
+            tauri::async_runtime::spawn(async move {
+                services::lifecycle_service::start_runtime_heartbeat_task(state_for_bg.clone());
+                services::printing_backup_service::start_auto_backup_scheduler(state_for_bg.clone());
+
+                let pool = state_for_bg.pool();
                 let lan_enabled_row = sqlx::query(
                     "SELECT valor FROM configuracion_sistema WHERE clave = 'LAN_SERVER_ENABLED'",
                 )
@@ -52,12 +64,8 @@ pub fn run() {
                     .unwrap_or_else(|| "1".to_string());
 
                 if is_enabled == "1" {
-                    let _ = services::lan_service::start_lan_server(&state).await;
+                    let _ = services::lan_service::start_lan_server(&state_for_bg).await;
                 }
-
-                app.manage(state.clone());
-                services::lifecycle_service::start_runtime_heartbeat_task(state.clone());
-                services::printing_backup_service::start_auto_backup_scheduler(state);
             });
 
             Ok(())

@@ -62,7 +62,7 @@ export const ResolveStruckTrayModal: React.FC<ResolveStruckTrayModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Resolución Definitiva de Venta Tachada #${item.id} (Paso 2)`}
+      title={`Resolución Definitiva de Venta Tachada #${item.id}`}
       description="Dictamen administrativo definitivo con trazabilidad contable inmutable."
       size="md"
     >

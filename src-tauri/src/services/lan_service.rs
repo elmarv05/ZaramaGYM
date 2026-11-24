@@ -31,8 +31,10 @@ use rcgen::{
 use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 use serde_json::json;
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool};
+use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddr};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex};
+use std::time::{Duration, Instant};
 use tokio::io::AsyncReadExt;
 use tokio_rustls::TlsAcceptor;
 use tower_http::cors::{Any, CorsLayer};
@@ -52,8 +54,8 @@ const SCANNER_WEB_MANIFEST: &str = r##"{
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#090e1a",
+  "theme_color": "#090e1a",
   "icons": [
     {
       "src": "/assets/zaramagym-icon-256.png",
@@ -170,10 +172,11 @@ pub async fn resolve_mdns_hostname(pool: &SqlitePool) -> String {
 }
 
 /// Construye el `TlsAcceptor` para el servidor HTTPS emitiendo un certificado hoja válido para
-/// localhost, zaramagym.local (mDNS), alias sistema.local y TODAS las IPs LAN privadas activas.
-async fn build_server_tls_acceptor(
+/// localhost, zaramagym.local (mDNS), alias sistema.local y la lista de IPs LAN indicada.
+pub async fn build_server_tls_acceptor_for_ips(
     pool: &SqlitePool,
-) -> Result<(TlsAcceptor, String), AppError> {
+    lan_ips: &[String],
+) -> Result<(TlsAcceptor, String, Vec<String>), AppError> {
     let (ca_pem, ca_cert, ca_key) = ensure_or_load_root_ca(pool).await?;
 
     let mdns_hostname = resolve_mdns_hostname(pool).await;
@@ -186,13 +189,14 @@ async fn build_server_tls_acceptor(
     if !sans.iter().any(|s| s.eq_ignore_ascii_case(LEGACY_MDNS_HOSTNAME)) {
         sans.push(LEGACY_MDNS_HOSTNAME.to_string());
     }
-    for ip in get_lan_interface_ips() {
-        if !sans.contains(&ip) {
-            sans.push(ip);
+    for ip in lan_ips {
+        let clean_ip = ip.trim();
+        if !clean_ip.is_empty() && !sans.iter().any(|s| s == clean_ip) {
+            sans.push(clean_ip.to_string());
         }
     }
 
-    let mut server_params = CertificateParams::new(sans)
+    let mut server_params = CertificateParams::new(sans.clone())
         .map_err(|e| AppError::Internal(format!("Error configurando SANs TLS: {}", e)))?;
     server_params.distinguished_name = DistinguishedName::new();
     server_params
@@ -229,7 +233,15 @@ async fn build_server_tls_acceptor(
 
     tls_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
 
-    Ok((TlsAcceptor::from(Arc::new(tls_config)), ca_pem))
+    Ok((TlsAcceptor::from(Arc::new(tls_config)), ca_pem, sans))
+}
+
+/// Construye el `TlsAcceptor` para el servidor HTTPS con las IPs LAN privadas activas del sistema.
+async fn build_server_tls_acceptor(
+    pool: &SqlitePool,
+) -> Result<(TlsAcceptor, String, Vec<String>), AppError> {
+    let live_ips = get_lan_interface_ips();
+    build_server_tls_acceptor_for_ips(pool, &live_ips).await
 }
 
 async fn get_active_ca_pem(state: &AppState) -> String {
@@ -435,8 +447,8 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#090e1a">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -447,122 +459,1304 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
   <link rel="manifest" href="/manifest.webmanifest">
   <title>ZaramaGYM Escáner Móvil</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; }
-    header { background-color: #1e293b; padding: 14px 18px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
-    .logo { font-size: 1.2rem; font-weight: 800; color: #38bdf8; display: flex; align-items: center; gap: 8px; }
-    .badge-lan { font-size: 0.75rem; background-color: #065f46; color: #34d399; padding: 3px 8px; border-radius: 9999px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
-    .badge-lan::before { content: ""; width: 7px; height: 7px; background-color: #10b981; border-radius: 50%; display: inline-block; }
-    main { flex: 1; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
-    .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 22px; width: 100%; max-width: 420px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4); }
-    h2 { font-size: 1.35rem; margin-bottom: 8px; text-align: center; color: #f1f5f9; }
-    p.subtitle { font-size: 0.85rem; color: #94a3b8; text-align: center; margin-bottom: 18px; line-height: 1.4; }
-    .input-code { width: 100%; text-align: center; font-size: 2rem; font-weight: 800; letter-spacing: 6px; text-transform: uppercase; padding: 12px; border-radius: 10px; border: 2px solid #475569; background-color: #0f172a; color: #38bdf8; margin-bottom: 16px; outline: none; }
-    .input-code:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3); }
-    .btn { display: block; width: 100%; padding: 12px; border-radius: 10px; font-size: 0.95rem; font-weight: 700; border: none; cursor: pointer; transition: background 0.2s, transform 0.1s; text-align: center; }
-    .btn:active { transform: scale(0.98); }
-    .btn-primary { background-color: #0284c7; color: white; }
-    .btn-emerald { background-color: #059669; color: white; }
-    .btn-amber { background-color: #d97706; color: white; }
-    .btn-outline { background: transparent; border: 1px solid #475569; color: #cbd5e1; margin-top: 10px; }
-    .scanner-box { width: 100%; max-width: 380px; height: 280px; background: #020617; border: 2px solid #38bdf8; border-radius: 14px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-    .scan-guide { position: absolute; width: 72%; height: 72%; border: 2px solid rgba(52, 211, 153, 0.85); border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.45); pointer-events: none; z-index: 2; }
-    .laser { position: absolute; width: 70%; height: 2px; background: #10b981; box-shadow: 0 0 10px #10b981; animation: scanning 2s infinite ease-in-out; z-index: 3; pointer-events: none; }
-    @keyframes scanning { 0% { top: 18%; } 50% { top: 80%; } 100% { top: 18%; } }
-    .cam-status { position: absolute; bottom: 8px; left: 8px; right: 8px; text-align: center; font-size: 0.72rem; background: rgba(15, 23, 42, 0.82); color: #e2e8f0; padding: 4px 8px; border-radius: 6px; z-index: 4; }
-    .warning-banner { width: 100%; max-width: 380px; background: #451a03; border: 1px solid #d97706; color: #fef3c7; border-radius: 10px; padding: 10px 12px; font-size: 0.8rem; line-height: 1.4; display: none; flex-direction: column; gap: 8px; }
-    .controls-row { width: 100%; max-width: 380px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .manual-dni-card { width: 100%; max-width: 380px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-    .input-text { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569; background-color: #0f172a; color: #f8fafc; font-size: 0.95rem; }
-    .select-cam { width: 100%; max-width: 380px; padding: 8px 10px; border-radius: 8px; border: 1px solid #475569; background: #1e293b; color: #f8fafc; font-size: 0.8rem; display: none; }
-    .overlay { position: fixed; inset: 0; z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
-    .overlay.VERDE { background-color: #059669; }
-    .overlay.AMARILLO { background-color: #d97706; }
-    .overlay.ROJO { background-color: #dc2626; }
-    .overlay h1 { font-size: 2rem; font-weight: 900; margin-bottom: 6px; text-transform: uppercase; }
-    .overlay h2 { font-size: 1.45rem; margin-bottom: 10px; }
-    .overlay p { font-size: 1.05rem; margin-bottom: 6px; opacity: 0.95; }
-    .overlay .alert-box { background: rgba(0,0,0,0.28); border-radius: 12px; padding: 16px; max-width: 360px; width: 100%; margin: 14px 0; }
+    :root {
+      --bg: #090e1a;
+      --card: #101728;
+      --card-elevated: #121a2e;
+      --control: #0a101e;
+      --control-alt: #162038;
+      --border: rgba(148, 163, 184, 0.14);
+      --border-strong: #243250;
+      --emerald: #10b981;
+      --emerald-dark: #059669;
+      --emerald-soft: #34d399;
+      --cyan: #0ea5e9;
+      --cyan-dark: #0284c7;
+      --amber: #f59e0b;
+      --rose: #fb7185;
+      --text: #f8fafc;
+      --text-sec: #94a3b8;
+      --text-mut: #64748b;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    }
+    html, body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      background-image: radial-gradient(circle at 50% -10%, rgba(16, 185, 129, 0.08), transparent 55%);
+    }
+    .svg-ic {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      display: inline-block;
+    }
+
+    /* Header */
+    .app-header {
+      width: 100%;
+      background: rgba(12, 19, 36, 0.92);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      backdrop-filter: blur(10px);
+    }
+    .app-header-inner {
+      width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1.5px solid rgba(16, 185, 129, 0.55);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.22);
+      flex-shrink: 0;
+    }
+    .brand-copy {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .brand-title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .brand-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      line-height: 1.15;
+    }
+    .brand-accent {
+      color: var(--emerald-soft);
+    }
+    body[data-view="m1"] .brand-accent {
+      color: var(--text);
+    }
+    .pwa-pill {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--text-sec);
+      background: var(--control-alt);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      padding: 2px 6px;
+      border-radius: 6px;
+      line-height: 1.2;
+    }
+    body[data-view="m2"] .pwa-pill {
+      color: var(--emerald-soft);
+      background: rgba(16, 185, 129, 0.14);
+      border-color: rgba(16, 185, 129, 0.32);
+    }
+    .brand-sub {
+      font-size: 0.72rem;
+      color: var(--text-sec);
+      margin-top: 2px;
+      line-height: 1.15;
+    }
+    body[data-view="m1"] .brand-sub {
+      display: none;
+    }
+
+    .badge-lan {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 9999px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background: rgba(6, 78, 59, 0.42);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: var(--emerald-soft);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .badge-lan.is-amber {
+      background: rgba(120, 53, 15, 0.45);
+      border-color: rgba(245, 158, 11, 0.42);
+      color: #fbbf24;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--emerald);
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.75);
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .badge-lan.is-amber .status-dot {
+      background-color: var(--amber);
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.75);
+    }
+
+    /* Main Containers */
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
+      padding: 14px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #viewM1 {
+      justify-content: center;
+    }
+    #viewM2 {
+      justify-content: flex-start;
+      gap: 12px;
+    }
+
+    /* Vista M1 */
+    .m1-card {
+      width: 100%;
+      max-width: 400px;
+      background: linear-gradient(180deg, var(--card-elevated) 0%, var(--card) 100%);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 26px 22px 22px;
+      box-shadow: 0 20px 44px -16px rgba(0, 0, 0, 0.65);
+    }
+    .m1-title {
+      font-size: 1.42rem;
+      font-weight: 800;
+      text-align: center;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+    .m1-subtitle {
+      font-size: 0.84rem;
+      color: var(--text-sec);
+      text-align: center;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+    .input-code {
+      width: 100%;
+      height: 62px;
+      text-align: center;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: 0.48em;
+      padding-left: 0.48em;
+      text-transform: uppercase;
+      border-radius: 14px;
+      border: 1px solid var(--border-strong);
+      background-color: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-code::placeholder {
+      color: #475569;
+    }
+    .input-code:focus {
+      border-color: var(--emerald);
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    }
+    .inline-error {
+      display: none;
+      margin-top: 10px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      background: rgba(244, 63, 94, 0.12);
+      border: 1px solid rgba(251, 113, 133, 0.35);
+      color: #fda4af;
+      font-size: 0.8rem;
+      line-height: 1.35;
+      text-align: center;
+    }
+    .inline-error.is-visible {
+      display: block;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 46px;
+      padding: 12px 14px;
+      border-radius: 13px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.12s, opacity 0.18s, background-color 0.18s, border-color 0.18s;
+    }
+    .btn:active {
+      transform: scale(0.985);
+    }
+    .btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+    .btn-emerald {
+      background: linear-gradient(135deg, var(--emerald) 0%, var(--emerald-dark) 100%);
+      color: #ffffff;
+      box-shadow: 0 10px 26px -8px rgba(16, 185, 129, 0.55);
+    }
+    .btn-emerald.is-stop {
+      background: linear-gradient(135deg, #271521 0%, #3b1724 100%);
+      border: 1px solid rgba(251, 113, 133, 0.4);
+      color: #fda4af;
+      box-shadow: none;
+    }
+    .btn-cyan {
+      background: linear-gradient(135deg, var(--cyan) 0%, var(--cyan-dark) 100%);
+      color: #ffffff;
+      box-shadow: 0 8px 20px -8px rgba(14, 165, 233, 0.5);
+    }
+    .btn-dark {
+      background: var(--control-alt);
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+    }
+    .btn-amber {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #090e1a;
+    }
+    .btn-ca {
+      background: var(--control-alt);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      color: #e2e8f0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+    .btn-ca .svg-ic {
+      color: var(--emerald);
+    }
+    .m1-actions {
+      margin-top: 16px;
+    }
+    .m1-divider {
+      height: 1px;
+      background: rgba(148, 163, 184, 0.12);
+      margin: 20px 0 16px;
+    }
+    .m1-guide {
+      font-size: 0.74rem;
+      color: var(--text-sec);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .m1-guide strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    /* Vista M2: Terminal Bar */
+    .terminal-bar {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 9px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .terminal-left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+      font-size: 0.82rem;
+      color: var(--text-sec);
+    }
+    .terminal-icon-box {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: var(--control-alt);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .terminal-name {
+      color: var(--text);
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 145px;
+    }
+    .btn-unlink {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: transparent;
+      border: none;
+      color: var(--rose);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 2px;
+      flex-shrink: 0;
+    }
+
+    /* Banner HTTP */
+    .warning-banner {
+      width: 100%;
+      background: rgba(120, 53, 15, 0.34);
+      border: 1px solid rgba(245, 158, 11, 0.42);
+      color: #fef3c7;
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      display: none;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .warning-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .warning-row .svg-ic {
+      color: #fbbf24;
+      margin-top: 2px;
+    }
+
+    /* Video Input Section */
+    .video-section {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .video-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .section-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.71rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--text-sec);
+      text-transform: uppercase;
+    }
+    .section-kicker .svg-ic {
+      color: var(--emerald);
+    }
+    .video-tools {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--card-elevated);
+      border: 1px solid var(--border-strong);
+      color: #cbd5e1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.18s, color 0.18s, background-color 0.18s;
+    }
+    .icon-btn:active {
+      transform: scale(0.95);
+    }
+    .icon-btn.is-active {
+      border-color: rgba(16, 185, 129, 0.65);
+      background: rgba(16, 185, 129, 0.16);
+      color: var(--emerald-soft);
+    }
+
+    .select-wrap {
+      position: relative;
+      width: 100%;
+    }
+    .select-cam {
+      width: 100%;
+      appearance: none;
+      -webkit-appearance: none;
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 500;
+      padding: 10px 36px 10px 12px;
+      outline: none;
+      cursor: pointer;
+    }
+    .select-cam:focus {
+      border-color: var(--emerald);
+    }
+    .select-chevron {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--text-sec);
+    }
+
+    /* Scanner Viewport */
+    .scanner-box {
+      width: 100%;
+      height: 268px;
+      background-color: #050a14;
+      background-image: radial-gradient(rgba(16, 185, 129, 0.16) 1px, transparent 1px);
+      background-size: 16px 16px;
+      border: 1.5px solid rgba(16, 185, 129, 0.38);
+      border-radius: 18px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 32px rgba(0, 0, 0, 0.65), 0 12px 30px -14px rgba(16, 185, 129, 0.25);
+    }
+    .scanner-box video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+    .scanner-box.is-live video {
+      opacity: 1;
+    }
+    .cam-telemetry {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 4;
+      padding: 4px 9px;
+      border-radius: 8px;
+      background: rgba(9, 14, 26, 0.82);
+      border: 1px solid rgba(16, 185, 129, 0.32);
+      color: var(--emerald-soft);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.67rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .scan-reticle {
+      position: absolute;
+      inset: 28px 42px 34px;
+      pointer-events: none;
+      z-index: 3;
+    }
+    .corner {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-color: var(--emerald);
+      border-style: solid;
+      border-width: 0;
+    }
+    .corner.tl { top: 0; left: 0; border-top-width: 3px; border-left-width: 3px; border-top-left-radius: 10px; }
+    .corner.tr { top: 0; right: 0; border-top-width: 3px; border-right-width: 3px; border-top-right-radius: 10px; }
+    .corner.bl { bottom: 0; left: 0; border-bottom-width: 3px; border-left-width: 3px; border-bottom-left-radius: 10px; }
+    .corner.br { bottom: 0; right: 0; border-bottom-width: 3px; border-right-width: 3px; border-bottom-right-radius: 10px; }
+    .center-reticle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 54px;
+      height: 54px;
+      transform: translate(-50%, -50%);
+      opacity: 0.45;
+      transition: opacity 0.25s ease;
+    }
+    .scanner-box.is-live .center-reticle {
+      opacity: 0.18;
+    }
+    .center-reticle span {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-color: rgba(52, 211, 153, 0.65);
+      border-style: solid;
+      border-width: 0;
+    }
+    .center-reticle .ctl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; border-top-left-radius: 4px; }
+    .center-reticle .ctr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; border-top-right-radius: 4px; }
+    .center-reticle .cbl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; border-bottom-left-radius: 4px; }
+    .center-reticle .cbr { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 4px; }
+
+    .laser {
+      position: absolute;
+      top: 10px;
+      left: 8px;
+      right: 8px;
+      height: 2px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, transparent 0%, #34d399 18%, #d1fae5 50%, #34d399 82%, transparent 100%);
+      box-shadow: 0 0 18px 4px rgba(16, 185, 129, 0.6), 0 0 6px 1px rgba(167, 243, 208, 0.9);
+      animation: laserSweep 2.4s ease-in-out infinite;
+      will-change: transform;
+      z-index: 3;
+    }
+    @keyframes laserSweep {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(184px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .laser {
+        animation: none;
+        transform: translateY(92px);
+      }
+    }
+
+    .cam-status-wrap {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: calc(100% - 20px);
+      z-index: 4;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      background: rgba(9, 14, 26, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cam-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--emerald);
+      flex-shrink: 0;
+    }
+    .cam-dot.is-idle { background-color: var(--text-mut); }
+    .cam-dot.is-warn { background-color: var(--amber); }
+    .cam-dot.is-err { background-color: var(--rose); }
+
+    /* Controls Row */
+    .controls-row {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .controls-row .btn {
+      font-size: 0.84rem;
+      padding: 11px 10px;
+    }
+    .controls-row .btn-dark .svg-ic {
+      color: #38bdf8;
+    }
+
+    /* Manual / Backup Card */
+    .manual-card {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .manual-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .terminal-tag {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.71rem;
+      color: var(--text-mut);
+    }
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .field-label {
+      font-size: 0.67rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      color: var(--text-sec);
+      text-transform: uppercase;
+    }
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .input-text {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 12px;
+      border-radius: 11px;
+      border: 1px solid var(--border-strong);
+      background-color: var(--control);
+      color: var(--text);
+      font-size: 0.84rem;
+      outline: none;
+      transition: border-color 0.18s;
+    }
+    .input-text::placeholder {
+      color: #475569;
+    }
+    .input-text:focus {
+      border-color: var(--emerald);
+    }
+    .btn-inline {
+      width: auto;
+      min-width: 74px;
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 11px;
+      font-size: 0.82rem;
+      flex-shrink: 0;
+    }
+    .scan-notice {
+      display: none;
+      padding: 8px 11px;
+      border-radius: 10px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #fde68a;
+      font-size: 0.77rem;
+      line-height: 1.35;
+    }
+    .scan-notice.is-error {
+      background: rgba(244, 63, 94, 0.12);
+      border-color: rgba(251, 113, 133, 0.38);
+      color: #fecdd3;
+    }
+    .scan-notice.is-visible {
+      display: block;
+    }
+
+    .last-pass-bar {
+      background: var(--control);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 12px;
+      padding: 9px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.76rem;
+    }
+    .last-pass-left {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      color: var(--text-sec);
+    }
+    .last-pass-left strong {
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 145px;
+    }
+    .last-pass-status {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-mut);
+      white-space: nowrap;
+    }
+    .last-pass-bar.is-verde .last-pass-status { color: var(--emerald-soft); }
+    .last-pass-bar.is-amarillo .last-pass-status { color: #fbbf24; }
+    .last-pass-bar.is-rojo .last-pass-status { color: var(--rose); }
+    .last-pass-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-mut);
+      flex-shrink: 0;
+    }
+    .last-pass-bar.is-verde .last-pass-dot { background: var(--emerald); }
+    .last-pass-bar.is-amarillo .last-pass-dot { background: var(--amber); }
+    .last-pass-bar.is-rojo .last-pass-dot { background: #ef4444; }
+
+    /* Live Footer */
+    .app-footer {
+      width: 100%;
+      border-top: 1px solid rgba(148, 163, 184, 0.1);
+      background: rgba(9, 14, 26, 0.85);
+    }
+    .app-footer-inner {
+      width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
+      padding: 11px 16px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.69rem;
+      color: var(--text-mut);
+    }
+    body[data-view="m1"] .app-footer-inner {
+      justify-content: center;
+      gap: 8px;
+    }
+    .section-divider {
+      width: 100%;
+      height: 1px;
+      background: rgba(148, 163, 184, 0.1);
+      margin: 2px 0;
+    }
+    .footer-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .footer-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--emerald);
+      display: inline-block;
+    }
+    .footer-dot.is-err { background: #ef4444; }
+    .footer-sep {
+      display: none;
+    }
+    body[data-view="m1"] .footer-sep {
+      display: inline;
+    }
+
+    /* Unlink Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      background: rgba(5, 8, 16, 0.78);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-backdrop.is-open {
+      display: flex;
+    }
+    .modal-card {
+      width: 100%;
+      max-width: 340px;
+      background: var(--card-elevated);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      text-align: center;
+    }
+    .modal-icon {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto;
+      border-radius: 12px;
+      background: rgba(244, 63, 94, 0.14);
+      border: 1px solid rgba(251, 113, 133, 0.35);
+      color: var(--rose);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .modal-desc {
+      font-size: 0.82rem;
+      color: var(--text-sec);
+      line-height: 1.45;
+    }
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .btn-danger {
+      background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+      color: #ffffff;
+    }
+
+    /* Traffic Light Overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      color: #ffffff;
+    }
+    .overlay.VERDE { background: radial-gradient(circle at 50% 25%, #10b981 0%, #065f46 75%, #042f2e 100%); }
+    .overlay.AMARILLO { background: radial-gradient(circle at 50% 25%, #f59e0b 0%, #b45309 75%, #451a03 100%); }
+    .overlay.ROJO { background: radial-gradient(circle at 50% 25%, #ef4444 0%, #991b1b 75%, #450a0a 100%); }
+    .overlay-icon-circle {
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.16);
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+    .overlay-icon-circle svg {
+      width: 44px;
+      height: 44px;
+      display: none;
+    }
+    .overlay h1 {
+      font-size: 1.75rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .overlay h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .overlay-doc {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      opacity: 0.88;
+      margin-bottom: 12px;
+    }
+    .overlay-box {
+      background: rgba(9, 14, 26, 0.36);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      padding: 16px;
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .overlay-plan-pill {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.18);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .overlay-days {
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+    .overlay-debt {
+      display: none;
+      padding: 5px 10px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.34);
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #fef08a;
+    }
+    .overlay-reason {
+      font-size: 0.86rem;
+      opacity: 0.92;
+      line-height: 1.35;
+    }
+    .overlay-cashier {
+      display: none;
+      width: 100%;
+      max-width: 360px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1.5px solid rgba(255, 255, 255, 0.55);
+      font-size: 0.95rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      margin-bottom: 14px;
+    }
+    .overlay-progress-track {
+      width: 100%;
+      max-width: 260px;
+      height: 4px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.25);
+      overflow: hidden;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .overlay-progress-bar {
+      width: 100%;
+      height: 100%;
+      background: #ffffff;
+      transform-origin: left center;
+    }
+    @keyframes overlayDrain {
+      from { transform: scaleX(1); }
+      to { transform: scaleX(0); }
+    }
+    .btn-overlay-close {
+      max-width: 260px;
+      background: #ffffff;
+      color: #090e1a;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+    }
   </style>
 </head>
-<body>
-  <header>
-    <div class="logo">
-      <img src="/assets/zaramagym-icon-256.png" alt="ZaramaGYM" style="width: 26px; height: 26px; border-radius: 6px; object-fit: cover;">
-      <span>ZaramaGYM</span>
+<body data-view="m1">
+  <header class="app-header">
+    <div class="app-header-inner">
+      <div class="brand">
+        <img src="/assets/zaramagym-icon-256.png" alt="ZaramaGYM" class="brand-logo">
+        <div class="brand-copy">
+          <div class="brand-title-row">
+            <span class="brand-title">Zarama<span class="brand-accent">GYM</span></span>
+            <span class="pwa-pill">PWA</span>
+          </div>
+          <div class="brand-sub">Control de Accesos</div>
+        </div>
+      </div>
+      <div class="badge-lan" id="statusBadge">
+        <span class="status-dot"></span>
+        <svg id="badgeLockIcon" class="svg-ic" style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <svg id="badgeAlertIcon" class="svg-ic" style="width:13px;height:13px;display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <span id="statusBadgeText">HTTPS 3443</span>
+      </div>
     </div>
-    <div class="badge-lan" id="statusBadge">LAN :3443</div>
   </header>
 
   <!-- VISTA M1: VINCULACIÓN POR CÓDIGO -->
   <main id="viewM1" style="display: none;">
-    <div class="card">
-      <h2>Vincular Celular</h2>
-      <p class="subtitle">Conecta este teléfono a la red Wi-Fi del gimnasio e introduce el código de 6 caracteres generado en la PC principal.</p>
-      <input type="text" id="pairInput" class="input-code" maxlength="6" placeholder="K9M2PX" autofocus>
-      <button class="btn btn-primary" id="btnPair">🔗 Vincular este Teléfono</button>
-      <a href="/api/lan/ca.pem" download="zaramagym-root-ca.crt" class="btn btn-outline" style="text-decoration: none; font-size: 0.85rem;">📥 Descargar Certificado CA Local</a>
-      <p style="font-size: 0.72rem; color: #94a3b8; text-align: center; margin-top: 12px; line-height: 1.4;">
-        Para habilitar la cámara en vivo en iOS/Android usa siempre <strong>HTTPS</strong>. Si tu navegador muestra alerta de certificado local, pulsa <em>Avanzado → Continuar</em> o instala el certificado CA arriba.
+    <div class="m1-card">
+      <h1 class="m1-title">Vincular Celular</h1>
+      <p class="m1-subtitle">Conecta este teléfono a la red Wi-Fi del gimnasio e introduce el código de 6 caracteres generado en la PC principal.</p>
+      <input type="text" id="pairInput" class="input-code" maxlength="6" placeholder="K9M2PX" autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus>
+      <div id="pairError" class="inline-error" role="alert"></div>
+      <div class="m1-actions">
+        <button type="button" class="btn btn-emerald" id="btnPair">
+          <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          </svg>
+          <span id="btnPairLabel">Vincular este Teléfono</span>
+        </button>
+        <a href="/api/lan/ca.pem" download="zaramagym-root-ca.crt" class="btn btn-ca">
+          <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Descargar Certificado CA Local</span>
+        </a>
+      </div>
+      <div class="m1-divider"></div>
+      <p class="m1-guide">
+        Para habilitar la cámara en vivo en iOS/Android usa siempre <strong>HTTPS</strong>. Si tu navegador muestra alerta de certificado local, pulsa <strong>Avanzado → Continuar</strong> o instala el certificado CA arriba.
       </p>
     </div>
   </main>
 
   <!-- VISTA M2: ESCÁNER DE ASISTENCIA & SEMÁFORO -->
   <main id="viewM2" style="display: none;">
-    <div style="width: 100%; max-width: 380px; display: flex; justify-content: space-between; align-items: center;">
-      <span id="devNameLabel" style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">📱 Dispositivo Vinculado</span>
-      <button id="btnUnlink" style="background: none; border: none; color: #f87171; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Desvincular</button>
+    <div class="terminal-bar">
+      <div class="terminal-left">
+        <span class="terminal-icon-box" aria-hidden="true">
+          <svg class="svg-ic" style="width:15px;height:15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+          </svg>
+        </span>
+        <span>Terminal:</span>
+        <strong id="devNameLabel" class="terminal-name">Móvil</strong>
+        <span class="status-dot" aria-hidden="true"></span>
+      </div>
+      <button type="button" id="btnUnlink" class="btn-unlink">
+        <span>Desvincular</span>
+        <svg class="svg-ic" style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+      </button>
     </div>
 
-    <!-- Aviso automático si abrió sin HTTPS (getUserMedia bloqueado por el navegador) -->
+    <div class="section-divider" aria-hidden="true"></div>
+
+    <!-- Aviso automático si abrió sin HTTPS -->
     <div id="insecureHttpsBanner" class="warning-banner">
-      <span>⚠️ Para activar el escaneo automático en vivo por video necesitas conexión segura <strong>HTTPS</strong> (o usar el botón de captura por foto abajo).</span>
-      <button type="button" id="btnSwitchHttps" class="btn btn-amber" style="padding: 8px; font-size: 0.82rem;">🔒 Cambiar a Modo HTTPS (Cámara en Vivo)</button>
+      <div class="warning-row">
+        <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <span>Para activar el escaneo automático en vivo por video necesitas conexión segura <strong>HTTPS</strong> (o usar el botón de captura por foto abajo).</span>
+      </div>
+      <button type="button" id="btnSwitchHttps" class="btn btn-amber" style="min-height:38px;padding:8px 12px;font-size:0.8rem;">
+        <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <span>Cambiar a Modo HTTPS (Cámara en Vivo)</span>
+      </button>
     </div>
 
-    <select id="cameraSelect" class="select-cam"></select>
+    <div class="video-section">
+      <div class="video-head">
+        <span class="section-kicker">
+          <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+          </svg>
+          <span>ENTRADA DE VIDEO</span>
+        </span>
+        <div class="video-tools">
+          <button type="button" id="btnTorch" class="icon-btn" title="Linterna" aria-label="Alternar linterna" aria-pressed="false">
+            <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </button>
+          <button type="button" id="btnSwitchCam" class="icon-btn" title="Cambiar cámara" aria-label="Cambiar cámara">
+            <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
 
-    <div class="scanner-box">
-      <div class="scan-guide"></div>
-      <div class="laser"></div>
-      <video id="videoPreview" autoplay playsinline muted style="width:100%; height:100%; object-fit: cover;"></video>
-      <div id="camStatus" class="cam-status">Iniciando cámara trasera...</div>
+      <div class="select-wrap">
+        <select id="cameraSelect" class="select-cam" aria-label="Seleccionar cámara">
+          <option value="">Cámara trasera (Automática)</option>
+        </select>
+        <svg class="svg-ic select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+    </div>
+
+    <div class="scanner-box" id="scannerBox">
+      <div id="camTelemetry" class="cam-telemetry">STANDBY • LISTO</div>
+      <video id="videoPreview" autoplay playsinline muted></video>
+      <div class="scan-reticle" aria-hidden="true">
+        <span class="corner tl"></span>
+        <span class="corner tr"></span>
+        <span class="corner bl"></span>
+        <span class="corner br"></span>
+        <div class="center-reticle">
+          <span class="ctl"></span>
+          <span class="ctr"></span>
+          <span class="cbl"></span>
+          <span class="cbr"></span>
+        </div>
+        <div class="laser"></div>
+      </div>
+      <div id="camStatusWrap" class="cam-status-wrap">
+        <span id="camDot" class="cam-dot is-idle"></span>
+        <span id="camStatus">Escáner activo • Apunta al QR del socio</span>
+      </div>
     </div>
 
     <div class="controls-row">
-      <button type="button" id="btnStartCam" class="btn btn-emerald" style="font-size: 0.82rem; padding: 10px 8px;">📷 Activar Cámara</button>
-      <label for="qrFileInput" class="btn btn-outline" style="margin-top: 0; font-size: 0.82rem; padding: 10px 8px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-        📸 Foto QR
+      <button type="button" id="btnStartCam" class="btn btn-emerald">
+        <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+        <span id="btnStartCamText">Activar Cámara</span>
+      </button>
+      <label for="qrFileInput" class="btn btn-dark" style="cursor:pointer;">
+        <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+          <polyline points="21 15 16 10 5 21"></polyline>
+        </svg>
+        <span>Subir Foto QR</span>
         <input type="file" id="qrFileInput" accept="image/*" capture="environment" style="display: none;">
       </label>
     </div>
 
-    <div class="manual-dni-card">
-      <div style="display: flex; gap: 6px;">
-        <input type="text" id="qrTextInput" class="input-text" placeholder="Pegar token QR (ZG-...)" style="margin-bottom: 0; font-size: 0.85rem;">
-        <button type="button" class="btn btn-emerald" id="btnSendQrText" style="width: auto; padding: 0 14px; font-size: 0.82rem;">Validar</button>
+    <div class="manual-card">
+      <div class="manual-head">
+        <span class="section-kicker">
+          <svg class="svg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          <span>INGRESO MANUAL / RESPALDO</span>
+        </span>
+        <span id="terminalTag" class="terminal-tag">Acceso LAN</span>
       </div>
-      <div style="display: flex; gap: 6px;">
-        <input type="text" id="dniInput" class="input-text" placeholder="Ingreso manual por DNI / CE" style="margin-bottom: 0; font-size: 0.85rem;">
-        <button type="button" class="btn btn-primary" id="btnSendManual" style="width: auto; padding: 0 14px; font-size: 0.82rem;">DNI</button>
+
+      <div class="field-group">
+        <label class="field-label" for="qrTextInput">TOKEN DIRECTO DE APLICACIÓN</label>
+        <div class="input-row">
+          <input type="text" id="qrTextInput" class="input-text" placeholder="Pegar token QR (ZG-...)" autocomplete="off">
+          <button type="button" class="btn btn-emerald btn-inline" id="btnSendQrText">Validar</button>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dniInput">BÚSQUEDA POR DOCUMENTO</label>
+        <div class="input-row">
+          <input type="text" id="dniInput" class="input-text" placeholder="Ingreso manual por DNI / CE" inputmode="numeric" autocomplete="off">
+          <button type="button" class="btn btn-cyan btn-inline" id="btnSendManual">DNI</button>
+        </div>
+      </div>
+
+      <div id="scanNotice" class="scan-notice" role="status"></div>
+
+      <div id="lastPassBar" class="last-pass-bar">
+        <div class="last-pass-left">
+          <span class="last-pass-dot" aria-hidden="true"></span>
+          <span>Último pase:</span>
+          <strong id="lastPassName">Sin lecturas</strong>
+        </div>
+        <span id="lastPassStatus" class="last-pass-status">En espera</span>
       </div>
     </div>
   </main>
 
+  <footer class="app-footer">
+    <div class="app-footer-inner">
+      <div class="footer-left">
+        <span id="footerDot" class="footer-dot" aria-hidden="true"></span>
+        <span>SQLite Local-First: <span id="footerDbStatus">OK</span></span>
+      </div>
+      <span class="footer-sep" aria-hidden="true">•</span>
+      <div>Build: <span id="footerBuild">v0.1.0-prod</span></div>
+    </div>
+  </footer>
+
   <canvas id="scanCanvas" style="display: none;"></canvas>
 
-  <!-- OVERLAY SEMAFÓRICO COMPLETO -->
-  <div id="trafficOverlay" class="overlay">
-    <div id="overlayIcon" style="font-size: 5rem; margin-bottom: 10px;">✅</div>
-    <h1 id="overlayTitle">ACCESO PERMITIDO</h1>
-    <h2 id="overlayClientName">Socio</h2>
-    <div class="alert-box">
-      <p id="overlayPlan">Plan</p>
-      <p id="overlayDays" style="font-weight: 700;">¡Pasa adelante!</p>
-      <p id="overlayReason" style="font-size: 0.9rem; margin-top: 4px;"></p>
+  <!-- MODAL DE DESVINCULACIÓN -->
+  <div id="unlinkModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="unlinkModalTitle">
+    <div class="modal-card">
+      <div class="modal-icon" aria-hidden="true">
+        <svg class="svg-ic" style="width:22px;height:22px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+      </div>
+      <h2 id="unlinkModalTitle" class="modal-title">¿Desvincular este teléfono?</h2>
+      <p class="modal-desc">Dejarás de enviar asistencias desde esta terminal hasta ingresar un nuevo código de 6 caracteres.</p>
+      <div class="modal-actions">
+        <button type="button" id="btnCancelUnlink" class="btn btn-dark">Cancelar</button>
+        <button type="button" id="btnConfirmUnlink" class="btn btn-danger">Desvincular</button>
+      </div>
     </div>
-    <button id="overlayCloseBtn" class="btn btn-outline" style="background: white; color: #0f172a; max-width: 240px; display: none;">Cerrar y Continuar</button>
+  </div>
+
+  <!-- OVERLAY SEMAFÓRICO COMPLETO -->
+  <div id="trafficOverlay" class="overlay" role="alertdialog" aria-modal="true" aria-labelledby="overlayTitle">
+    <div class="overlay-icon-circle" aria-hidden="true">
+      <svg id="iconVerde" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+      <svg id="iconAmarillo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+      <svg id="iconRojo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+      </svg>
+    </div>
+    <h1 id="overlayTitle">ACCESO CONCEDIDO</h1>
+    <h2 id="overlayClientName">Socio</h2>
+    <div id="overlayDoc" class="overlay-doc"></div>
+    <div class="overlay-box">
+      <span id="overlayPlan" class="overlay-plan-pill">Plan</span>
+      <p id="overlayDays" class="overlay-days"></p>
+      <p id="overlayDebt" class="overlay-debt"></p>
+      <p id="overlayReason" class="overlay-reason"></p>
+    </div>
+    <div id="overlayCashierNote" class="overlay-cashier">POR FAVOR DIRÍJASE A CAJA</div>
+    <div id="overlayProgressTrack" class="overlay-progress-track">
+      <div id="overlayProgressBar" class="overlay-progress-bar"></div>
+    </div>
+    <button type="button" id="overlayCloseBtn" class="btn btn-overlay-close">Continuar Escaneando</button>
   </div>
 
   <script src="/assets/jsqr.js"></script>
@@ -614,7 +1808,6 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       } catch (e) {}
     }
 
-    // Gestión de vistas M1 y M2
     const params = new URLSearchParams(window.location.search);
     const pairParam = params.get('pair') || params.get('code');
     let currentStream = null;
@@ -623,12 +1816,37 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
     let lastDecodedAt = 0;
     let scanBusy = false;
     let overlayOpen = false;
+    let torchEnabled = false;
+    let videoDevices = [];
+    let activeDeviceId = '';
+    let preferredFacingMode = 'environment';
+    let noticeTimeout = null;
+    let overlayTimeout = null;
     let barcodeDetector = null;
     if ('BarcodeDetector' in window) {
       try { barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) {}
     }
 
-    document.getElementById('statusBadge').textContent = (window.location.protocol === 'https:' ? '🔒 HTTPS ' : '⚠️ HTTP ') + (window.location.port || '3443');
+    function updateStatusBadge(view) {
+      const badge = document.getElementById('statusBadge');
+      const lockIc = document.getElementById('badgeLockIcon');
+      const alertIc = document.getElementById('badgeAlertIcon');
+      const txt = document.getElementById('statusBadgeText');
+      const isHttps = window.location.protocol === 'https:';
+      const port = window.location.port || (isHttps ? '3443' : '80');
+
+      if (isHttps) {
+        badge.classList.remove('is-amber');
+        lockIc.style.display = 'inline-block';
+        alertIc.style.display = 'none';
+        txt.textContent = view === 'm2' ? port : ('HTTPS ' + port);
+      } else {
+        badge.classList.add('is-amber');
+        lockIc.style.display = 'none';
+        alertIc.style.display = 'inline-block';
+        txt.textContent = 'HTTP ' + port;
+      }
+    }
 
     if (!window.isSecureContext && window.location.protocol !== 'https:') {
       document.getElementById('insecureHttpsBanner').style.display = 'flex';
@@ -637,7 +1855,7 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       window.location.href = 'https://' + window.location.host + window.location.pathname + window.location.search;
     });
 
-    // Persistencia dual (localStorage + Cookie de 365 días) para tolerar cierres de ventana móvil
+    // Persistencia dual (localStorage + Cookie de 365 días)
     function readCookieVal(name) {
       try {
         const prefix = name + '=';
@@ -669,14 +1887,26 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       return name || 'Móvil Vinculado';
     }
 
-    function saveMobileSession(token, deviceName) {
+    function getMobileId() {
+      let id = null;
+      try { id = localStorage.getItem('zarama_mobile_id'); } catch (e) {}
+      if (!id) id = readCookieVal('zarama_mobile_id');
+      return id || '';
+    }
+
+    function saveMobileSession(token, deviceName, deviceId) {
+      const idStr = deviceId != null ? String(deviceId) : '';
       try {
         localStorage.setItem('zarama_mobile_token', token);
         localStorage.setItem('zarama_mobile_name', deviceName);
+        if (idStr) localStorage.setItem('zarama_mobile_id', idStr);
       } catch (e) {}
       try {
         document.cookie = 'zarama_mobile_token=' + encodeURIComponent(token) + '; Path=/; Max-Age=31536000; SameSite=Lax';
         document.cookie = 'zarama_mobile_name=' + encodeURIComponent(deviceName) + '; Path=/; Max-Age=31536000; SameSite=Lax';
+        if (idStr) {
+          document.cookie = 'zarama_mobile_id=' + encodeURIComponent(idStr) + '; Path=/; Max-Age=31536000; SameSite=Lax';
+        }
       } catch (e) {}
     }
 
@@ -684,39 +1914,149 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       try {
         localStorage.removeItem('zarama_mobile_token');
         localStorage.removeItem('zarama_mobile_name');
+        localStorage.removeItem('zarama_mobile_id');
       } catch (e) {}
       try {
         document.cookie = 'zarama_mobile_token=; Path=/; Max-Age=0; SameSite=Lax';
         document.cookie = 'zarama_mobile_name=; Path=/; Max-Age=0; SameSite=Lax';
+        document.cookie = 'zarama_mobile_id=; Path=/; Max-Age=0; SameSite=Lax';
       } catch (e) {}
     }
 
-    if (getMobileToken()) {
-      showM2();
-    } else {
-      showM1();
-      if (pairParam) {
-        document.getElementById('pairInput').value = pairParam.toUpperCase();
+    function showPairError(msg) {
+      const el = document.getElementById('pairError');
+      if (!msg) {
+        el.textContent = '';
+        el.classList.remove('is-visible');
+      } else {
+        el.textContent = msg;
+        el.classList.add('is-visible');
       }
     }
 
-    function showM1() {
+    function showScanNotice(msg, isError) {
+      const el = document.getElementById('scanNotice');
+      if (noticeTimeout) clearTimeout(noticeTimeout);
+      if (!msg) {
+        el.textContent = '';
+        el.className = 'scan-notice';
+        return;
+      }
+      el.textContent = msg;
+      el.className = 'scan-notice is-visible' + (isError ? ' is-error' : '');
+      noticeTimeout = setTimeout(() => {
+        el.className = 'scan-notice';
+      }, 4000);
+    }
+
+    function setCamStatus(text, tone) {
+      document.getElementById('camStatus').textContent = text;
+      const dot = document.getElementById('camDot');
+      dot.className = 'cam-dot' + (tone ? (' is-' + tone) : '');
+    }
+
+    function updateCameraButton(isActive) {
+      const btn = document.getElementById('btnStartCam');
+      const txt = document.getElementById('btnStartCamText');
+      if (isActive) {
+        btn.classList.add('is-stop');
+        txt.textContent = 'Detener Cámara';
+      } else {
+        btn.classList.remove('is-stop');
+        txt.textContent = 'Activar Cámara';
+      }
+    }
+
+    function applyLastPass(name, color) {
+      const bar = document.getElementById('lastPassBar');
+      const nameEl = document.getElementById('lastPassName');
+      const statusEl = document.getElementById('lastPassStatus');
+      if (!name || !color) {
+        bar.className = 'last-pass-bar';
+        nameEl.textContent = 'Sin lecturas';
+        statusEl.textContent = 'En espera';
+        return;
+      }
+      nameEl.textContent = name;
+      if (color === 'VERDE') {
+        bar.className = 'last-pass-bar is-verde';
+        statusEl.textContent = 'Acceso Autorizado';
+      } else if (color === 'AMARILLO') {
+        bar.className = 'last-pass-bar is-amarillo';
+        statusEl.textContent = 'Alerta Preventiva';
+      } else {
+        bar.className = 'last-pass-bar is-rojo';
+        statusEl.textContent = 'Acceso Denegado';
+      }
+    }
+
+    function restoreLastPass() {
+      try {
+        const raw = sessionStorage.getItem('zarama_last_pass');
+        if (!raw) return applyLastPass(null, null);
+        const parsed = JSON.parse(raw);
+        applyLastPass(parsed.name, parsed.color);
+      } catch (e) {
+        applyLastPass(null, null);
+      }
+    }
+
+    function updateTerminalTag() {
+      const id = getMobileId();
+      const tag = document.getElementById('terminalTag');
+      if (id && /^\d+$/.test(id)) {
+        tag.textContent = 'Terminal #' + id.padStart(2, '0');
+      } else {
+        tag.textContent = 'Acceso LAN';
+      }
+    }
+
+    function showM1(reasonMsg) {
       stopCamera();
+      document.body.dataset.view = 'm1';
       document.getElementById('viewM1').style.display = 'flex';
       document.getElementById('viewM2').style.display = 'none';
+      updateStatusBadge('m1');
+      showPairError(reasonMsg || '');
     }
 
     function showM2() {
+      document.body.dataset.view = 'm2';
       document.getElementById('viewM1').style.display = 'none';
       document.getElementById('viewM2').style.display = 'flex';
-      document.getElementById('devNameLabel').textContent = '📱 ' + getMobileName();
+      document.getElementById('devNameLabel').textContent = getMobileName();
+      updateStatusBadge('m2');
+      updateTerminalTag();
+      restoreLastPass();
       startCamera();
     }
 
+    const pairInputEl = document.getElementById('pairInput');
+    pairInputEl.addEventListener('input', () => {
+      const cleaned = pairInputEl.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      if (pairInputEl.value !== cleaned) pairInputEl.value = cleaned;
+      showPairError('');
+    });
+    pairInputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('btnPair').click();
+      }
+    });
+
     document.getElementById('btnPair').addEventListener('click', async () => {
       unlockAudio();
-      const code = document.getElementById('pairInput').value.trim().toUpperCase();
-      if (!code) return alert('Por favor ingrese el código de 6 caracteres.');
+      const btn = document.getElementById('btnPair');
+      const label = document.getElementById('btnPairLabel');
+      const code = pairInputEl.value.trim().toUpperCase();
+      if (code.length < 6) {
+        showPairError('Por favor ingresa el código completo de 6 caracteres.');
+        pairInputEl.focus();
+        return;
+      }
+      showPairError('');
+      btn.disabled = true;
+      label.textContent = 'Vinculando...';
       try {
         const res = await fetch('/api/lan/pair', {
           method: 'POST',
@@ -725,20 +2065,42 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          return alert('Error vinculando: ' + (err.error || res.statusText));
+          showPairError('No se pudo vincular: ' + (err.error || res.statusText));
+          return;
         }
         const data = await res.json();
-        saveMobileSession(data.tokenSesion, data.nombreDispositivo);
+        saveMobileSession(data.tokenSesion, data.nombreDispositivo, data.deviceId);
         showM2();
       } catch (e) {
-        alert('Fallo de conexión con el servidor LAN ZaramaGYM: ' + e.message);
+        showPairError('Fallo de conexión con el servidor LAN: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        label.textContent = 'Vincular este Teléfono';
       }
     });
 
-    document.getElementById('btnUnlink').addEventListener('click', () => {
-      if (confirm('¿Desvincular este teléfono?')) {
-        clearMobileSession();
-        showM1();
+    // Modal de desvinculación accesible
+    const unlinkModal = document.getElementById('unlinkModal');
+    function openUnlinkModal() {
+      unlinkModal.classList.add('is-open');
+      document.getElementById('btnCancelUnlink').focus();
+    }
+    function closeUnlinkModal() {
+      unlinkModal.classList.remove('is-open');
+    }
+    document.getElementById('btnUnlink').addEventListener('click', openUnlinkModal);
+    document.getElementById('btnCancelUnlink').addEventListener('click', closeUnlinkModal);
+    document.getElementById('btnConfirmUnlink').addEventListener('click', () => {
+      closeUnlinkModal();
+      clearMobileSession();
+      showM1();
+    });
+    unlinkModal.addEventListener('click', (e) => {
+      if (e.target === unlinkModal) closeUnlinkModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && unlinkModal.classList.contains('is-open')) {
+        closeUnlinkModal();
       }
     });
 
@@ -748,6 +2110,15 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
         currentStream.getTracks().forEach(t => t.stop());
         currentStream = null;
       }
+      torchEnabled = false;
+      const torchBtn = document.getElementById('btnTorch');
+      torchBtn.classList.remove('is-active');
+      torchBtn.setAttribute('aria-pressed', 'false');
+      document.getElementById('scannerBox').classList.remove('is-live');
+      document.getElementById('camTelemetry').textContent = 'STANDBY • LISTO';
+      const video = document.getElementById('videoPreview');
+      if (video) video.srcObject = null;
+      updateCameraButton(false);
     }
 
     async function populateCameras() {
@@ -755,44 +2126,77 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videos = devices.filter(d => d.kind === 'videoinput');
+        videoDevices = videos;
         const sel = document.getElementById('cameraSelect');
-        if (videos.length > 1) {
-          sel.innerHTML = '';
-          videos.forEach((d, idx) => {
-            const opt = document.createElement('option');
-            opt.value = d.deviceId;
-            opt.textContent = d.label || ('Cámara ' + (idx + 1));
-            sel.appendChild(opt);
-          });
-          sel.style.display = 'block';
+        const prevVal = activeDeviceId || sel.value;
+        while (sel.firstChild) sel.removeChild(sel.firstChild);
+
+        if (videos.length === 0) {
+          const defOpt = document.createElement('option');
+          defOpt.value = '';
+          defOpt.textContent = 'Cámara trasera (Automática)';
+          sel.appendChild(defOpt);
+          return;
+        }
+
+        videos.forEach((d, idx) => {
+          const opt = document.createElement('option');
+          opt.value = d.deviceId;
+          opt.textContent = d.label || ('Cámara ' + (idx + 1));
+          sel.appendChild(opt);
+        });
+        if (prevVal && videos.some(d => d.deviceId === prevVal)) {
+          sel.value = prevVal;
         }
       } catch (e) {}
     }
 
-    async function startCamera(selectedDeviceId) {
+    function updateTelemetryFromStream(stream) {
+      const telEl = document.getElementById('camTelemetry');
+      try {
+        const track = stream.getVideoTracks()[0];
+        if (!track || typeof track.getSettings !== 'function') {
+          telEl.textContent = 'EN VIVO • ACTIVA';
+          return;
+        }
+        const s = track.getSettings();
+        if (s.deviceId) activeDeviceId = s.deviceId;
+        const fps = s.frameRate ? (Math.round(s.frameRate) + ' FPS') : 'LIVE';
+        const res = s.height ? (s.height + 'p') : (s.width ? (s.width + 'px') : 'HD');
+        telEl.textContent = fps + ' • ' + res;
+      } catch (e) {
+        telEl.textContent = 'EN VIVO • ACTIVA';
+      }
+    }
+
+    async function startCamera(selectedDeviceId, facingOverride) {
       stopCamera();
-      const statusEl = document.getElementById('camStatus');
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        statusEl.textContent = 'Cámara en vivo requiere abrir por HTTPS (o usa 📸 Foto QR).';
+        setCamStatus('Requiere HTTPS para cámara en vivo (usa Subir Foto QR)', 'warn');
         return;
       }
-      statusEl.textContent = 'Solicitando permiso de cámara...';
+      setCamStatus('Solicitando permiso de cámara...', 'warn');
+      const facing = facingOverride || preferredFacingMode || 'environment';
       try {
         const constraints = {
           audio: false,
           video: selectedDeviceId
             ? { deviceId: { exact: selectedDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-            : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            : { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }
         };
         currentStream = await navigator.mediaDevices.getUserMedia(constraints);
         const video = document.getElementById('videoPreview');
         video.srcObject = currentStream;
         await video.play();
-        statusEl.textContent = 'Escáner activo • Apunta al QR del socio';
+        document.getElementById('scannerBox').classList.add('is-live');
+        updateTelemetryFromStream(currentStream);
+        updateCameraButton(true);
+        setCamStatus('Escáner activo • Apunta al QR del socio', '');
         await populateCameras();
         rafId = requestAnimationFrame(scanVideoFrame);
       } catch (err) {
-        statusEl.textContent = 'Cámara bloqueada o sin permiso (' + err.name + '). Pulsa Activar Cámara o usa 📸 Foto QR.';
+        stopCamera();
+        setCamStatus('Cámara sin permiso (' + err.name + '). Usa Subir Foto QR.', 'err');
       }
     }
 
@@ -845,17 +2249,64 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       lastDecodedCode = cleaned;
       lastDecodedAt = now;
       if (navigator.vibrate) try { navigator.vibrate(80); } catch (e) {}
-      document.getElementById('camStatus').textContent = 'QR leído: ' + cleaned + ' • Validando...';
+      setCamStatus('QR detectado • Validando acceso...', 'warn');
       await sendScan({ qrToken: cleaned });
     }
 
     document.getElementById('btnStartCam').addEventListener('click', () => {
       unlockAudio();
-      const sel = document.getElementById('cameraSelect');
-      startCamera(sel.value || undefined);
+      if (currentStream) {
+        stopCamera();
+        setCamStatus('Cámara en espera • Pulsa Activar Cámara', 'idle');
+      } else {
+        const sel = document.getElementById('cameraSelect');
+        startCamera(sel.value || undefined);
+      }
     });
+
     document.getElementById('cameraSelect').addEventListener('change', (e) => {
-      startCamera(e.target.value);
+      activeDeviceId = e.target.value || '';
+      startCamera(activeDeviceId || undefined);
+    });
+
+    document.getElementById('btnTorch').addEventListener('click', async () => {
+      if (!currentStream) {
+        showScanNotice('Activa la cámara para usar la linterna.', false);
+        return;
+      }
+      const track = currentStream.getVideoTracks()[0];
+      if (!track) return;
+      const caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : null;
+      if (!caps || !caps.torch) {
+        showScanNotice('Esta cámara o navegador no soporta control de linterna.', false);
+        return;
+      }
+      try {
+        torchEnabled = !torchEnabled;
+        await track.applyConstraints({ advanced: [{ torch: torchEnabled }] });
+        const torchBtn = document.getElementById('btnTorch');
+        torchBtn.classList.toggle('is-active', torchEnabled);
+        torchBtn.setAttribute('aria-pressed', String(torchEnabled));
+      } catch (e) {
+        torchEnabled = false;
+        showScanNotice('No se pudo activar la linterna en este dispositivo.', true);
+      }
+    });
+
+    document.getElementById('btnSwitchCam').addEventListener('click', () => {
+      unlockAudio();
+      const sel = document.getElementById('cameraSelect');
+      if (videoDevices.length > 1) {
+        const curId = sel.value || activeDeviceId;
+        const curIdx = videoDevices.findIndex(d => d.deviceId === curId);
+        const nextCam = videoDevices[(curIdx + 1) % videoDevices.length];
+        sel.value = nextCam.deviceId;
+        activeDeviceId = nextCam.deviceId;
+        startCamera(nextCam.deviceId);
+      } else {
+        preferredFacingMode = preferredFacingMode === 'environment' ? 'user' : 'environment';
+        startCamera(undefined, preferredFacingMode);
+      }
     });
 
     // Decodificación desde foto (Funciona incluso por HTTP en iOS y Android)
@@ -882,37 +2333,62 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
         if (result && result.data) {
           await handleDetectedQrString(result.data);
         } else {
-          alert('No se detectó un código QR nítido en la fotografía. Intenta acercar un poco más.');
+          showScanNotice('No se detectó un código QR nítido en la fotografía. Acerca un poco más.', true);
         }
         e.target.value = '';
       };
       img.src = objUrl;
     });
 
+    const qrTextInputEl = document.getElementById('qrTextInput');
+    const dniInputEl = document.getElementById('dniInput');
+
+    qrTextInputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('btnSendQrText').click();
+      }
+    });
+    dniInputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('btnSendManual').click();
+      }
+    });
+
     document.getElementById('btnSendQrText').addEventListener('click', async () => {
       unlockAudio();
-      const val = document.getElementById('qrTextInput').value.trim();
-      if (!val) return alert('Pega o escribe el token QR.');
-      await sendScan({ qrToken: val });
-      document.getElementById('qrTextInput').value = '';
+      const val = qrTextInputEl.value.trim();
+      if (!val) {
+        showScanNotice('Pega o escribe el token QR antes de validar.', true);
+        qrTextInputEl.focus();
+        return;
+      }
+      const ok = await sendScan({ qrToken: val });
+      if (ok) qrTextInputEl.value = '';
     });
 
     document.getElementById('btnSendManual').addEventListener('click', async () => {
       unlockAudio();
-      const dni = document.getElementById('dniInput').value.trim();
-      if (!dni) return alert('Ingrese el DNI.');
-      await sendScan({ numeroDocumento: dni });
-      document.getElementById('dniInput').value = '';
+      const dni = dniInputEl.value.trim();
+      if (!dni) {
+        showScanNotice('Ingresa el número de DNI o documento.', true);
+        dniInputEl.focus();
+        return;
+      }
+      const ok = await sendScan({ numeroDocumento: dni });
+      if (ok) dniInputEl.value = '';
     });
 
     async function sendScan(payload) {
       const curToken = getMobileToken();
       if (!curToken) {
-        alert('El dispositivo no está vinculado.');
-        return showM1();
+        showM1('El dispositivo no está vinculado.');
+        return false;
       }
-      if (scanBusy) return;
+      if (scanBusy) return false;
       scanBusy = true;
+      showScanNotice('', false);
       try {
         const res = await fetch('/api/lan/scan', {
           method: 'POST',
@@ -923,81 +2399,162 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
           body: JSON.stringify(payload)
         });
         if (res.status === 401) {
-          alert('Dispositivo revocado o no autorizado. Se desvinculará este teléfono.');
           clearMobileSession();
-          return showM1();
+          showM1('Dispositivo revocado o no autorizado. Vuelve a vincular este teléfono.');
+          return false;
         }
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          document.getElementById('camStatus').textContent = err.error || 'QR no reconocido';
-          alert('Error en escaneo: ' + (err.error || res.statusText));
-          return;
+          const errMsg = err.error || res.statusText || 'QR no reconocido';
+          setCamStatus(errMsg, 'err');
+          showScanNotice('Error en lectura: ' + errMsg, true);
+          return false;
         }
         const evalData = await res.json();
+        try {
+          sessionStorage.setItem('zarama_last_pass', JSON.stringify({
+            name: evalData.nombreCompleto || 'Socio',
+            color: evalData.colorSemaforo || 'VERDE'
+          }));
+        } catch (e) {}
+        applyLastPass(evalData.nombreCompleto || 'Socio', evalData.colorSemaforo || 'VERDE');
         showTrafficLight(evalData);
+        return true;
       } catch (e) {
-        alert('Error conectando al servidor LAN: ' + e.message);
+        showScanNotice('Error conectando al servidor LAN: ' + e.message, true);
+        return false;
       } finally {
         scanBusy = false;
       }
     }
 
-    let overlayTimeout = null;
     function closeOverlay() {
       if (overlayTimeout) clearTimeout(overlayTimeout);
       document.getElementById('trafficOverlay').style.display = 'none';
       overlayOpen = false;
-      document.getElementById('camStatus').textContent = currentStream
-        ? 'Escáner activo • Apunta al QR del socio'
-        : 'Cámara inactiva';
+      if (currentStream) {
+        setCamStatus('Escáner activo • Apunta al QR del socio', '');
+      } else {
+        setCamStatus('Cámara en espera • Pulsa Activar Cámara', 'idle');
+      }
     }
 
     function showTrafficLight(data) {
       if (overlayTimeout) clearTimeout(overlayTimeout);
       overlayOpen = true;
       const overlay = document.getElementById('trafficOverlay');
-      const icon = document.getElementById('overlayIcon');
+      const iconVerde = document.getElementById('iconVerde');
+      const iconAmarillo = document.getElementById('iconAmarillo');
+      const iconRojo = document.getElementById('iconRojo');
       const title = document.getElementById('overlayTitle');
       const clientName = document.getElementById('overlayClientName');
+      const docEl = document.getElementById('overlayDoc');
       const plan = document.getElementById('overlayPlan');
       const days = document.getElementById('overlayDays');
+      const debtEl = document.getElementById('overlayDebt');
       const reason = document.getElementById('overlayReason');
+      const cashierNote = document.getElementById('overlayCashierNote');
+      const progressTrack = document.getElementById('overlayProgressTrack');
+      const progressBar = document.getElementById('overlayProgressBar');
       const closeBtn = document.getElementById('overlayCloseBtn');
 
-      overlay.className = 'overlay ' + data.colorSemaforo;
-      clientName.textContent = data.nombreCompleto || 'Cliente';
-      plan.textContent = data.nombrePlan || '';
+      const color = data.colorSemaforo || 'ROJO';
+      overlay.className = 'overlay ' + color;
+      clientName.textContent = data.nombreCompleto || 'Socio';
+
+      const docTipo = data.tipoDocumento || 'DNI';
+      const docNum = data.numeroDocumento || '';
+      docEl.textContent = docNum ? (docTipo + ': ' + docNum) : '';
+      docEl.style.display = docNum ? 'block' : 'none';
+
+      plan.textContent = data.nombrePlan || 'Sin membresía activa';
       reason.textContent = data.motivoSemaforo || '';
 
-      playBeep(data.colorSemaforo);
+      const deuda = Number(data.deudaTotalPendiente || 0);
+      if (deuda > 0) {
+        debtEl.textContent = 'Deuda pendiente: S/ ' + deuda.toFixed(2);
+        debtEl.style.display = 'inline-block';
+      } else {
+        debtEl.textContent = '';
+        debtEl.style.display = 'none';
+      }
 
-      if (data.colorSemaforo === 'VERDE') {
-        icon.textContent = '✅';
+      iconVerde.style.display = 'none';
+      iconAmarillo.style.display = 'none';
+      iconRojo.style.display = 'none';
+      cashierNote.style.display = 'none';
+      progressTrack.style.display = 'none';
+      progressBar.style.animation = 'none';
+
+      playBeep(color);
+
+      if (color === 'VERDE') {
+        iconVerde.style.display = 'block';
         title.textContent = 'ACCESO CONCEDIDO';
-        days.textContent = data.diasRestantes != null ? `¡Pasa adelante! Quedan ${data.diasRestantes} días` : '¡Pasa adelante!';
-        closeBtn.style.display = 'block';
+        days.textContent = data.diasRestantes != null
+          ? ('Quedan ' + data.diasRestantes + ' días vigentes')
+          : 'Membresía vigente';
         closeBtn.textContent = 'Continuar Escaneando';
+        progressTrack.style.display = 'block';
+        void progressBar.offsetWidth;
+        progressBar.style.animation = 'overlayDrain 2500ms linear forwards';
         overlay.style.display = 'flex';
         overlayTimeout = setTimeout(closeOverlay, 2500);
-      } else if (data.colorSemaforo === 'AMARILLO') {
-        icon.textContent = '⚠️';
+      } else if (color === 'AMARILLO') {
+        iconAmarillo.style.display = 'block';
         title.textContent = 'ALERTA PREVENTIVA';
-        days.textContent = data.diasRestantes != null ? `¡Vence en ${data.diasRestantes} días!` : 'Revisar membresía';
-        closeBtn.style.display = 'block';
+        days.textContent = data.diasRestantes != null
+          ? ('Vence en ' + data.diasRestantes + ' días')
+          : 'Revisar membresía';
         closeBtn.textContent = 'Continuar Escaneando';
+        progressTrack.style.display = 'block';
+        void progressBar.offsetWidth;
+        progressBar.style.animation = 'overlayDrain 3500ms linear forwards';
         overlay.style.display = 'flex';
         overlayTimeout = setTimeout(closeOverlay, 3500);
       } else {
-        icon.textContent = '🚫';
+        iconRojo.style.display = 'block';
         title.textContent = 'ACCESO BLOQUEADO';
-        days.textContent = 'POR FAVOR DIRÍJASE A CAJA';
-        closeBtn.style.display = 'block';
+        days.textContent = data.diasRestantes != null && data.diasRestantes < 0
+          ? ('Vencida hace ' + Math.abs(data.diasRestantes) + ' días')
+          : 'Membresía no habilitada';
+        cashierNote.style.display = 'block';
         closeBtn.textContent = 'Cerrar y Escanear Siguiente';
         overlay.style.display = 'flex';
       }
     }
 
     document.getElementById('overlayCloseBtn').addEventListener('click', closeOverlay);
+
+    async function refreshPingHealth() {
+      const dbEl = document.getElementById('footerDbStatus');
+      const buildEl = document.getElementById('footerBuild');
+      const dotEl = document.getElementById('footerDot');
+      try {
+        const res = await fetch('/api/lan/ping', { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const info = await res.json();
+        const dbOk = info.dbStatus === 'OK';
+        dbEl.textContent = info.dbStatus || 'OK';
+        dotEl.className = 'footer-dot' + (dbOk ? '' : ' is-err');
+        if (info.version) buildEl.textContent = info.version;
+      } catch (e) {
+        dbEl.textContent = 'Sin conexión';
+        dotEl.className = 'footer-dot is-err';
+      }
+    }
+
+    if (getMobileToken()) {
+      showM2();
+    } else {
+      showM1();
+      if (pairParam) {
+        pairInputEl.value = pairParam.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      }
+    }
+
+    refreshPingHealth();
+    setInterval(refreshPingHealth, 30000);
   </script>
 </body>
 </html>
@@ -1082,14 +2639,24 @@ async fn handle_jsqr_asset() -> impl IntoResponse {
 
 async fn handle_lan_ping(State(state): State<AppState>) -> impl IntoResponse {
     let port = *state.lan_server_port.read().await;
-    let hostname = resolve_mdns_hostname(&state.pool()).await;
+    let pool = state.pool();
+    let hostname = resolve_mdns_hostname(&pool).await;
+    let db_status = match sqlx::query_scalar::<_, i64>("SELECT 1")
+        .fetch_one(&pool)
+        .await
+    {
+        Ok(1) => "OK",
+        _ => "ERROR",
+    };
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
     let body = json!({
         "status": "ok",
         "gym": "ZaramaGYM",
         "hostname": hostname,
         "port": port,
-        "serverTime": now
+        "serverTime": now,
+        "dbStatus": db_status,
+        "version": format!("v{}-prod", env!("CARGO_PKG_VERSION"))
     });
     (StatusCode::OK, Json(body))
 }
@@ -1176,8 +2743,51 @@ async fn handle_lan_scan(
 // RESPONDER mDNS RFC 6762 (UDP 5353 - Multicast 224.0.0.251)
 // ============================================================================
 
-/// Parsea una consulta mDNS (RFC 6762) y verifica si el primer QNAME coincide
-/// con `target_hostname` para registro tipo A (1) o ANY (255).
+/// Decodifica un QNAME DNS a partir de `start_pos`, soportando punteros de compresión RFC 1035 (`0xC0`).
+/// Retorna `(qname, next_pos_after_name)`.
+fn decode_dns_qname(packet: &[u8], start_pos: usize) -> Option<(String, usize)> {
+    let mut pos = start_pos;
+    let mut next_pos: Option<usize> = None;
+    let mut labels: Vec<String> = Vec::new();
+    let mut hops = 0usize;
+
+    loop {
+        if hops > 16 {
+            return None;
+        }
+        let len = *packet.get(pos)? as usize;
+        if len == 0 {
+            let final_next = next_pos.unwrap_or(pos + 1);
+            return Some((labels.join("."), final_next));
+        }
+        if (len & 0xC0) == 0xC0 {
+            let b2 = *packet.get(pos + 1)? as usize;
+            if next_pos.is_none() {
+                next_pos = Some(pos + 2);
+            }
+            let ptr_offset = ((len & 0x3F) << 8) | b2;
+            if ptr_offset >= packet.len() {
+                return None;
+            }
+            pos = ptr_offset;
+            hops += 1;
+            continue;
+        }
+        if (len & 0xC0) != 0 {
+            return None;
+        }
+        pos += 1;
+        if pos + len > packet.len() {
+            return None;
+        }
+        let label = std::str::from_utf8(&packet[pos..pos + len]).ok()?;
+        labels.push(label.to_string());
+        pos += len;
+    }
+}
+
+/// Parsea una consulta mDNS (RFC 6762) recorriendo TODAS las preguntas (`qdcount`)
+/// y verifica si algún QNAME coincide con `target_hostname` para registro tipo A (1) o ANY (255).
 pub fn parse_mdns_query_for_host(packet: &[u8], target_hostname: &str) -> Option<u16> {
     if packet.len() < 12 {
         return None;
@@ -1192,38 +2802,29 @@ pub fn parse_mdns_query_for_host(packet: &[u8], target_hostname: &str) -> Option
         return None;
     }
 
+    let target = target_hostname.trim().trim_end_matches('.');
+    if target.is_empty() {
+        return None;
+    }
+
     let mut pos = 12usize;
-    let mut labels: Vec<String> = Vec::new();
-    loop {
-        let len = *packet.get(pos)? as usize;
-        pos += 1;
-        if len == 0 {
-            break;
-        }
-        if (len & 0xC0) != 0 || pos + len > packet.len() {
+    for _ in 0..qdcount {
+        let (qname, after_name) = decode_dns_qname(packet, pos)?;
+        if after_name + 4 > packet.len() {
             return None;
         }
-        let label = std::str::from_utf8(&packet[pos..pos + len]).ok()?;
-        labels.push(label.to_string());
-        pos += len;
+        let qtype = u16::from_be_bytes([packet[after_name], packet[after_name + 1]]);
+        pos = after_name + 4;
+
+        if !qname.is_empty()
+            && qname.eq_ignore_ascii_case(target)
+            && (qtype == 1 || qtype == 255)
+        {
+            return Some(tx_id);
+        }
     }
 
-    if labels.is_empty() || pos + 2 > packet.len() {
-        return None;
-    }
-
-    let qname = labels.join(".");
-    let target = target_hostname.trim().trim_end_matches('.');
-    if !qname.eq_ignore_ascii_case(target) {
-        return None;
-    }
-
-    let qtype = u16::from_be_bytes([packet[pos], packet[pos + 1]]);
-    if qtype == 1 || qtype == 255 {
-        Some(tx_id)
-    } else {
-        None
-    }
+    None
 }
 
 /// Construye un paquete de respuesta mDNS autoritativa con un registro A (RFC 6762).
@@ -1258,6 +2859,37 @@ pub fn build_mdns_a_record_packet(tx_id: u16, hostname: &str, ip: Ipv4Addr) -> V
     packet
 }
 
+/// Enlaza el socket UDP 5353 con `SO_REUSEADDR` (compatible con Windows `Dnscache` / `svchost`)
+/// y se une al grupo multicast `224.0.0.251` en todas las interfaces IPv4 LAN activas.
+fn bind_mdns_udp_socket() -> Option<tokio::net::UdpSocket> {
+    let sock = socket2::Socket::new(
+        socket2::Domain::IPV4,
+        socket2::Type::DGRAM,
+        Some(socket2::Protocol::UDP),
+    )
+    .ok()?;
+    let _ = sock.set_reuse_address(true);
+    let _ = sock.set_nonblocking(true);
+
+    let bind_addr = SocketAddr::from(([0, 0, 0, 0], 5353));
+    if sock.bind(&bind_addr.into()).is_err() {
+        return None;
+    }
+
+    let std_sock: std::net::UdpSocket = sock.into();
+    let multicast_ip = Ipv4Addr::new(224, 0, 0, 251);
+    let _ = std_sock.join_multicast_v4(&multicast_ip, &Ipv4Addr::UNSPECIFIED);
+    for ip_str in get_lan_interface_ips() {
+        if let Ok(iface_ip) = ip_str.parse::<Ipv4Addr>() {
+            if !iface_ip.is_loopback() {
+                let _ = std_sock.join_multicast_v4(&multicast_ip, &iface_ip);
+            }
+        }
+    }
+
+    tokio::net::UdpSocket::from_std(std_sock).ok()
+}
+
 /// Arranca el listener TCP dual HTTPS (TLS rustls) + HTTP en el puerto configurado
 pub async fn start_lan_server(state: &AppState) -> Result<(), AppError> {
     if *state.lan_server_running.read().await {
@@ -1270,13 +2902,15 @@ pub async fn start_lan_server(state: &AppState) -> Result<(), AppError> {
         AppError::Internal(format!("No se pudo enlazar el puerto TCP {}: {}", port, e))
     })?;
 
-    let (tls_acceptor_opt, ca_pem) = match build_server_tls_acceptor(&state.pool()).await {
-        Ok((acc, pem)) => (Some(acc), pem),
-        Err(e) => {
-            eprintln!("[LAN] Aviso TLS fallback HTTP: {}", e);
-            (None, get_active_ca_pem(state).await)
-        }
-    };
+    let initial_ips = get_lan_interface_ips();
+    let (tls_acceptor_opt, ca_pem) =
+        match build_server_tls_acceptor_for_ips(&state.pool(), &initial_ips).await {
+            Ok((acc, pem, _sans)) => (Some((initial_ips, acc)), pem),
+            Err(e) => {
+                eprintln!("[LAN] Aviso TLS fallback HTTP: {}", e);
+                (None, get_active_ca_pem(state).await)
+            }
+        };
 
     if !ca_pem.is_empty() {
         let mut ca_guard = state.lan_ca_pem.write().await;
@@ -1293,77 +2927,84 @@ pub async fn start_lan_server(state: &AppState) -> Result<(), AppError> {
         *run_guard = true;
     }
 
-    // Responder mDNS RFC 6762 sobre UDP 5353 (multicast 224.0.0.251)
-    let mdns_hostname_cfg = resolve_mdns_hostname(&state.pool()).await;
-    let state_for_mdns = state.clone();
+    // Responder mDNS RFC 6762 sobre UDP 5353 (multicast 224.0.0.251) con SO_REUSEADDR
+    let mdns_socket_opt = bind_mdns_udp_socket();
+    {
+        let mut mdns_guard = state.lan_mdns_active.write().await;
+        *mdns_guard = mdns_socket_opt.is_some();
+    }
 
-    tokio::spawn(async move {
-        let socket = match tokio::net::UdpSocket::bind("0.0.0.0:5353").await {
-            Ok(s) => s,
-            Err(_) => match tokio::net::UdpSocket::bind("0.0.0.0:0").await {
-                Ok(s) => s,
-                Err(_) => return,
-            },
-        };
+    if let Some(socket) = mdns_socket_opt {
+        let mdns_hostname_cfg = resolve_mdns_hostname(&state.pool()).await;
+        let state_for_mdns = state.clone();
 
-        let multicast_ip = Ipv4Addr::new(224, 0, 0, 251);
-        let multicast_dest = SocketAddr::from((multicast_ip, 5353));
-        let _ = socket.join_multicast_v4(multicast_ip, Ipv4Addr::UNSPECIFIED);
+        tokio::spawn(async move {
+            let multicast_ip = Ipv4Addr::new(224, 0, 0, 251);
+            let multicast_dest = SocketAddr::from((multicast_ip, 5353));
 
-        let mut mdns_hosts = vec![mdns_hostname_cfg.clone()];
-        if !mdns_hosts
-            .iter()
-            .any(|h| h.eq_ignore_ascii_case(LEGACY_MDNS_HOSTNAME))
-        {
-            mdns_hosts.push(LEGACY_MDNS_HOSTNAME.to_string());
-        }
-
-        let current_ip = detect_primary_ip()
-            .parse::<Ipv4Addr>()
-            .unwrap_or(Ipv4Addr::LOCALHOST);
-        for host in &mdns_hosts {
-            let announcement = build_mdns_a_record_packet(0, host, current_ip);
-            let _ = socket.send_to(&announcement, multicast_dest).await;
-        }
-        let mut last_announce = tokio::time::Instant::now();
-        let mut buf = [0u8; 1500];
-
-        while *state_for_mdns.lan_server_running.read().await {
-            if let Ok(Ok((len, peer_addr))) = tokio::time::timeout(
-                std::time::Duration::from_secs(15),
-                socket.recv_from(&mut buf),
-            )
-            .await
+            let mut mdns_hosts = vec![mdns_hostname_cfg.clone()];
+            if !mdns_hosts
+                .iter()
+                .any(|h| h.eq_ignore_ascii_case(LEGACY_MDNS_HOSTNAME))
             {
-                let live_ipv4 = detect_primary_ip()
-                    .parse::<Ipv4Addr>()
-                    .unwrap_or(Ipv4Addr::LOCALHOST);
-                for host in &mdns_hosts {
-                    if let Some(tx_id) = parse_mdns_query_for_host(&buf[..len], host) {
-                        let resp = build_mdns_a_record_packet(tx_id, host, live_ipv4);
-                        let _ = socket.send_to(&resp, multicast_dest).await;
-                        if peer_addr.port() != 5353 {
-                            let _ = socket.send_to(&resp, peer_addr).await;
+                mdns_hosts.push(LEGACY_MDNS_HOSTNAME.to_string());
+            }
+
+            let current_ip = detect_primary_ip()
+                .parse::<Ipv4Addr>()
+                .unwrap_or(Ipv4Addr::LOCALHOST);
+            for host in &mdns_hosts {
+                let announcement = build_mdns_a_record_packet(0, host, current_ip);
+                let _ = socket.send_to(&announcement, multicast_dest).await;
+            }
+            let mut last_announce = tokio::time::Instant::now();
+            let mut buf = [0u8; 1500];
+
+            while *state_for_mdns.lan_server_running.read().await {
+                if let Ok(Ok((len, peer_addr))) = tokio::time::timeout(
+                    std::time::Duration::from_secs(15),
+                    socket.recv_from(&mut buf),
+                )
+                .await
+                {
+                    let live_ipv4 = detect_primary_ip()
+                        .parse::<Ipv4Addr>()
+                        .unwrap_or(Ipv4Addr::LOCALHOST);
+                    for host in &mdns_hosts {
+                        if let Some(tx_id) = parse_mdns_query_for_host(&buf[..len], host) {
+                            let resp = build_mdns_a_record_packet(tx_id, host, live_ipv4);
+                            let _ = socket.send_to(&resp, multicast_dest).await;
+                            if peer_addr.port() != 5353 {
+                                let _ = socket.send_to(&resp, peer_addr).await;
+                            }
                         }
                     }
                 }
-            }
 
-            if last_announce.elapsed() >= std::time::Duration::from_secs(30) {
-                let live_ipv4 = detect_primary_ip()
-                    .parse::<Ipv4Addr>()
-                    .unwrap_or(Ipv4Addr::LOCALHOST);
-                for host in &mdns_hosts {
-                    let announcement = build_mdns_a_record_packet(0, host, live_ipv4);
-                    let _ = socket.send_to(&announcement, multicast_dest).await;
+                if last_announce.elapsed() >= std::time::Duration::from_secs(30) {
+                    for ip_str in get_lan_interface_ips() {
+                        if let Ok(iface_ip) = ip_str.parse::<Ipv4Addr>() {
+                            if !iface_ip.is_loopback() {
+                                let _ = socket.join_multicast_v4(multicast_ip, iface_ip);
+                            }
+                        }
+                    }
+                    let live_ipv4 = detect_primary_ip()
+                        .parse::<Ipv4Addr>()
+                        .unwrap_or(Ipv4Addr::LOCALHOST);
+                    for host in &mdns_hosts {
+                        let announcement = build_mdns_a_record_packet(0, host, live_ipv4);
+                        let _ = socket.send_to(&announcement, multicast_dest).await;
+                    }
+                    last_announce = tokio::time::Instant::now();
                 }
-                last_announce = tokio::time::Instant::now();
             }
-        }
-    });
+        });
+    }
 
     let router = create_lan_router(state.clone());
     let state_clone = state.clone();
+    let tls_cache = Arc::new(tokio::sync::RwLock::new(tls_acceptor_opt));
 
     tokio::spawn(async move {
         loop {
@@ -1376,7 +3017,8 @@ pub async fn start_lan_server(state: &AppState) -> Result<(), AppError> {
                         continue;
                     };
                     let router_svc = router.clone();
-                    let acceptor = tls_acceptor_opt.clone();
+                    let tls_cache_conn = tls_cache.clone();
+                    let state_for_conn = state_clone.clone();
 
                     tokio::spawn(async move {
                         let mut peek_buf = [0u8; 1];
@@ -1386,7 +3028,39 @@ pub async fn start_lan_server(state: &AppState) -> Result<(), AppError> {
                         let builder = AutoConnBuilder::new(TokioExecutor::new());
 
                         if is_tls {
-                            if let Some(tls_acc) = acceptor {
+                            // Si las IPs LAN cambiaron (ej. laptop conectada al Hotspot del celular después de abrir ZaramaGYM),
+                            // regeneramos al vuelo el certificado hoja para incluir la nueva IP en los SANs TLS.
+                            let live_ips = get_lan_interface_ips();
+                            let cached_acc = {
+                                let guard = tls_cache_conn.read().await;
+                                match &*guard {
+                                    Some((ips, acc)) if *ips == live_ips => Some(acc.clone()),
+                                    _ => None,
+                                }
+                            };
+
+                            let active_acceptor = match cached_acc {
+                                Some(acc) => Some(acc),
+                                None => {
+                                    match build_server_tls_acceptor_for_ips(&state_for_conn.pool(), &live_ips).await {
+                                        Ok((new_acc, pem, _sans)) => {
+                                            if !pem.is_empty() {
+                                                let mut ca_guard = state_for_conn.lan_ca_pem.write().await;
+                                                *ca_guard = pem;
+                                            }
+                                            let mut cache_guard = tls_cache_conn.write().await;
+                                            *cache_guard = Some((live_ips, new_acc.clone()));
+                                            Some(new_acc)
+                                        }
+                                        Err(_) => {
+                                            let guard = tls_cache_conn.read().await;
+                                            guard.as_ref().map(|(_, acc)| acc.clone())
+                                        }
+                                    }
+                                }
+                            };
+
+                            if let Some(tls_acc) = active_acceptor {
                                 if let Ok(tls_stream) = tls_acc.accept(stream).await {
                                     let _ = builder
                                         .serve_connection(TokioIo::new(tls_stream), hyper_svc)
@@ -1406,6 +3080,8 @@ pub async fn start_lan_server(state: &AppState) -> Result<(), AppError> {
 
         let mut run_guard = state_clone.lan_server_running.write().await;
         *run_guard = false;
+        let mut mdns_guard = state_clone.lan_mdns_active.write().await;
+        *mdns_guard = false;
     });
 
     Ok(())
@@ -1413,7 +3089,9 @@ pub async fn start_lan_server(state: &AppState) -> Result<(), AppError> {
 
 // Eliminamos warning si AsyncReadExt no se usa directamente en el socket
 #[allow(dead_code)]
-async fn _read_helper<T: AsyncReadExt + Unpin>(_s: &mut T) {}
+async fn _read_helper<T: AsyncReadExt + Unpin>(_s: &mut T) {
+    let _ = build_server_tls_acceptor;
+}
 
 // ============================================================================
 // LÓGICA DE NEGOCIO Y PERSISTENCIA (LAN SERVICE)
@@ -1422,18 +3100,16 @@ async fn _read_helper<T: AsyncReadExt + Unpin>(_s: &mut T) {}
 /// Obtiene el estado consolidado del servidor LAN y estadísticas de dispositivos
 pub async fn get_lan_server_status(state: &AppState) -> Result<LanServerStatusDto, AppError> {
     let is_running = *state.lan_server_running.read().await;
+    let mdns_active = is_running && *state.lan_mdns_active.read().await;
     let port = *state.lan_server_port.read().await;
     let primary_ip = detect_primary_ip();
     let local_ips = get_local_ips(&primary_ip);
 
     let mdns_hostname = resolve_mdns_hostname(&state.pool()).await;
-    let primary_host = if !mdns_hostname.is_empty() {
-        mdns_hostname.as_str()
-    } else {
-        primary_ip.as_str()
-    };
-    let https_url = format!("https://{}:{}/scanner", primary_host, port);
-    let http_url = format!("http://{}:{}/scanner", primary_host, port);
+    // Priorizar IP local directa por defecto para garantizar conexión en Hotspots móviles
+    // sin depender de resolución DNS (.local) ni sufrir DNS_PROBE_FINISHED_NXDOMAIN
+    let https_url = format!("https://{}:{}/scanner", primary_ip, port);
+    let http_url = format!("http://{}:{}/scanner", primary_ip, port);
 
     let ca_cert_pem = get_active_ca_pem(state).await;
     let ca_cert_fingerprint_sha256 = get_ca_fingerprint_from_pem(&ca_cert_pem);
@@ -1467,7 +3143,7 @@ pub async fn get_lan_server_status(state: &AppState) -> Result<LanServerStatusDt
         https_url,
         http_url,
         mdns_hostname,
-        mdns_active: is_running,
+        mdns_active,
         ca_cert_pem,
         ca_cert_fingerprint_sha256,
         total_devices_linked,
@@ -1518,6 +3194,10 @@ pub async fn toggle_lan_server(
         {
             let mut run_guard = state.lan_server_running.write().await;
             *run_guard = false;
+        }
+        {
+            let mut mdns_guard = state.lan_mdns_active.write().await;
+            *mdns_guard = false;
         }
 
         sqlx::query(
@@ -1658,14 +3338,11 @@ pub async fn create_mobile_device_pairing(
 
     let device_id = res.last_insert_rowid();
 
-    let mdns_hostname = resolve_mdns_hostname(pool).await;
-    let primary_host = if !mdns_hostname.is_empty() {
-        mdns_hostname
-    } else {
-        detect_primary_ip()
-    };
+    // Usar la IP LAN directa por defecto en el QR de emparejamiento para que funcione
+    // en Hotspots móviles sin depender de DNS (.local) ni arrojar DNS_PROBE_FINISHED_NXDOMAIN
+    let primary_ip = detect_primary_ip();
     let port = *state.lan_server_port.read().await;
-    let pairing_url = format!("https://{}:{}/scanner?pair={}", primary_host, port, codigo);
+    let pairing_url = format!("https://{}:{}/scanner?pair={}", primary_ip, port, codigo);
     let qr_data_url = generate_qr_svg_data_url(&pairing_url)?;
 
     let det_str = json!({ "device_id": device_id, "nombre": nombre, "codigo": codigo }).to_string();
@@ -1690,20 +3367,82 @@ pub async fn create_mobile_device_pairing(
     })
 }
 
+const PAIRING_CODE_TTL_MINUTES: i64 = 60;
+const PAIRING_RATE_LIMIT_MAX_FAILURES: usize = 10;
+const PAIRING_RATE_LIMIT_WINDOW_SECS: u64 = 300;
+
+static PAIRING_FAILED_ATTEMPTS: LazyLock<Mutex<HashMap<String, Vec<Instant>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn check_pairing_rate_limit(bucket_key: &str) -> Result<(), AppError> {
+    let now = Instant::now();
+    let window = Duration::from_secs(PAIRING_RATE_LIMIT_WINDOW_SECS);
+    if let Ok(mut map) = PAIRING_FAILED_ATTEMPTS.lock() {
+        let entries = map.entry(bucket_key.to_string()).or_default();
+        entries.retain(|t| now.duration_since(*t) < window);
+        if entries.len() >= PAIRING_RATE_LIMIT_MAX_FAILURES {
+            return Err(AppError::Validation(
+                "Demasiados intentos fallidos de vinculación desde este dispositivo. Espera 5 minutos e intenta nuevamente."
+                    .into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn record_pairing_failure(bucket_key: &str) {
+    let now = Instant::now();
+    let window = Duration::from_secs(PAIRING_RATE_LIMIT_WINDOW_SECS);
+    if let Ok(mut map) = PAIRING_FAILED_ATTEMPTS.lock() {
+        let entries = map.entry(bucket_key.to_string()).or_default();
+        entries.retain(|t| now.duration_since(*t) < window);
+        entries.push(now);
+    }
+}
+
+fn clear_pairing_failures(bucket_key: &str) {
+    if let Ok(mut map) = PAIRING_FAILED_ATTEMPTS.lock() {
+        map.remove(bucket_key);
+    }
+}
+
 /// Canjea el código de 6 caracteres por el Bearer Token CSPRNG permanente
 pub async fn pair_mobile_device(
     pool: &SqlitePool,
     input: PairMobileDeviceInput,
 ) -> Result<PairedMobileSessionDto, AppError> {
+    let ip_clean = input
+        .ip_address
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    let ua_clean = input
+        .user_agent
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    let rate_bucket = ip_clean.unwrap_or("lan_local_default");
+
+    check_pairing_rate_limit(rate_bucket)?;
+
     let codigo = input.codigo_vinculacion.trim().to_uppercase();
     if codigo.is_empty() {
+        record_pairing_failure(rate_bucket);
         return Err(AppError::Validation(
             "Debe proporcionar el código de vinculación.".into(),
         ));
     }
 
     let row_opt = sqlx::query(
-        "SELECT id, nombre_dispositivo, estado_vinculacion, estado_activo, creado_por_usuario_id FROM dispositivos_moviles WHERE codigo_vinculacion = ?",
+        r#"
+        SELECT id, nombre_dispositivo, estado_vinculacion, estado_activo, creado_por_usuario_id,
+               CASE
+                   WHEN datetime(created_at, '+60 minutes') < datetime('now', 'localtime') THEN 1
+                   ELSE 0
+               END AS is_expired
+        FROM dispositivos_moviles
+        WHERE codigo_vinculacion = ?
+        "#,
     )
     .bind(&codigo)
     .fetch_optional(pool)
@@ -1712,9 +3451,10 @@ pub async fn pair_mobile_device(
     let row = match row_opt {
         Some(r) => r,
         None => {
+            record_pairing_failure(rate_bucket);
             return Err(AppError::NotFound(
                 "Código de emparejamiento no encontrado o inválido.".into(),
-            ))
+            ));
         }
     };
 
@@ -1723,20 +3463,29 @@ pub async fn pair_mobile_device(
     let estado_vinculacion: String = row.get("estado_vinculacion");
     let estado_activo: i64 = row.get("estado_activo");
     let creado_por_id: i64 = row.get("creado_por_usuario_id");
+    let is_expired: i64 = row.get("is_expired");
 
     if estado_activo == 0 {
+        record_pairing_failure(rate_bucket);
         return Err(AppError::Conflict("El dispositivo no se encuentra activo.".into()));
     }
 
     if estado_vinculacion != "PENDIENTE_VINCULACION" {
+        record_pairing_failure(rate_bucket);
         return Err(AppError::Conflict(
             "El dispositivo ya ha sido vinculado previamente o se encuentra revocado.".into(),
         ));
     }
 
+    if is_expired == 1 {
+        record_pairing_failure(rate_bucket);
+        return Err(AppError::Validation(format!(
+            "El código de vinculación expiró (vigencia máxima de {} minutos). Genera un nuevo código QR desde ZaramaGYM.",
+            PAIRING_CODE_TTL_MINUTES
+        )));
+    }
+
     let token_sesion = generate_session_token();
-    let ip_clean = input.ip_address.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty());
-    let ua_clean = input.user_agent.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty());
 
     sqlx::query(
         r#"
@@ -1755,6 +3504,8 @@ pub async fn pair_mobile_device(
     .bind(device_id)
     .execute(pool)
     .await?;
+
+    clear_pairing_failures(rate_bucket);
 
     let det_str = json!({ "device_id": device_id, "ip": ip_clean }).to_string();
     record_audit(
@@ -1980,6 +3731,33 @@ mod tests {
         assert_eq!(
             parse_mdns_query_for_host(&query, "sistema.local"),
             Some(0x1234)
+        );
+
+        // Consulta multi-pregunta (QDCOUNT = 2: 1ra pregunta AAAA/28 para zaramagym.local,
+        // 2da pregunta A/1 con puntero de compresión 0xC00C a zaramagym.local)
+        let mut multi_q = Vec::new();
+        multi_q.extend_from_slice(&0x5678u16.to_be_bytes()); // TX ID
+        multi_q.extend_from_slice(&0x0000u16.to_be_bytes()); // Flags
+        multi_q.extend_from_slice(&2u16.to_be_bytes()); // QDCOUNT = 2
+        multi_q.extend_from_slice(&0u16.to_be_bytes());
+        multi_q.extend_from_slice(&0u16.to_be_bytes());
+        multi_q.extend_from_slice(&0u16.to_be_bytes());
+        // Pregunta 1 en offset 12: zaramagym.local (QTYPE = 28 AAAA)
+        multi_q.push(9);
+        multi_q.extend_from_slice(b"zaramagym");
+        multi_q.push(5);
+        multi_q.extend_from_slice(b"local");
+        multi_q.push(0);
+        multi_q.extend_from_slice(&28u16.to_be_bytes()); // AAAA
+        multi_q.extend_from_slice(&1u16.to_be_bytes()); // IN
+        // Pregunta 2: puntero 0xC00C -> offset 12 (QTYPE = 1 A)
+        multi_q.extend_from_slice(&[0xC0, 0x0C]);
+        multi_q.extend_from_slice(&1u16.to_be_bytes()); // A
+        multi_q.extend_from_slice(&0x8001u16.to_be_bytes()); // IN + QU
+
+        assert_eq!(
+            parse_mdns_query_for_host(&multi_q, "zaramagym.local"),
+            Some(0x5678)
         );
     }
 }

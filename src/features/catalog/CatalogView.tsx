@@ -139,7 +139,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
 
   const canMutate = canMutateCatalog(currentSession?.rol);
   const lowStockCount = products.filter(
-    (p) => p && (p.alerta_stock_bajo || p.stock_actual <= p.stock_minimo)
+    (p) => p && p.estado_activo !== false && (p.alerta_stock_bajo || p.stock_actual <= p.stock_minimo)
   ).length;
 
   const handleRefresh = () => {
@@ -159,7 +159,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
           <div>
             <span className="font-bold">Modo Operativo de Recepción:</span>
             <span className="ml-1 text-txt-secondary">
-              Puedes consultar y crear nuevas tarifas o planes, usar el Simulador Day Overflow, y registrar o modificar productos del inventario. Editar o dar de baja planes existentes, desactivar productos y registrar mermas o ajustes en Kardex están reservados al Administrador.
+              Puedes consultar y crear nuevas tarifas o planes, usar el Simulador, y registrar o modificar productos del inventario. Editar o dar de baja planes existentes, desactivar productos y registrar mermas o ajustes en Kardex están reservados al Administrador.
             </span>
           </div>
         </div>
@@ -185,7 +185,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
           }`}
         >
           <Icon name="calendar" className="w-4 h-4" aria-hidden="true" />
-          <span>Planes y Simulador (*Day Overflow*) ({plans.length})</span>
+          <span>Planes y Simulador</span>
         </button>
 
         <button
@@ -202,7 +202,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
           }`}
         >
           <Icon name="package" className="w-4 h-4" aria-hidden="true" />
-          <span>Inventario de Productos ({products.length})</span>
+          <span>Inventario de Productos</span>
           {lowStockCount > 0 && (
             <span
               className="bg-amber-500 text-white font-mono px-1.5 py-0.2 rounded-full text-[10px]"
@@ -227,7 +227,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
           }`}
         >
           <Icon name="audit" className="w-4 h-4" aria-hidden="true" />
-          <span>Kardex y Mermas ({movements.length})</span>
+          <span>Kardex y Mermas</span>
         </button>
       </div>
 

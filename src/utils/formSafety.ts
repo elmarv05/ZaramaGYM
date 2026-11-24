@@ -24,7 +24,7 @@ export function roundMonetary(amount: number): number {
  * Permite Enter dentro de <textarea> (salto de línea) y sobre <button type="submit">.
  */
 export function preventEnterKeySubmit(e: React.KeyboardEvent<HTMLFormElement>): void {
-  if (e.key !== 'Enter') return;
+  if (e.key !== 'Enter' && e.code !== 'NumpadEnter') return;
   if (e.nativeEvent?.isComposing) return;
 
   const target = e.target as HTMLElement | null;
@@ -96,9 +96,19 @@ export function sanitizeIntegerInput(raw: string): string {
 /**
  * Al enfocar un campo con valor por defecto en cero ('0', '0.00'), lo selecciona
  * para que el usuario pueda sobrescribirlo directamente sin usar mouse ni flechas.
+ * Incluye refuerzo en requestAnimationFrame para evitar que mouseup en WebView2/Chromium
+ * deseleccione el texto al hacer clic con el ratón.
  */
 export function selectIfZeroDefault(e: React.FocusEvent<HTMLInputElement>): void {
-  if (e.target.value === '0.00' || e.target.value === '0') {
-    e.target.select();
+  const el = e.target;
+  if (el.value === '0.00' || el.value === '0') {
+    el.select();
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => {
+        if (document.activeElement === el && (el.value === '0.00' || el.value === '0')) {
+          el.select();
+        }
+      });
+    }
   }
 }

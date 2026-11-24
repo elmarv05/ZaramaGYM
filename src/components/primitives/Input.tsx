@@ -17,20 +17,20 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const hintId = `${inputId}-hint`;
 
     return (
-      <div className="w-full flex flex-col gap-1.5 text-left">
+      <div className="w-full min-w-0 flex flex-col gap-1.5 text-left">
         {label && (
           <label
             htmlFor={inputId}
-            className="text-xs font-semibold text-txt-secondary uppercase tracking-wider select-none flex items-center justify-between"
+            className="text-xs font-semibold text-txt-secondary uppercase tracking-wider select-none flex items-center justify-between gap-1"
           >
-            <span>{label}</span>
-            {required && <span className="text-status-danger text-xs">*</span>}
+            <span className="min-w-0 break-words">{label}</span>
+            {required && <span className="text-status-danger text-xs shrink-0">*</span>}
           </label>
         )}
 
-        <div className="relative flex items-center">
+        <div className="relative flex items-center w-full min-w-0">
           {leftIcon && (
-            <div className="absolute left-3 flex items-center pointer-events-none text-txt-muted">
+            <div className="absolute left-3 inset-y-0 z-10 flex items-center pointer-events-none select-none text-txt-muted">
               {leftIcon}
             </div>
           )}
@@ -42,7 +42,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             aria-describedby={error ? errorId : hint ? hintId : undefined}
             required={required}
             className={cn(
-              'w-full bg-surface border rounded-md text-sm text-txt-primary placeholder:text-txt-muted transition-colors',
+              'w-full min-w-0 bg-surface border rounded-md text-sm text-txt-primary placeholder:text-txt-muted transition-colors',
               'py-2 px-3',
               leftIcon ? 'pl-9' : '',
               rightIcon ? 'pr-9' : '',
@@ -56,7 +56,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           />
 
           {rightIcon && (
-            <div className="absolute right-3 flex items-center text-txt-muted">
+            <div className="absolute right-3 inset-y-0 z-10 flex items-center text-txt-muted">
               {rightIcon}
             </div>
           )}

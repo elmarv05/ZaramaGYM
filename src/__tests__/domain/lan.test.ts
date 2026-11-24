@@ -120,8 +120,8 @@ describe('Dominio LAN: Validaciones, Normalizaciones y Reglas de Negocio', () =>
       port: 3443,
       localIps: ['192.168.1.45'],
       primaryIp: '192.168.1.45',
-      httpsUrl: 'https://zaramagym.local:3443/scanner',
-      httpUrl: 'http://zaramagym.local:3443/scanner',
+      httpsUrl: 'https://192.168.1.45:3443/scanner',
+      httpUrl: 'http://192.168.1.45:3443/scanner',
       mdnsHostname: 'zaramagym.local',
       mdnsActive: true,
       caCertPem: '---CERT---',
@@ -131,25 +131,22 @@ describe('Dominio LAN: Validaciones, Normalizaciones y Reglas de Negocio', () =>
       totalScansToday: 45,
     };
 
-    it('prioriza la URL mDNS cuando mdnsActive está activo y no se proporciona código', () => {
-      expect(formatScannerUrl(mockStatus)).toBe('https://zaramagym.local:3443/scanner');
+    it('prioriza la IP local directa por defecto para evitar NXDOMAIN en Hotspots', () => {
+      expect(formatScannerUrl(mockStatus)).toBe('https://192.168.1.45:3443/scanner');
     });
 
-    it('agrega el parámetro ?pair= con el código normalizado sobre mDNS', () => {
+    it('agrega el parámetro ?pair= con el código normalizado sobre la IP local por defecto', () => {
       expect(formatScannerUrl(mockStatus, 'zg-4821')).toBe(
-        'https://zaramagym.local:3443/scanner?pair=ZG4821'
+        'https://192.168.1.45:3443/scanner?pair=ZG4821'
       );
     });
 
-    it('hace fallback a IP local cuando mDNS está inactivo o preferMdns es false', () => {
-      const noMdnsStatus: LanServerStatusDto = {
-        ...mockStatus,
-        mdnsActive: false,
-        httpsUrl: 'https://192.168.1.45:3443/scanner',
-      };
-      expect(formatScannerUrl(noMdnsStatus)).toBe('https://192.168.1.45:3443/scanner');
-      expect(formatScannerUrl(noMdnsStatus, 'K9M2PX')).toBe(
-        'https://192.168.1.45:3443/scanner?pair=K9M2PX'
+    it('permite usar mDNS zaramagym.local cuando preferMdns es true y mdnsActive está activo', () => {
+      expect(formatScannerUrl(mockStatus, undefined, true)).toBe(
+        'https://zaramagym.local:3443/scanner'
+      );
+      expect(formatScannerUrl(mockStatus, 'K9M2PX', true)).toBe(
+        'https://zaramagym.local:3443/scanner?pair=K9M2PX'
       );
     });
 

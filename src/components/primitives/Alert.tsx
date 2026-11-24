@@ -137,7 +137,7 @@ export const Alert: React.FC<AlertProps> = ({
     <div
       role="alert"
       className={cn(
-        'w-full flex items-start gap-3 p-3.5 rounded-xl border border-l-4 text-sm transition-all',
+        'w-full flex items-start gap-3 p-3.5 rounded-xl border border-l-4 text-sm transition-colors duration-150',
         floating
           ? cn(
               'pointer-events-auto bg-surface text-txt-primary shadow-xl zg-toast-enter',

@@ -404,16 +404,21 @@ export function getMovementTypeBadge(tipo: InventoryMovementType): MovementBadge
     case 'STOCK_INICIAL':
       return { label: 'Stock Inicial', variant: 'info', sign: '+' };
     case 'ENTRADA_AJUSTE':
+    case 'AJUSTE_POSITIVO':
       return { label: 'Ajuste (+)', variant: 'success', sign: '+' };
+    case 'AJUSTE_NEGATIVO':
+      return { label: 'Ajuste (-)', variant: 'warning', sign: '-' };
     case 'ENTRADA_COMPRA':
       return { label: 'Compra (+)', variant: 'success', sign: '+' };
     case 'SALIDA_VENTA':
       return { label: 'Venta POS (-)', variant: 'default', sign: '-' };
     case 'MERMA_DANIO':
+    case 'MERMA':
       return { label: 'Merma por Daño (-)', variant: 'danger', sign: '-' };
     case 'MERMA_VENCIMIENTO':
       return { label: 'Merma por Vencimiento (-)', variant: 'danger', sign: '-' };
     case 'CONSUMO_PROPIO':
+    case 'CONSUMO_INTERNO':
       return { label: 'Consumo Interno (-)', variant: 'warning', sign: '-' };
     case 'REVERSION_TACHADO':
       return { label: 'Reversión (+)', variant: 'info', sign: '+' };

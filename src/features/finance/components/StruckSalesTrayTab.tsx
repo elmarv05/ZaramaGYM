@@ -196,7 +196,7 @@ export const StruckSalesTrayTab: React.FC<StruckSalesTrayTabProps> = ({
                             disabled={isActionLoading}
                             leftIcon={<Icon name="shield" className="w-3.5 h-3.5" aria-hidden="true" />}
                           >
-                            Resolver (Paso 2)
+                            Resolver
                           </Button>
                         )}
                       </td>

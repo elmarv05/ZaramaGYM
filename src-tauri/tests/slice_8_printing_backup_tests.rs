@@ -3,6 +3,7 @@ use rust_decimal::Decimal;
 use sha2::{Digest, Sha256};
 use sqlx::Row;
 use std::path::Path;
+use std::sync::LazyLock;
 use zarama_gym_lib::db::init_db;
 use zarama_gym_lib::errors::AppError;
 use zarama_gym_lib::models::{
@@ -20,6 +21,63 @@ use zarama_gym_lib::services::{
     },
 };
 use zarama_gym_lib::state::AppState;
+
+static KEYRING_TEST_MUTEX: LazyLock<tokio::sync::Mutex<()>> =
+    LazyLock::new(|| tokio::sync::Mutex::new(()));
+
+struct KeyringRestoreGuard {
+    prev_smtp: Option<String>,
+    prev_gdrive_token: Option<String>,
+    prev_gdrive_secret: Option<String>,
+}
+
+impl KeyringRestoreGuard {
+    fn capture() -> Self {
+        Self {
+            prev_smtp: printing_backup_service::KeyringStore::get_secret("SMTP_PASSWORD").unwrap(),
+            prev_gdrive_token: printing_backup_service::KeyringStore::get_secret(
+                "GDRIVE_ACCESS_TOKEN",
+            )
+            .unwrap(),
+            prev_gdrive_secret: printing_backup_service::KeyringStore::get_secret(
+                "GDRIVE_CLIENT_SECRET",
+            )
+            .unwrap(),
+        }
+    }
+}
+
+impl Drop for KeyringRestoreGuard {
+    fn drop(&mut self) {
+        match &self.prev_smtp {
+            Some(v) => {
+                let _ = printing_backup_service::KeyringStore::set_secret("SMTP_PASSWORD", v);
+            }
+            None => {
+                let _ = printing_backup_service::KeyringStore::delete_secret("SMTP_PASSWORD");
+            }
+        }
+        match &self.prev_gdrive_token {
+            Some(v) => {
+                let _ =
+                    printing_backup_service::KeyringStore::set_secret("GDRIVE_ACCESS_TOKEN", v);
+            }
+            None => {
+                let _ = printing_backup_service::KeyringStore::delete_secret("GDRIVE_ACCESS_TOKEN");
+            }
+        }
+        match &self.prev_gdrive_secret {
+            Some(v) => {
+                let _ =
+                    printing_backup_service::KeyringStore::set_secret("GDRIVE_CLIENT_SECRET", v);
+            }
+            None => {
+                let _ =
+                    printing_backup_service::KeyringStore::delete_secret("GDRIVE_CLIENT_SECRET");
+            }
+        }
+    }
+}
 
 /// Helper para crear un entorno aislado con base de datos en archivo temporal
 async fn setup_test_env() -> (AppState, tempfile::TempDir) {
@@ -682,7 +740,43 @@ async fn test_cp_prn_08_dynamic_sale_receipt_pdf_in_ram() {
     let calculated_hash = format!("{:x}", hasher.finalize());
     assert_eq!(pdf_result.sha256_hash, calculated_hash);
 
-    // Despacho de comprobante por correo electrónico
+    // Sin SMTP configurado, debe rechazar con Validation en lugar de devolver falso éxito
+    let unconfigured_err = printing_backup_service::send_receipt_email(
+        &state.pool(),
+        &admin,
+        SendReceiptEmailRequest {
+            venta_id,
+            destinatario_email: "cliente@zaramagym.pe".into(),
+            mensaje_adicional: Some("¡Gracias por su compra!".into()),
+        },
+    )
+    .await;
+    assert!(
+        matches!(unconfigured_err, Err(AppError::Validation(_))),
+        "Sin SMTP habilitado/configurado NO debe devolver falso éxito: {:?}",
+        unconfigured_err
+    );
+
+    // Configurar SMTP con clave centinela de pruebas (protegido por mutex y restore guard)
+    let _keyring_lock = KEYRING_TEST_MUTEX.lock().await;
+    let _keyring_restore = KeyringRestoreGuard::capture();
+    printing_backup_service::update_printing_backup_config(
+        &state.pool(),
+        &admin,
+        UpdatePrintingBackupConfigRequest {
+            smtp_enabled: Some(true),
+            smtp_host: Some("smtp.gmail.com".into()),
+            smtp_port: Some(587),
+            smtp_user: Some("notificaciones@zaramagym.pe".into()),
+            smtp_from_email: Some("notificaciones@zaramagym.pe".into()),
+            smtp_password: Some("SmtpAppPassword123#".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    // Despacho de comprobante por correo electrónico con centinela de pruebas
     let email_res = printing_backup_service::send_receipt_email(
         &state.pool(),
         &admin,
@@ -863,6 +957,9 @@ async fn test_cp_prn_11_backup_integrity_verification() {
 // ============================================================================
 #[tokio::test]
 async fn test_cp_prn_12_secrets_keyring_and_gdrive_sync() {
+    let _keyring_lock = KEYRING_TEST_MUTEX.lock().await;
+    let _keyring_restore = KeyringRestoreGuard::capture();
+
     let (state, temp_dir) = setup_test_env().await;
 
     let admin = auth_service::login(
@@ -877,12 +974,6 @@ async fn test_cp_prn_12_secrets_keyring_and_gdrive_sync() {
     .unwrap();
 
     // 1. Actualizar configuración y guardar credenciales secretas
-    let prev_smtp = printing_backup_service::KeyringStore::get_secret("SMTP_PASSWORD").unwrap();
-    let prev_gdrive_token =
-        printing_backup_service::KeyringStore::get_secret("GDRIVE_ACCESS_TOKEN").unwrap();
-    let prev_gdrive_secret =
-        printing_backup_service::KeyringStore::get_secret("GDRIVE_CLIENT_SECRET").unwrap();
-
     let secret_smtp = "SmtpAppPassword123#";
     let secret_gdrive = "ya29.a0ARrda8-GdriveToken-Secured";
     let gdrive_client_id = "1234567890-zaramagym.apps.googleusercontent.com";
@@ -1000,26 +1091,7 @@ async fn test_cp_prn_12_secrets_keyring_and_gdrive_sync() {
         recep_fin_pdf.is_ok(),
         "Recepcionista debe poder generar el reporte financiero PDF"
     );
-
-    // 5. Restaurar estado previo del llavero para no dejar residuos de pruebas
-    match prev_smtp {
-        Some(v) => printing_backup_service::KeyringStore::set_secret("SMTP_PASSWORD", &v).unwrap(),
-        None => printing_backup_service::KeyringStore::delete_secret("SMTP_PASSWORD").unwrap(),
-    }
-    match prev_gdrive_token {
-        Some(v) => {
-            printing_backup_service::KeyringStore::set_secret("GDRIVE_ACCESS_TOKEN", &v).unwrap()
-        }
-        None => printing_backup_service::KeyringStore::delete_secret("GDRIVE_ACCESS_TOKEN").unwrap(),
-    }
-    match prev_gdrive_secret {
-        Some(v) => {
-            printing_backup_service::KeyringStore::set_secret("GDRIVE_CLIENT_SECRET", &v).unwrap()
-        }
-        None => {
-            printing_backup_service::KeyringStore::delete_secret("GDRIVE_CLIENT_SECRET").unwrap()
-        }
-    }
+    // 5. KeyringRestoreGuard restaura automáticamente los secretos previos al salir del bloque
 }
 
 // ============================================================================
@@ -1222,5 +1294,139 @@ async fn test_auto_backup_cycle_once_creates_and_skips_within_interval() {
     assert!(
         second_run.is_none(),
         "No debe generar un segundo respaldo antes de cumplirse BACKUP_AUTO_INTERVAL_HOURS"
+    );
+}
+
+
+#[tokio::test]
+async fn test_auto_backup_2h_syncs_local_and_cloud_and_handles_misplaced_tokens_safely() {
+    let _keyring_lock = KEYRING_TEST_MUTEX.lock().await;
+    let _keyring_restore = KeyringRestoreGuard::capture();
+
+    let temp_dir = tempfile::tempdir().expect("Error creando directorio temporal");
+    let db_path = temp_dir.path().join("test_auto_backup_cloud_2h.db");
+    let db_url = format!("sqlite://{}", db_path.to_string_lossy());
+
+    let pool = init_db(&db_url)
+        .await
+        .expect("Error inicializando SQLite de pruebas");
+    let state = AppState::new_with_db_path(pool.clone(), db_path);
+
+    let admin = auth_service::login(
+        &pool,
+        &state,
+        LoginCredentials {
+            username: "admin".into(),
+            password: "admin123".into(),
+        },
+    )
+    .await
+    .unwrap();
+
+    // 1. Verificar que el intervalo por defecto es exactamente 2 horas
+    let cfg_default = printing_backup_service::get_printing_backup_config(&pool, &admin)
+        .await
+        .unwrap();
+    assert_eq!(cfg_default.backup_auto_interval_hours, 2);
+
+    // 2. Habilitar Google Drive (modo seguro con token simulado de pruebas) + intervalo 2 horas
+    let _ = printing_backup_service::update_printing_backup_config(
+        &pool,
+        &admin,
+        UpdatePrintingBackupConfigRequest {
+            backup_gdrive_enabled: Some(true),
+            backup_gdrive_folder_id: Some(
+                "https://drive.google.com/drive/folders/1FolderAuto2hTest?usp=sharing".into(),
+            ),
+            backup_auto_interval_hours: Some(2),
+            backup_gdrive_token: Some("Bearer ya29.a0ARrda8-GdriveToken-Secured".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    let cfg_updated = printing_backup_service::get_printing_backup_config(&pool, &admin)
+        .await
+        .unwrap();
+    assert_eq!(
+        cfg_updated.backup_gdrive_folder_id, "1FolderAuto2hTest",
+        "Debe extraer limpiamente el Folder ID aunque se pegue la URL completa"
+    );
+
+    // 3. Ejecutar ciclo automático: debe crear el respaldo local Y sincronizarlo a la nube
+    let auto_rec = printing_backup_service::run_auto_backup_cycle_once(&state)
+        .await
+        .expect("El ciclo automático local + nube no debe fallar")
+        .expect("Debe generar respaldo automático");
+
+    assert_eq!(auto_rec.tipo_respaldo, BackupType::LocalAuto);
+    assert_eq!(auto_rec.estado, BackupStatus::SincronizadoCloud);
+    assert!(auto_rec.drive_file_id.is_some());
+    assert!(Path::new(&auto_rec.ruta_local).exists());
+
+    // 4. Probar validación preventiva y resiliencia si el usuario pega un Client Secret (GOCSPX-...) en la casilla de Token
+    let _ = printing_backup_service::update_printing_backup_config(
+        &pool,
+        &admin,
+        UpdatePrintingBackupConfigRequest {
+            backup_gdrive_token: Some("GOCSPX-equivocado-en-token".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    let err_secret_in_token =
+        printing_backup_service::sync_backup_to_gdrive(&pool, &admin, auto_rec.id).await;
+    match err_secret_in_token {
+        Err(AppError::Validation(msg)) => {
+            assert!(
+                msg.contains("Client Secret") && msg.contains("1//"),
+                "Debe dar explicación clara en español cuando se pega GOCSPX en Token: {}",
+                msg
+            );
+        }
+        other => panic!("Esperaba AppError::Validation, obtuve: {:?}", other),
+    }
+
+    // 5. En ciclo automático, si falla Drive por token inválido (ej. Authorization Code 4/...),
+    //    el respaldo LOCAL debe quedar COMPLETADO intacto con mensaje_detalle explicativo
+    let _ = printing_backup_service::update_printing_backup_config(
+        &pool,
+        &admin,
+        UpdatePrintingBackupConfigRequest {
+            backup_gdrive_token: Some("4/0A-codigo-de-un-solo-uso".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    // Envejecer el respaldo anterior > 2h para disparar un nuevo ciclo automático
+    sqlx::query(
+        "UPDATE historial_respaldos SET created_at = datetime('now', 'localtime', '-3 hours')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let resilient_rec = printing_backup_service::run_auto_backup_cycle_once(&state)
+        .await
+        .expect("Un fallo en la nube NO debe tumbar el ciclo automático ni perder el respaldo local")
+        .expect("Debe crear la nueva copia local tras pasar 2 horas");
+
+    assert_eq!(resilient_rec.tipo_respaldo, BackupType::LocalAuto);
+    assert_eq!(
+        resilient_rec.estado,
+        BackupStatus::Completado,
+        "El respaldo local debe mantenerse COMPLETADO y restaurable aunque falle la nube"
+    );
+    assert!(Path::new(&resilient_rec.ruta_local).exists());
+    let detail = resilient_rec.mensaje_detalle.unwrap_or_default();
+    assert!(
+        detail.contains("Respaldo local OK") && detail.contains("Authorization Code"),
+        "Debe dejar trazabilidad clara del motivo pendiente en nube: {}",
+        detail
     );
 }

@@ -439,8 +439,8 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
 
       {/* Barra de Herramientas Superior */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="relative w-72">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full sm:w-72">
             <Input
               placeholder="Buscar por usuario, nombre o doc..."
               value={searchTerm}

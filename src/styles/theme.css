@@ -21,6 +21,13 @@
   --color-bg-surface-active: #eef2f6;
   --color-bg-elevated: #ffffff;
 
+  /* Chrome (Sidebar, Header y Footer con tonalidad verde esmeralda corporativa suave) */
+  --color-chrome-sidebar: #e7f2ec;
+  --color-chrome-bar: #eef6f1;
+  --color-chrome-surface: #dcebe3;
+  --color-chrome-hover: #d1e6db;
+  --color-chrome-border: #bfd9cb;
+
   /* Bordes */
   --color-border-subtle: #e2e8f0;
   --color-border-strong: #94a3b8;
@@ -80,6 +87,13 @@
   --color-bg-surface-active: #334155;
   --color-bg-elevated: #1e293b;
 
+  /* Chrome (Sidebar, Header y Footer con tonalidad verde bosque oscuro de alto contraste) */
+  --color-chrome-sidebar: #091a15;
+  --color-chrome-bar: #0c201a;
+  --color-chrome-surface: #122b23;
+  --color-chrome-hover: #18382e;
+  --color-chrome-border: #1e4337;
+
   /* Bordes */
   --color-border-subtle: #1e293b;
   --color-border-strong: #475569;
@@ -123,13 +137,25 @@ body,
 }
 
 /* ============================================================================
-   ANIMACIONES FLUIDAS SIN CREAR CONTAINING BLOCK PERMANENTE PARA MODALES
+   ANIMACIONES FLUIDAS COMPOSITOR-ONLY (OPACITY + TRANSFORM)
+   Opt-in mediante prefers-reduced-motion: no-preference (sin overrides 0.01ms)
    ============================================================================ */
 
 @keyframes zgViewFadeIn {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes zgDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
   }
   to {
     opacity: 1;
@@ -149,7 +175,7 @@ body,
 @keyframes zgModalPanelIn {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.97);
+    transform: translateY(8px) scale(0.975);
   }
   to {
     opacity: 1;
@@ -160,7 +186,7 @@ body,
 @keyframes zgToastSlideInRight {
   from {
     opacity: 0;
-    transform: translateX(28px) scale(0.98);
+    transform: translateX(24px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -168,20 +194,26 @@ body,
   }
 }
 
-.zg-view-enter {
-  animation: zgViewFadeIn 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
+@media (prefers-reduced-motion: no-preference) {
+  .zg-view-enter {
+    animation: zgViewFadeIn 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
 
-.zg-modal-backdrop {
-  animation: zgBackdropFadeIn 200ms cubic-bezier(0.22, 1, 0.36, 1);
-}
+  .zg-dropdown-enter {
+    animation: zgDropdownIn 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
 
-.zg-modal-panel {
-  animation: zgModalPanelIn 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
+  .zg-modal-backdrop {
+    animation: zgBackdropFadeIn 170ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
 
-.zg-toast-enter {
-  animation: zgToastSlideInRight 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  .zg-modal-panel {
+    animation: zgModalPanelIn 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .zg-toast-enter {
+    animation: zgToastSlideInRight 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
 }
 
 /* Tarjetas interactivas de módulos operativos (accesibles, compositor-friendly) */
@@ -224,17 +256,6 @@ body,
   .zg-module-card:focus-visible {
     outline: 2px solid Highlight;
     outline-offset: 2px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .zg-view-enter,
-  .zg-modal-backdrop,
-  .zg-modal-panel,
-  .zg-toast-enter {
-    transform: none !important;
-    transition-duration: 0.01ms !important;
-    animation: none !important;
   }
 }
 

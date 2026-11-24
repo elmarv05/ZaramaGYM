@@ -97,7 +97,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
       case 'COMPLETADA':
         return <Badge variant="success">Completada</Badge>;
       case 'TACHADA_EN_TURNO':
-        return <Badge variant="warning">Tachada en Turno (Paso 1)</Badge>;
+        return <Badge variant="warning">Tachada en Turno</Badge>;
       case 'ANULADA_DEFINITIVA':
         return <Badge variant="danger">Anulada Definitiva</Badge>;
       default:
@@ -346,10 +346,13 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
         {/* Sección de Ítems */}
         <div className="flex flex-col gap-1.5">
           <h4 className="font-bold text-txt-primary text-xs uppercase tracking-wider">
-            Ítems de la Venta ({sale.items?.length || 0})
+            Ítems de la Venta
           </h4>
-          <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-left">
+          <div
+            tabIndex={0}
+            className="border border-border rounded-lg overflow-x-auto overscroll-x-contain focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          >
+            <table className="w-full min-w-[440px] text-left">
               <thead className="bg-canvas-subtle text-[11px] text-txt-muted uppercase font-bold border-b border-border">
                 <tr>
                   <th className="px-3 py-2">Descripción</th>
@@ -386,8 +389,11 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
           <h4 className="font-bold text-txt-primary text-xs uppercase tracking-wider">
             Medios de Pago Aplicados
           </h4>
-          <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-left">
+          <div
+            tabIndex={0}
+            className="border border-border rounded-lg overflow-x-auto overscroll-x-contain focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          >
+            <table className="w-full min-w-[420px] text-left">
               <thead className="bg-canvas-subtle text-[11px] text-txt-muted uppercase font-bold border-b border-border">
                 <tr>
                   <th className="px-3 py-2">Método</th>
@@ -658,7 +664,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
               onClick={() => onStrikeClick(sale)}
               leftIcon={<Icon name="scissors" className="w-4 h-4" aria-hidden="true" />}
             >
-              Tachar Venta (Paso 1)
+              Tachar Venta
             </Button>
           ) : <div />}
 

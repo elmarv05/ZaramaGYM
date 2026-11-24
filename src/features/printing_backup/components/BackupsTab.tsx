@@ -121,8 +121,8 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
   );
   const [gdriveClientSecret, setGdriveClientSecret] = useState('');
   const [gdriveToken, setGdriveToken] = useState('');
-  const [intervalHours, setIntervalHours] = useState(
-    config?.backup_auto_interval_hours || 2
+  const [intervalHoursStr, setIntervalHoursStr] = useState<string>(
+    String(config?.backup_auto_interval_hours || 2)
   );
   const [isCloudGuideOpen, setIsCloudGuideOpen] = useState(false);
 
@@ -136,7 +136,7 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
       setGdriveEnabled(config.backup_gdrive_enabled);
       setGdriveFolderId(config.backup_gdrive_folder_id);
       setGdriveClientId(config.backup_gdrive_client_id || '');
-      setIntervalHours(config.backup_auto_interval_hours);
+      setIntervalHoursStr(String(config.backup_auto_interval_hours || 2));
     }
   }, [config]);
 
@@ -165,6 +165,25 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
   const handleCreateHotBackup = async () => {
     try {
       const rec = await onCreateBackup();
+      if (config?.backup_gdrive_enabled && config?.has_gdrive_token_configured) {
+        try {
+          const synced = await onSyncGdrive(rec.id);
+          setFeedback({
+            type: 'success',
+            message: `Respaldo local generado y subido a Google Drive exitosamente: ${rec.nombre_archivo} (${formatBytes(rec.tamano_bytes)}, Drive ID: ${synced.drive_file_id || 'OK'}).`,
+          });
+          return;
+        } catch (cloudErr: any) {
+          const cloudMsg =
+            cloudErr?.message ||
+            (typeof cloudErr === 'string' ? cloudErr : 'Error de autenticación o red');
+          setFeedback({
+            type: 'danger',
+            message: `El respaldo local SÍ se guardó (${rec.nombre_archivo}), pero falló la subida automática a Google Drive: ${cloudMsg}`,
+          });
+          return;
+        }
+      }
       setFeedback({
         type: 'success',
         message: `Respaldo en caliente generado exitosamente: ${rec.nombre_archivo} (${formatBytes(rec.tamano_bytes)}).`,
@@ -210,10 +229,11 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
   const handleSaveDriveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const parsedHours = parseInt(intervalHoursStr, 10);
       await onUpdateConfig({
         backup_gdrive_enabled: gdriveEnabled,
         backup_gdrive_folder_id: gdriveFolderId,
-        backup_auto_interval_hours: Number(intervalHours) || 2,
+        backup_auto_interval_hours: !isNaN(parsedHours) && parsedHours >= 1 ? parsedHours : 2,
         backup_gdrive_client_id: gdriveClientId.trim(),
         backup_gdrive_client_secret: gdriveClientSecret.trim()
           ? gdriveClientSecret.trim()
@@ -518,27 +538,47 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
             </label>
           </div>
 
+          <div className="p-2.5 rounded-lg bg-canvas-subtle border border-border text-[11px] text-txt-secondary flex items-start gap-2">
+            <Icon name="clock" className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden="true" />
+            <span>
+              {gdriveEnabled && config?.has_gdrive_token_configured ? (
+                <>
+                  <strong>Programación activa cada {parseInt(intervalHoursStr, 10) || 2} hora(s):</strong> guarda una copia local en caliente (<span className="font-mono">VACUUM INTO</span>) y sube esa misma copia automáticamente a Google Drive. Si no hay Internet, la copia local se conserva intacta.
+                </>
+              ) : (
+                <>
+                  <strong>Respaldo local automático cada {parseInt(intervalHoursStr, 10) || 2} hora(s).</strong> Activa Google Drive y guarda un <strong>Refresh Token (<span className="font-mono">1//...</span>)</strong> para enviar también cada copia a la nube automáticamente.
+                </>
+              )}
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="ID de Carpeta Google Drive"
               value={gdriveFolderId}
               onChange={(e) => setGdriveFolderId(e.target.value)}
               disabled={!gdriveEnabled || isActionLoading}
-              placeholder="1A2B3C4D5E6F..."
-              hint="ID alfanumérico visible en la URL de Google Drive"
+              placeholder="1A2B3C4D5E6F... o URL de carpeta"
+              hint="Puedes pegar el ID alfanumérico o la URL completa de la carpeta"
             />
 
             <Input
               label="Intervalo Auto-Respaldo (Horas)"
               type="text"
               inputMode="numeric"
-              value={intervalHours === 0 ? '' : String(intervalHours)}
-              onChange={(e) => {
-                const clean = sanitizeIntegerInput(e.target.value);
-                setIntervalHours(clean ? Number(clean) : 0);
+              value={intervalHoursStr}
+              onChange={(e) => setIntervalHoursStr(sanitizeIntegerInput(e.target.value))}
+              onBlur={(e) => {
+                const n = parseInt(e.target.value, 10);
+                if (!e.target.value.trim()) return;
+                if (!isNaN(n)) {
+                  setIntervalHoursStr(String(Math.min(168, Math.max(1, n))));
+                }
               }}
               disabled={isActionLoading}
               placeholder="2"
+              hint="Por defecto cada 2 horas (local + nube)"
             />
           </div>
 
@@ -566,7 +606,7 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
           </div>
 
           <Input
-            label="Token de Acceso OAuth / API Key Google Drive"
+            label="Refresh Token OAuth2 de Google Drive (1//...)"
             type="password"
             value={gdriveToken}
             onChange={(e) => setGdriveToken(e.target.value)}
@@ -574,8 +614,9 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
             placeholder={
               config?.has_gdrive_token_configured
                 ? '•••••••• (Token protegido en OS Keyring)'
-                : 'Ingresa el access token OAuth2'
+                : 'Pega aquí tu Refresh Token (1//...)'
             }
+            hint="Usa un Refresh Token (empieza por 1//...) para renovación automática permanente cada 2 horas. Un Access Token (ya29...) caduca en 1 hora."
           />
 
           <div className="flex justify-end pt-1">
@@ -1074,8 +1115,10 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
             </div>
             <p className="text-txt-secondary pl-7">
               Ingresa a <span className="font-mono">console.cloud.google.com</span>, crea un proyecto, habilita la{' '}
-              <strong>Google Drive API</strong>, configura la pantalla de consentimiento OAuth y crea un{' '}
-              <strong>ID de cliente de OAuth</strong> (tipo Aplicación de escritorio o Web). Copia el{' '}
+              <strong>Google Drive API</strong>, configura la pantalla de consentimiento OAuth (publícala en{' '}
+              <strong>Producción</strong> para que el token no venza a los 7 días) y crea un{' '}
+              <strong>ID de cliente de OAuth</strong> (Aplicación web con URI de redirección{' '}
+              <span className="font-mono">https://developers.google.com/oauthplayground</span>). Copia el{' '}
               <strong>Client ID</strong> (<span className="font-mono">...apps.googleusercontent.com</span>) y el{' '}
               <strong>Client Secret</strong> (<span className="font-mono">GOCSPX-...</span>).
             </p>
@@ -1086,11 +1129,15 @@ export const BackupsTab: React.FC<BackupsTabProps> = ({
               <span className="w-5 h-5 rounded-full bg-brand text-brand-text flex items-center justify-center text-[11px] shrink-0">
                 3
               </span>
-              <span>Obtener el Token OAuth2</span>
+              <span>Obtener el Token OAuth2 (Refresh Token 1//...)</span>
             </div>
             <p className="text-txt-secondary pl-7">
-              Autoriza el permiso <span className="font-mono">https://www.googleapis.com/auth/drive.file</span> usando tus credenciales de cliente (por ejemplo desde Google OAuth 2.0 Playground) y pega el token obtenido en{' '}
-              <strong>Token de Acceso OAuth / API Key Google Drive</strong>.
+              Abre <span className="font-mono">developers.google.com/oauthplayground</span>, toca el engranaje, marca{' '}
+              <strong>Use your own OAuth credentials</strong> y pega tu Client ID y Client Secret. Autoriza{' '}
+              <span className="font-mono">https://www.googleapis.com/auth/drive.file</span>, pulsa{' '}
+              <strong>Exchange authorization code for tokens</strong> y copia el{' '}
+              <strong>Refresh token (<span className="font-mono">1//...</span>)</strong> (NO el Access token{' '}
+              <span className="font-mono">ya29...</span> porque caduca en 1 hora).
             </p>
           </div>
 

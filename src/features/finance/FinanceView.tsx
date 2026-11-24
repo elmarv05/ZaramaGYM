@@ -301,11 +301,6 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         >
           <Icon name="package" className="w-4 h-4" aria-hidden="true" />
           <span>Compras a Proveedores</span>
-          {purchases.length > 0 && (
-            <Badge variant="default" size="sm">
-              {purchases.length}
-            </Badge>
-          )}
         </button>
 
         {/* Pestaña 3: Gastos Operativos (Admin Exclusivo) */}
@@ -325,11 +320,6 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           {!isAdmin && (
             <Badge variant="warning" size="sm">
               Solo Admin
-            </Badge>
-          )}
-          {isAdmin && expenses.length > 0 && (
-            <Badge variant="default" size="sm">
-              {expenses.length}
             </Badge>
           )}
         </button>

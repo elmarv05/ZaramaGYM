@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { calculateDayOverflowPreview } from '../domain/catalog';
 import { catalogIpc } from '../services/ipc/catalogIpc';
+import { emitSidebarAlertsRefresh } from '../utils/sidebarAlerts';
 import { AppError } from '../types/auth';
 import {
   CreatePlanInput,
@@ -158,6 +159,7 @@ export function useCatalog(autoFetch = true): UseCatalogResult {
         if (input.stock_inicial > 0) {
           catalogIpc.listInventoryMovements({ limit: 50 }).then(setMovements).catch(() => {});
         }
+        emitSidebarAlertsRefresh();
         return created;
       } catch (err) {
         setError(err as AppError);
@@ -176,6 +178,7 @@ export function useCatalog(autoFetch = true): UseCatalogResult {
       try {
         const updated = await catalogIpc.updateProduct(productId, input);
         setProducts((prev) => prev.map((prod) => (prod.id === productId ? updated : prod)));
+        emitSidebarAlertsRefresh();
         return updated;
       } catch (err) {
         setError(err as AppError);
@@ -197,6 +200,7 @@ export function useCatalog(autoFetch = true): UseCatalogResult {
         setProducts((prev) =>
           prev.map((prod) => (prod.id === productId ? { ...prod, estado_activo: nextState } : prod))
         );
+        emitSidebarAlertsRefresh();
         return true;
       } catch (err) {
         setError(err as AppError);
@@ -237,6 +241,7 @@ export function useCatalog(autoFetch = true): UseCatalogResult {
               : prod
           )
         );
+        emitSidebarAlertsRefresh();
         return movement;
       } catch (err) {
         setError(err as AppError);

@@ -583,7 +583,7 @@ describe('Suite Frontend: Slice 5 - Control de Asistencias, Semáforo y Prórrog
 
       fireEvent.click(screen.getByTestId('btn-open-extend-modal'));
 
-      expect(screen.getByText('Recuperación Manual de Días')).toBeInTheDocument();
+      expect(screen.getAllByText('Recuperación Manual de Días').length).toBeGreaterThanOrEqual(2);
 
       const selectMemb = screen.getByLabelText(/Membresía del Socio/i);
       fireEvent.change(selectMemb, { target: { value: '50' } });
@@ -703,6 +703,7 @@ describe('Suite Frontend: Slice 5 - Control de Asistencias, Semáforo y Prórrog
       );
 
       expect(screen.queryByTestId('btn-open-system-config')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Parámetros Semáforo/i)).not.toBeInTheDocument();
 
       const tabExtensions = screen.getByRole('tab', { name: /recuperación manual de días/i });
       fireEvent.click(tabExtensions);
@@ -714,7 +715,7 @@ describe('Suite Frontend: Slice 5 - Control de Asistencias, Semáforo y Prórrog
       const btnExtend = screen.getByTestId('btn-open-extend-modal');
       expect(btnExtend).toBeInTheDocument();
       fireEvent.click(btnExtend);
-      expect(screen.getByText('Recuperación Manual de Días')).toBeInTheDocument();
+      expect(screen.getAllByText('Recuperación Manual de Días').length).toBeGreaterThanOrEqual(2);
     });
   });
 });

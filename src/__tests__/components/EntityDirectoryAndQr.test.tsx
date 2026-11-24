@@ -153,16 +153,16 @@ describe('Component: EntityDirectoryView & Modales Especializados (Slice 2)', ()
     ).toBeInTheDocument();
 
     // Cambiar a sub-pestaña de Proveedores
-    await user.click(screen.getByRole('button', { name: /proveedores \(/i }));
+    await user.click(screen.getByRole('button', { name: /^proveedores$/i }));
     expect(screen.getByText('Distribuidora Fit SAC')).toBeInTheDocument();
     expect(screen.getByText(/20601234567/)).toBeInTheDocument();
 
     // Cambiar a sub-pestaña de Personas
-    await user.click(screen.getByRole('button', { name: /personas \(/i }));
+    await user.click(screen.getByRole('button', { name: /^personas$/i }));
     expect(screen.getByText('(Persona de tu sesión activa)')).toBeInTheDocument();
 
     // Cambiar a la 4ta sub-pestaña de Empresas (RUC 20)
-    await user.click(screen.getByRole('button', { name: /empresas \(/i }));
+    await user.click(screen.getByRole('button', { name: /^empresas$/i }));
     expect(
       screen.getAllByRole('button', { name: /registrar empresa/i }).length
     ).toBeGreaterThanOrEqual(1);
@@ -206,10 +206,10 @@ describe('Component: EntityDirectoryView & Modales Especializados (Slice 2)', ()
     );
 
     // Sub-pestaña Personas oculta; Clientes, Proveedores y Empresas visibles (initialSubTab="persons" cae a clients)
-    expect(screen.queryByRole('button', { name: /personas \(/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /clientes & qr \(/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /proveedores \(/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /empresas \(/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^personas$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^clientes & qr$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^proveedores$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^empresas$/i })).toBeInTheDocument();
 
     // Clientes visibles con Inscribir, Editar, Ver QR, Historial y Exportar Padrón; sin Desactivar
     expect(screen.getByText('Roberto Mendoza')).toBeInTheDocument();
@@ -220,7 +220,7 @@ describe('Component: EntityDirectoryView & Modales Especializados (Slice 2)', ()
     expect(screen.queryByRole('button', { name: /^desactivar$/i })).not.toBeInTheDocument();
 
     // Proveedores: puede crear ("Nuevo Proveedor") y ver perfil en solo lectura, sin Editar ni Desactivar
-    await user.click(screen.getByRole('button', { name: /proveedores \(/i }));
+    await user.click(screen.getByRole('button', { name: /^proveedores$/i }));
     expect(screen.getByText('Distribuidora Fit SAC')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /nuevo proveedor/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^editar$/i })).not.toBeInTheDocument();
@@ -234,7 +234,7 @@ describe('Component: EntityDirectoryView & Modales Especializados (Slice 2)', ()
     await user.click(screen.getByRole('button', { name: /^cerrar$/i }));
 
     // Empresas RUC 20: puede crear ("Registrar Empresa") y ver perfil en solo lectura, sin Editar ni Desactivar
-    await user.click(screen.getByRole('button', { name: /empresas \(/i }));
+    await user.click(screen.getByRole('button', { name: /^empresas$/i }));
     expect(screen.getByText('Nutrición Total Perú SAC')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /registrar empresa/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^editar$/i })).not.toBeInTheDocument();

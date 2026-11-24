@@ -152,29 +152,27 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
         {/* Declaración de Conteo Físico */}
         <div className="flex flex-col gap-2 p-3 bg-surface border border-border rounded-xl">
           <label htmlFor="declared-amount-input" className="text-xs font-bold text-txt-primary">
-            Efectivo Físico Contado en Gaveta (Declarado) <span className="text-red-500">*</span>
+            Efectivo Físico Contado en Gaveta (Declarado) <span className="text-status-danger">*</span>
           </label>
-          <div className="relative">
-            <span className="absolute left-3 top-2.5 text-txt-muted font-bold text-sm">S/</span>
-            <Input
-              id="declared-amount-input"
-              type="text"
-              inputMode="decimal"
-              value={declarado}
-              onFocus={selectIfZeroDefault}
-              onChange={(e) => {
-                setDeclarado(sanitizeDecimalInput(e.target.value));
-                setErrorMsg(null);
-              }}
-              onBlur={(e) => {
-                setDeclarado(formatDecimalOnBlur(e.target.value, { min: 0, fallback: '' }));
-              }}
-              required
-              className="pl-9 font-extrabold text-base text-txt-primary"
-              placeholder="0.00"
-              autoFocus
-            />
-          </div>
+          <Input
+            id="declared-amount-input"
+            type="text"
+            inputMode="decimal"
+            value={declarado}
+            onFocus={selectIfZeroDefault}
+            onChange={(e) => {
+              setDeclarado(sanitizeDecimalInput(e.target.value));
+              setErrorMsg(null);
+            }}
+            onBlur={(e) => {
+              setDeclarado(formatDecimalOnBlur(e.target.value, { min: 0, fallback: '' }));
+            }}
+            leftIcon={<span className="text-sm font-bold text-txt-muted">S/</span>}
+            required
+            className="font-extrabold text-base text-txt-primary"
+            placeholder="0.00"
+            autoFocus
+          />
 
           {/* Resultado del Arqueo en Vivo */}
           <div className="flex items-center justify-between pt-2">

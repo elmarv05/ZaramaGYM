@@ -177,19 +177,19 @@ export const ModuleSkeleton: React.FC<ModuleSkeletonProps> = ({
 
       {/* Tabla */}
       <div className="bg-surface border border-border rounded-xl overflow-hidden">
-        <div className="px-4 py-3 bg-canvas-subtle border-b border-border grid grid-cols-4 gap-4">
+        <div className="px-4 py-3 bg-canvas-subtle border-b border-border grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Skeleton className="h-3 w-20" />
           <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-3 w-16 justify-self-end" />
+          <Skeleton className="h-3 w-16 hidden sm:block" />
+          <Skeleton className="h-3 w-16 justify-self-end hidden sm:block" />
         </div>
         <div className="divide-y divide-border p-4 flex flex-col gap-3">
           {Array.from({ length: rows }).map((_, idx) => (
-            <div key={idx} className="grid grid-cols-4 gap-4 items-center pt-3 first:pt-0">
-              <Skeleton className="h-3.5 w-32" />
-              <Skeleton className="h-3.5 w-28" />
-              <Skeleton className="h-5 w-20 rounded-full" />
-              <Skeleton className="h-7 w-20 rounded-md justify-self-end" />
+            <div key={idx} className="grid grid-cols-2 sm:grid-cols-4 gap-4 items-center pt-3 first:pt-0">
+              <Skeleton className="h-3.5 w-32 max-w-full" />
+              <Skeleton className="h-3.5 w-28 max-w-full" />
+              <Skeleton className="h-5 w-20 rounded-full hidden sm:block" />
+              <Skeleton className="h-7 w-20 rounded-md justify-self-end hidden sm:block" />
             </div>
           ))}
         </div>

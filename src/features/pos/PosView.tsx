@@ -214,6 +214,15 @@ export const PosView: React.FC<PosViewProps> = (props) => {
     return sales.filter((s) => s.estado_venta === 'TACHADA_EN_TURNO');
   }, [sales]);
 
+  // Cantidad de deudores únicos con saldo pendiente (para insignia circular amarilla en el tab)
+  const debtorsWithBalanceCount = useMemo(() => {
+    return new Set(
+      credits
+        .filter((c) => c.estado === 'PENDIENTE' && Number(c.saldo_pendiente) > 0)
+        .map((c) => c.cliente_id)
+    ).size;
+  }, [credits]);
+
   return (
     <div className="w-full flex flex-col gap-6">
       {/* 1. Header de Estado de Caja y Saldo en Gaveta */}
@@ -274,7 +283,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
           }`}
         >
           <Icon name="pos" className="w-4 h-4" aria-hidden="true" />
-          <span>Punto de Venta (POS)</span>
+          <span>Punto de Venta</span>
         </button>
 
         <button
@@ -291,7 +300,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
           }`}
         >
           <Icon name="receipt" className="w-4 h-4" aria-hidden="true" />
-          <span>Ventas del Turno & Tachado (Paso 1) ({sales.length})</span>
+          <span>Ventas del Turno & Tachado</span>
         </button>
 
         <button
@@ -308,7 +317,15 @@ export const PosView: React.FC<PosViewProps> = (props) => {
           }`}
         >
           <Icon name="credit-card" className="w-4 h-4" aria-hidden="true" />
-          <span>Deudores & Créditos ({credits.filter((c) => c.estado === 'PENDIENTE').length})</span>
+          <span>Deudores & Créditos</span>
+          {debtorsWithBalanceCount > 0 && (
+            <span
+              className="bg-amber-500 text-white font-mono px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+              title={`${debtorsWithBalanceCount} deudor(es) con saldo pendiente`}
+            >
+              {debtorsWithBalanceCount}
+            </span>
+          )}
         </button>
 
         <button
@@ -325,7 +342,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
           }`}
         >
           <Icon name="shield" className="w-4 h-4" aria-hidden="true" />
-          <span>Auditoría Tachados (Paso 2)</span>
+          <span>Auditoría Tachados</span>
           {struckSales.length > 0 && (
             <span className="ml-0.5 px-1.5 py-0.5 text-[10px] rounded-full bg-red-100 text-red-700 font-bold">
               {struckSales.length}
@@ -344,23 +361,6 @@ export const PosView: React.FC<PosViewProps> = (props) => {
           aria-labelledby="tab-pos"
           className="flex flex-col gap-6"
         >
-          {!activeShift && (
-            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl p-4 flex items-center justify-between gap-3">
-              <span className="text-xs text-amber-900 dark:text-amber-200 font-medium inline-flex items-center gap-2">
-                <Icon name="warning" className="w-4 h-4 shrink-0" aria-hidden="true" />
-                Abre un turno de caja para habilitar el registro de ventas y cobros en el sistema.
-              </span>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={() => setIsOpenShiftModalOpen(true)}
-              >
-                Abrir Turno Ahora
-              </Button>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Columna Izquierda: Selector de Cliente + Catálogo (7 columnas) */}
             <div className="lg:col-span-7 flex flex-col gap-5">
@@ -481,8 +481,8 @@ export const PosView: React.FC<PosViewProps> = (props) => {
 
               {/* Selector de Catálogo (Productos / Planes) */}
               <div className="bg-surface border border-border rounded-xl p-4 shadow-xs flex flex-col gap-4">
-                <div className="flex items-center justify-between border-b border-border pb-3">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setCatalogSubTab('productos')}
@@ -493,7 +493,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                       }`}
                     >
                       <Icon name="package" className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Productos en Stock ({products.length})</span>
+                      <span>Productos en Stock</span>
                     </button>
                     <button
                       type="button"
@@ -505,11 +505,11 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                       }`}
                     >
                       <Icon name="catalog" className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Planes & Pases ({plans.length})</span>
+                      <span>Planes & Pases</span>
                     </button>
                   </div>
 
-                  <div className="w-44">
+                  <div className="w-full sm:w-52">
                     <Input
                       placeholder="Buscar en catálogo..."
                       value={catalogSearch}
@@ -527,7 +527,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                       return (
                         <div
                           key={p.id}
-                          className={`p-3 rounded-lg border flex flex-col justify-between gap-2 transition-all ${
+                          className={`p-3 rounded-lg border flex flex-col justify-between gap-2 transition-[border-color,box-shadow,background-color] duration-150 ${
                             isOutOfStock
                               ? 'bg-canvas-subtle/50 border-border opacity-60'
                               : 'bg-surface border-border hover:border-brand/70 hover:shadow-xs'
@@ -583,7 +583,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                       {filteredPlans.map((pl) => (
                         <div
                           key={pl.id}
-                          className="p-3 bg-surface border border-border rounded-lg flex flex-col justify-between gap-2 hover:border-brand/70 hover:shadow-xs transition-all"
+                          className="p-3 bg-surface border border-border rounded-lg flex flex-col justify-between gap-2 hover:border-brand/70 hover:shadow-xs transition-[border-color,box-shadow,background-color] duration-150"
                         >
                           <div className="flex flex-col">
                             <div className="flex items-center justify-between">
@@ -682,7 +682,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
               >
                 <option value="TODAS">Todos los Estados</option>
                 <option value="COMPLETADA">Solo Completadas</option>
-                <option value="TACHADA_EN_TURNO">Tachadas en Turno (Paso 1)</option>
+                <option value="TACHADA_EN_TURNO">Tachadas en Turno</option>
                 <option value="ANULADA_DEFINITIVA">Anuladas Definitivas</option>
               </select>
 
@@ -703,8 +703,11 @@ export const PosView: React.FC<PosViewProps> = (props) => {
               No se encontraron ventas para los criterios seleccionados.
             </div>
           ) : (
-            <div className="border border-border rounded-xl overflow-hidden shadow-xs">
-              <table className="w-full text-left text-xs">
+            <div
+              tabIndex={0}
+              className="border border-border rounded-xl overflow-x-auto overscroll-x-contain shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              <table className="w-full min-w-[680px] text-left text-xs">
                 <thead className="bg-canvas-subtle text-[11px] text-txt-muted uppercase font-bold border-b border-border">
                   <tr>
                     <th className="px-4 py-3">Venta #</th>
@@ -747,7 +750,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                         </td>
                         <td className="px-3 py-3 text-center">
                           {s.estado_venta === 'COMPLETADA' && <Badge variant="success" size="sm">Completada</Badge>}
-                          {s.estado_venta === 'TACHADA_EN_TURNO' && <Badge variant="warning" size="sm">Tachada (Paso 1)</Badge>}
+                          {s.estado_venta === 'TACHADA_EN_TURNO' && <Badge variant="warning" size="sm">Tachada</Badge>}
                           {s.estado_venta === 'ANULADA_DEFINITIVA' && <Badge variant="danger" size="sm">Anulada Definitiva</Badge>}
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -774,7 +777,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                                 leftIcon={<Icon name="scissors" className="w-3.5 h-3.5" aria-hidden="true" />}
                                 className="text-xs font-bold"
                               >
-                                Tachar (Paso 1)
+                                Tachar
                               </Button>
                             )}
                           </div>
@@ -818,7 +821,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-txt-primary text-base flex items-center gap-2">
                   <Icon name="shield" className="w-4 h-4 text-brand" aria-hidden="true" />
-                  Bandeja Administrativa: Resolución de Tachados (Paso 2)
+                  Bandeja Administrativa: Resolución de Tachados
                 </h3>
                 <Badge variant={isAdmin ? 'success' : 'default'} size="sm">
                   {isAdmin ? 'Acceso Administrador' : 'Modo Informativo'}
@@ -857,8 +860,11 @@ export const PosView: React.FC<PosViewProps> = (props) => {
               <span>No hay ventas pendientes de resolución en la bandeja de tachados.</span>
             </div>
           ) : (
-            <div className="border border-border rounded-xl overflow-hidden shadow-xs">
-              <table className="w-full text-left text-xs">
+            <div
+              tabIndex={0}
+              className="border border-border rounded-xl overflow-x-auto overscroll-x-contain shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            >
+              <table className="w-full min-w-[680px] text-left text-xs">
                 <thead className="bg-canvas-subtle text-[11px] text-txt-muted uppercase font-bold border-b border-border">
                   <tr>
                     <th className="px-4 py-3">Venta #</th>
@@ -893,7 +899,7 @@ export const PosView: React.FC<PosViewProps> = (props) => {
                             leftIcon={<Icon name="shield" className="w-3.5 h-3.5" aria-hidden="true" />}
                             className="text-xs font-bold shadow-xs"
                           >
-                            Resolver (Paso 2)
+                            Resolver
                           </Button>
                         ) : (
                           <span className="text-[11px] text-txt-muted italic">

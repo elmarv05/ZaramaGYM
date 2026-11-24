@@ -149,14 +149,14 @@ async fn test_cp_lan_01_toggle_server_and_idempotent_migrations() {
     // Iniciar servidor LAN
     let started = lan_service::toggle_lan_server(&state, &admin, true).await.unwrap();
     assert!(started.is_running);
-    assert!(started.mdns_active);
     assert_eq!(started.mdns_hostname, "zaramagym.local");
-    assert!(started.https_url.contains(&started.mdns_hostname));
     assert!(!started.primary_ip.is_empty());
+    assert!(started.https_url.contains(&started.primary_ip));
 
     // Detener servidor LAN
     let stopped = lan_service::toggle_lan_server(&state, &admin, false).await.unwrap();
     assert!(!stopped.is_running);
+    assert!(!stopped.mdns_active);
 
     // Idempotencia DDL: volver a invocar run_migrations en la misma DB no debe fallar
     let re_migration_result = zarama_gym_lib::db::run_migrations(&state.pool()).await;
@@ -1015,25 +1015,26 @@ async fn test_cp_lan_15_mobile_pwa_icon_and_manifest_routes() {
 }
 
 // ============================================================================
-// CP-LAN-16: ENLACE PRINCIPAL mDNS (zaramagym.local:3443) Y MIGRACIÓN IDEMPOTENTE
+// CP-LAN-16: IP LOCAL POR DEFECTO EN HOTSPOT, SANs TLS DINÁMICOS Y mDNS
 // ============================================================================
 #[tokio::test]
 async fn test_cp_lan_16_mdns_primary_url_and_legacy_migration() {
     let (state, _temp, admin) = setup_test_env().await;
 
-    // 1. Verificar que get_lan_server_status expone zaramagym.local como URL principal
+    // 1. Verificar que get_lan_server_status usa la IP local directa como URL principal
+    // (evitando DNS_PROBE_FINISHED_NXDOMAIN en Hotspots móviles) y conserva mdns_hostname
     let status = lan_service::get_lan_server_status(&state).await.unwrap();
     assert_eq!(status.mdns_hostname, "zaramagym.local");
     assert_eq!(
         status.https_url,
-        format!("https://zaramagym.local:{}/scanner", status.port)
+        format!("https://{}:{}/scanner", status.primary_ip, status.port)
     );
     assert_eq!(
         status.http_url,
-        format!("http://zaramagym.local:{}/scanner", status.port)
+        format!("http://{}:{}/scanner", status.primary_ip, status.port)
     );
 
-    // 2. Verificar que create_mobile_device_pairing genera pairing_url con mDNS zaramagym.local
+    // 2. Verificar que create_mobile_device_pairing genera pairing_url con la IP local directa
     let pairing = lan_service::create_mobile_device_pairing(
         &state.pool(),
         &admin,
@@ -1047,12 +1048,23 @@ async fn test_cp_lan_16_mdns_primary_url_and_legacy_migration() {
     assert!(
         pairing
             .pairing_url
-            .starts_with(&format!("https://zaramagym.local:{}/scanner?pair=", status.port)),
+            .starts_with(&format!("https://{}:{}/scanner?pair=", status.primary_ip, status.port)),
         "pairing_url inesperada: {}",
         pairing.pairing_url
     );
 
-    // 3. Verificar migración idempotente si una BD antigua tenía 'sistema.local'
+    // 3. Verificar regeneración dinámica de SANs TLS cuando la laptop cambia de IP en un Hotspot
+    let hotspot_ips = vec!["192.168.43.88".to_string(), "172.20.10.3".to_string()];
+    let (_acc, ca_pem, sans) =
+        lan_service::build_server_tls_acceptor_for_ips(&state.pool(), &hotspot_ips)
+            .await
+            .expect("Debe construir certificado TLS con nuevas IPs de Hotspot");
+    assert!(ca_pem.contains("BEGIN CERTIFICATE"));
+    assert!(sans.contains(&"192.168.43.88".to_string()));
+    assert!(sans.contains(&"172.20.10.3".to_string()));
+    assert!(sans.contains(&"zaramagym.local".to_string()));
+
+    // 4. Verificar migración idempotente si una BD antigua tenía 'sistema.local'
     sqlx::query("UPDATE configuracion_sistema SET valor = 'sistema.local' WHERE clave = 'LAN_MDNS_HOSTNAME'")
         .execute(&state.pool())
         .await
@@ -1063,7 +1075,7 @@ async fn test_cp_lan_16_mdns_primary_url_and_legacy_migration() {
     let migrated_host = lan_service::resolve_mdns_hostname(&state.pool()).await;
     assert_eq!(migrated_host, "zaramagym.local");
 
-    // 4. Verificar que el responder mDNS parsea consultas para zaramagym.local
+    // 5. Verificar que el responder mDNS construye registros A para zaramagym.local
     let packet = lan_service::build_mdns_a_record_packet(
         0x1234,
         "zaramagym.local",
@@ -1071,4 +1083,107 @@ async fn test_cp_lan_16_mdns_primary_url_and_legacy_migration() {
     );
     assert!(packet.len() > 24);
     assert_eq!(&packet[packet.len() - 4..], &[192, 168, 43, 100]);
+}
+
+// ============================================================================
+// CP-LAN-17: ESCÁNER MÓVIL V2 (UI OBSIDIAN/ESMERALDA, CONTROLES Y PING HEALTH)
+// ============================================================================
+#[tokio::test]
+async fn test_cp_lan_17_scanner_v2_ui_controls_and_ping_health() {
+    let (state, _temp, _admin) = setup_test_env().await;
+    let app = lan_service::create_lan_router(state);
+
+    // 1. Verificar /api/lan/ping con dbStatus y version
+    let ping_res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/lan/ping")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ping_res.status(), StatusCode::OK);
+    let ping_bytes = axum::body::to_bytes(ping_res.into_body(), 1024 * 16)
+        .await
+        .unwrap();
+    let ping_json: serde_json::Value = serde_json::from_slice(&ping_bytes).unwrap();
+    assert_eq!(ping_json["status"], "ok");
+    assert_eq!(ping_json["dbStatus"], "OK");
+    let version = ping_json["version"]
+        .as_str()
+        .expect("version debe ser string");
+    assert!(
+        version.starts_with('v') && version.contains("-prod"),
+        "version inesperada: {}",
+        version
+    );
+
+    // 2. Verificar theme/background obsidian en /manifest.webmanifest
+    let manifest_res = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/manifest.webmanifest")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(manifest_res.status(), StatusCode::OK);
+    let manifest_bytes = axum::body::to_bytes(manifest_res.into_body(), 1024 * 16)
+        .await
+        .unwrap();
+    let manifest_json: serde_json::Value = serde_json::from_slice(&manifest_bytes).unwrap();
+    assert_eq!(manifest_json["background_color"], "#090e1a");
+    assert_eq!(manifest_json["theme_color"], "#090e1a");
+
+    // 3. Verificar nuevos controles UI V2 y conservación de elementos críticos en /scanner
+    let scanner_res = app
+        .oneshot(
+            Request::builder()
+                .uri("/scanner")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(scanner_res.status(), StatusCode::OK);
+    let html_bytes = axum::body::to_bytes(scanner_res.into_body(), 1024 * 256)
+        .await
+        .unwrap();
+    let html = String::from_utf8_lossy(&html_bytes);
+
+    for expected in [
+        "Vincular Celular",
+        "ENTRADA DE VIDEO",
+        "INGRESO MANUAL / RESPALDO",
+        "btnTorch",
+        "btnSwitchCam",
+        "lastPassBar",
+        "unlinkModal",
+        "SQLite Local-First",
+        "/assets/jsqr.js",
+        "getUserMedia",
+        "qrFileInput",
+        "window.jsQR",
+        r#"rel="manifest" href="/manifest.webmanifest""#,
+        r#"href="/assets/zaramagym-icon-256.png""#,
+        r#"href="/assets/zaramagym-icon.png""#,
+    ] {
+        assert!(html.contains(expected), "Falta en /scanner: {}", expected);
+    }
+
+    // 4. Verificar cero emojis en el HTML del escáner
+    for emoji in ["🔗", "📥", "📱", "📷", "📸", "🔒", "⚠️", "✅", "🚫"] {
+        assert!(!html.contains(emoji), "No debe contener emoji: {}", emoji);
+    }
+    assert!(
+        !html.chars().any(|c| {
+            let cp = c as u32;
+            (0x1F300..=0x1FAFF).contains(&cp) || (0x2600..=0x27BF).contains(&cp)
+        }),
+        "El HTML del escáner no debe contener emojis Unicode"
+    );
 }

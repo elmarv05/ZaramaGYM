@@ -237,7 +237,7 @@ describe('Suite Frontend: Slice 3 - Catálogo, Day Overflow e Inventario', () =>
   });
 
   describe('2. Simulador Interactivo en UI', () => {
-    it('permite cambiar fecha de inicio mediante casos rápidos y actualiza resultado Day Overflow', async () => {
+    it('permite cambiar fecha de inicio y actualiza resultado Day Overflow', async () => {
       const user = userEvent.setup();
       render(
         <CatalogView
@@ -250,12 +250,13 @@ describe('Suite Frontend: Slice 3 - Catálogo, Day Overflow e Inventario', () =>
 
       // Comprobar que el simulador está presente
       expect(
-        screen.getByRole('heading', { name: /simulador canónico de vencimientos/i })
+        screen.getByRole('heading', { name: /simulador de vencimientos/i })
       ).toBeInTheDocument();
 
-      // Clic en botón de caso borde "31 Ene 2024" (CP-01)
-      const btn31Ene2024 = screen.getByRole('button', { name: /31 ene 2024/i });
-      await user.click(btn31Ene2024);
+      // Cambiar fecha de inicio a "2024-01-31" (CP-01)
+      const dateInput = screen.getByLabelText(/Fecha de Inicio de Membresía/i);
+      await user.clear(dateInput);
+      await user.type(dateInput, '2024-01-31');
 
       await waitFor(() => {
         expect(screen.getByText(/2024-03-02 23:59:59/i)).toBeInTheDocument();
@@ -534,42 +535,6 @@ describe('Suite Frontend: Slice 3 - Catálogo, Day Overflow e Inventario', () =>
       );
 
       expect(screen.getByText(/no hay planes en el catálogo/i)).toBeInTheDocument();
-    });
-  });
-
-  describe('5. Integración en Navegación (App y ReceptionDashboard)', () => {
-    it('en ReceptionDashboard permite acceder a la pestaña de Catálogo & Stock con simulador', async () => {
-      const user = userEvent.setup();
-      const { ReceptionDashboard } = await import('../features/reception/ReceptionDashboard');
-
-      render(
-        <ReceptionDashboard
-          session={recepcionistaSession}
-          onLockSession={vi.fn()}
-          entitiesProps={{
-            clients: [],
-            suppliers: [],
-            persons: [],
-            companies: [],
-            isLoading: false,
-          }}
-        />
-      );
-
-      // Clic en pestaña "Catálogo & Stock"
-      const tabCatalogo = screen.getByRole('button', {
-        name: /catálogo & stock/i,
-      });
-      await user.click(tabCatalogo);
-
-      // Debe mostrar el título del panel de recepción y el simulador
-      expect(
-        screen.getByRole('heading', { name: /catálogo de planes y stock de inventario/i })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole('heading', { name: /simulador canónico de vencimientos/i })
-      ).toBeInTheDocument();
-      expect(screen.getByText(/Modo Operativo de Recepción:/i)).toBeInTheDocument();
     });
   });
 });

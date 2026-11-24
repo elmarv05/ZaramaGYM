@@ -475,9 +475,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
           >
             <Icon name="qr" className="w-4 h-4" />
             <span>
-              {canAccessPersons
-                ? `Clientes (${filteredClients.length})`
-                : `Clientes & QR (${filteredClients.length})`}
+              {canAccessPersons ? 'Clientes' : 'Clientes & QR'}
             </span>
           </button>
 
@@ -492,7 +490,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
               }`}
             >
               <Icon name="truck" className="w-4 h-4" />
-              <span>Proveedores ({filteredSuppliers.length})</span>
+              <span>Proveedores</span>
             </button>
           )}
 
@@ -507,7 +505,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
               }`}
             >
               <Icon name="users" className="w-4 h-4" />
-              <span>Personas ({filteredPersons.length})</span>
+              <span>Personas</span>
             </button>
           )}
 
@@ -522,7 +520,7 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
               }`}
             >
               <Icon name="building" className="w-4 h-4" />
-              <span>Empresas ({filteredCompanies.length})</span>
+              <span>Empresas</span>
             </button>
           )}
         </div>

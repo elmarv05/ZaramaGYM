@@ -13,6 +13,7 @@ import { Icon, IconName } from '../../components/primitives/Icon';
 import { Skeleton } from '../../components/primitives/Skeleton';
 import { normalizeAppError } from '../../services/ipc/client';
 import { useDashboard } from '../../hooks/useDashboard';
+import { formatLoginTimestamp } from '../../utils/dateFormat';
 import { AppError, AuthSession } from '../../types/auth';
 import {
   ExportFileResult,
@@ -26,7 +27,6 @@ export type HomeNavigationTarget =
   | 'directory'
   | 'users'
   | 'audit'
-  | 'reception'
   | 'catalog'
   | 'pos'
   | 'attendance'
@@ -225,24 +225,37 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
   ];
 
   return (
-    <div className="w-full flex flex-col gap-6 zg-view-enter">
+    <div className="w-full flex flex-col gap-6">
       {/* Cabecera de Bienvenida y Estado Operativo */}
       <section
         aria-label="Centro de operaciones ZaramaGYM"
         className="bg-surface border border-border rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col gap-4"
       >
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
               <Badge variant="success" size="sm">
                 TERMINAL 01 • ACTIVA
               </Badge>
-              <span className="text-xs text-txt-muted font-mono">
-                Sesión @{session.username}
+              <span className="text-xs font-medium text-txt-secondary">
+                Sesión <span className="font-mono text-txt-primary">@{session.username}</span>
               </span>
+              {session.login_at && (
+                <span
+                  className="text-[11px] text-txt-muted inline-flex items-center gap-1"
+                  title={`Inicio de sesión: ${session.login_at}`}
+                >
+                  <span aria-hidden="true">•</span>
+                  <span>Iniciada {formatLoginTimestamp(session.login_at)}</span>
+                </span>
+              )}
               {metrics?.generated_at && (
-                <span className="text-[11px] text-txt-muted font-mono">
-                  Actualizado: {metrics.generated_at}
+                <span
+                  className="text-[11px] text-txt-muted inline-flex items-center gap-1"
+                  title={`Última actualización: ${metrics.generated_at}`}
+                >
+                  <span aria-hidden="true">•</span>
+                  <span>Actualizado {formatLoginTimestamp(metrics.generated_at)}</span>
                 </span>
               )}
             </div>
@@ -250,24 +263,21 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
               Bienvenido, {session.nombre_completo}
             </h2>
             <p className="text-xs text-txt-secondary">
-              Dashboard principal ZARAMA GYM — KPI´s de métricas, alertas de renovación y
+              Dashboard principal ZARAMA GYM — KPIs y métricas, alertas de renovación y
               exportación contable.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-status-success-bg text-status-success text-xs font-semibold border border-status-success/20">
-              <span className="w-2 h-2 rounded-full bg-status-success" aria-hidden="true" />
-              DB SYNC 100% Local
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-status-info-bg text-status-info text-xs font-semibold border border-status-info/20 tabular-nums">
-              <span className="w-2 h-2 rounded-full bg-status-info" aria-hidden="true" />
-              SOCIOS ACTIVOS: {activeClientsCount}
+          <div className="flex flex-wrap lg:flex-nowrap items-center gap-2.5 shrink-0 lg:justify-end">
+            <span className="inline-flex items-center gap-2 h-8 px-3 rounded-lg bg-status-info-bg/80 text-status-info text-xs font-semibold border border-status-info/25 tabular-nums whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-status-info shrink-0" aria-hidden="true" />
+              Socios activos: {activeClientsCount}
             </span>
             <Button
               type="button"
               variant="secondary"
               size="sm"
+              className="h-8 whitespace-nowrap"
               onClick={handleRefresh}
               isLoading={isLoading}
               leftIcon={<Icon name="refresh" className="w-3.5 h-3.5" />}
@@ -275,37 +285,6 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
               Actualizar
             </Button>
           </div>
-        </div>
-
-        {/* Botones de Navegación Directa */}
-        <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-border/70">
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            leftIcon={<Icon name="qr" className="w-4 h-4" />}
-            onClick={() => onNavigate('attendance')}
-          >
-            Ir a Asistencias QR
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            leftIcon={<Icon name="pos" className="w-4 h-4" />}
-            onClick={() => onNavigate('pos')}
-          >
-            Abrir Caja / POS
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="md"
-            leftIcon={<Icon name="directory" className="w-4 h-4" />}
-            onClick={() => onNavigate(directoryTarget)}
-          >
-            Explorar Directorio
-          </Button>
         </div>
       </section>
 
@@ -553,8 +532,9 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
                 <div className="flex flex-col gap-3">
                   <div
                     role="list"
+                    tabIndex={0}
                     aria-label="Barras de afluencia por hora"
-                    className="h-48 flex items-end gap-1.5 sm:gap-2 pt-6 pb-1 px-1 overflow-x-auto"
+                    className="h-48 flex items-end gap-1.5 sm:gap-2 pt-6 pb-1 px-1 overflow-x-auto overscroll-x-contain focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus rounded-lg"
                   >
                     {attendanceSlots.map((point) => {
                       const heightPct =
@@ -592,7 +572,7 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
                           <div className="w-full flex-1 flex items-end">
                             <div
                               style={{ height: `${heightPct}%` }}
-                              className={`w-full rounded-t-md transition-all duration-200 ${
+                              className={`w-full rounded-t-md transition-colors duration-150 ${
                                 point.total === 0
                                   ? 'bg-border/60'
                                   : isPeak
@@ -791,7 +771,7 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
         aria-labelledby="operator-fast-keys-heading"
         className="bg-surface border border-border rounded-2xl p-5 shadow-xs flex flex-col gap-4"
       >
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <Icon name="terminal" className="w-4 h-4 text-brand" />
             <h3 id="operator-fast-keys-heading" className="text-sm font-bold text-txt-primary">

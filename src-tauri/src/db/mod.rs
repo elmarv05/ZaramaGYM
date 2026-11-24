@@ -1,5 +1,5 @@
 use crate::errors::AppError;
-use crate::services::crypto::{hash_password, verify_password};
+use crate::services::crypto::{hash_password, is_valid_password_hash, verify_password};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 use sqlx::{Row, SqlitePool};
 use std::str::FromStr;
@@ -43,8 +43,28 @@ pub async fn init_db(database_url: &str) -> Result<SqlitePool, AppError> {
     Ok(pool)
 }
 
+/// Versión actual del esquema SQLite (PRAGMA user_version) para arranque ultra-rápido en frío.
+const CURRENT_SCHEMA_VERSION: i64 = 9;
+
 /// Ejecuta las sentencias DDL fundacionales y asegura el seed del usuario root con hash válido.
+/// Si la BD ya está en `CURRENT_SCHEMA_VERSION`, retorna al instante (< 1ms).
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
+    let current_version: i64 = sqlx::query_scalar("PRAGMA user_version;")
+        .fetch_one(pool)
+        .await
+        .unwrap_or(0);
+    if current_version >= CURRENT_SCHEMA_VERSION {
+        // Verificaciones idempotentes ultrarrápidas (< 1ms total, omitiendo los 8 scripts DDL)
+        ensure_valid_admin_seed(pool).await?;
+        sqlx::query(
+            "UPDATE configuracion_sistema SET valor = 'zaramagym.local', updated_at = datetime('now', 'localtime') WHERE clave = 'LAN_MDNS_HOSTNAME' AND valor = 'sistema.local';",
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| AppError::Internal(format!("Error actualizando LAN_MDNS_HOSTNAME a zaramagym.local: {}", e)))?;
+        return Ok(());
+    }
+
     // 1. Migración fundacional 001: Núcleo de personas, usuarios y auditoría
     let migration_001_sql = include_str!("../../migrations/001_core_auth_audit.sql");
     sqlx::raw_sql(migration_001_sql)
@@ -143,10 +163,42 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
     .await
     .map_err(|e| AppError::Internal(format!("Error actualizando LAN_MDNS_HOSTNAME a zaramagym.local: {}", e)))?;
 
+    // 12. Índices compuestos de alto rendimiento para Dashboard, POS, Créditos, Asistencias y Auditoría
+    let perf_indexes_sql = r#"
+        CREATE INDEX IF NOT EXISTS idx_pagos_estado_venta_canal
+            ON pagos(estado_pago, venta_id, canal_caja);
+        CREATE INDEX IF NOT EXISTS idx_membresias_estado_vencimiento
+            ON membresias_clientes(estado, fecha_vencimiento);
+        CREATE INDEX IF NOT EXISTS idx_creditos_estado_id
+            ON creditos_clientes(estado, id DESC);
+        CREATE INDEX IF NOT EXISTS idx_auditoria_modulo_fecha
+            ON auditoria_logs(modulo, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_asistencias_color_fecha
+            ON asistencias(color_semaforo, fecha_hora_ingreso DESC);
+        CREATE INDEX IF NOT EXISTS idx_productos_nombre_nocase
+            ON productos(nombre COLLATE NOCASE);
+    "#;
+    sqlx::raw_sql(perf_indexes_sql)
+        .execute(pool)
+        .await
+        .map_err(|e| AppError::Internal(format!("Error creando índices de rendimiento SQLite: {}", e)))?;
+
+    // Marcar versión de esquema para arranque instantáneo en reinicios posteriores
+    let set_version_sql = format!("PRAGMA user_version = {};", CURRENT_SCHEMA_VERSION);
+    sqlx::raw_sql(&set_version_sql)
+        .execute(pool)
+        .await
+        .map_err(|e| AppError::Internal(format!("Error actualizando PRAGMA user_version: {}", e)))?;
+
     Ok(())
 }
 
-/// Verifica críticamente que el usuario 'admin' exista y que su contraseña 'admin123' sea verificable con Argon2id.
+/// Hash heredado del script SQL 001 (solo se repara si quedó de la migración inicial sin coincidir).
+const LEGACY_SEED_ADMIN_HASH: &str =
+    "$argon2id$v=19$m=19456,t=2,p=1$7AhV4A9lmd6HE8jj3VJ10A$Zudze0xwhg3FW/lumSGBs99yK2NRFelJZGSbXwcXwpc";
+
+/// Garantiza que el usuario 'admin' exista en una BD nueva sin sobrescribir jamás
+/// una contraseña válida cambiada por el administrador en producción.
 pub async fn ensure_valid_admin_seed(pool: &SqlitePool) -> Result<(), AppError> {
     let row = sqlx::query("SELECT id, password_hash FROM usuarios_sistema WHERE username = 'admin'")
         .fetch_optional(pool)
@@ -157,10 +209,13 @@ pub async fn ensure_valid_admin_seed(pool: &SqlitePool) -> Result<(), AppError> 
             let admin_id: i64 = r.get("id");
             let hash: String = r.get("password_hash");
 
-            // Validar si el hash actual verifica con "admin123"
-            let is_valid = verify_password(&hash, "admin123").unwrap_or(false);
-            if !is_valid {
-                // Si el hash no coincide o tiene parámetros incompatibles, actualizamos con uno fresco y válido
+            // Solo reparar si el hash está corrupto/no parseable o es el placeholder heredado de 001
+            // que no verifica con "admin123". Cualquier contraseña válida cambiada por el usuario se conserva intacta.
+            let is_broken_legacy_seed =
+                hash == LEGACY_SEED_ADMIN_HASH && !verify_password(&hash, "admin123").unwrap_or(false);
+            let needs_repair = !is_valid_password_hash(&hash) || is_broken_legacy_seed;
+
+            if needs_repair {
                 let new_valid_hash = hash_password("admin123")?;
                 sqlx::query("UPDATE usuarios_sistema SET password_hash = ? WHERE id = ?")
                     .bind(new_valid_hash)

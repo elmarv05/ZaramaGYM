@@ -211,10 +211,10 @@ export const TrafficLightCard: React.FC<TrafficLightCardProps> = ({
             <span
               className={`text-sm font-black ${
                 diasRestantes === null || diasRestantes < 0
-                  ? 'text-rose-600'
+                  ? 'text-status-danger'
                   : diasRestantes <= 5
-                  ? 'text-amber-600'
-                  : 'text-emerald-600'
+                  ? 'text-status-warning'
+                  : 'text-status-success'
               }`}
             >
               {diasRestantes !== null ? `${diasRestantes} día(s)` : '0 días'}
@@ -230,7 +230,7 @@ export const TrafficLightCard: React.FC<TrafficLightCardProps> = ({
             </span>
             <span
               className={`text-sm font-black ${
-                deudaNum > 0 ? 'text-rose-600' : 'text-emerald-600'
+                deudaNum > 0 ? 'text-status-danger' : 'text-status-success'
               }`}
             >
               S/ {deudaNum.toFixed(2)}

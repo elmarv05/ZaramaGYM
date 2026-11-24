@@ -71,7 +71,7 @@ describe('Integration: App Session & RBAC (2 Roles)', () => {
 
     // Pestañas administrativas visibles
     expect(
-      screen.getByRole('button', { name: /directorio \(clientes \/ proveedores \/ personas\)/i })
+      screen.getByRole('button', { name: /^directorio$/i })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /gestión de usuarios/i })
@@ -80,11 +80,11 @@ describe('Integration: App Session & RBAC (2 Roles)', () => {
       screen.getByRole('button', { name: /bitácora de auditoría/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /panel operativo/i })
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: /panel operativo/i })
+    ).not.toBeInTheDocument();
   });
 
-  it('para rol RECEPCIONISTA muestra sus 7 módulos habilitados, oculta los 4 exclusivos de Admin y silencia Forbidden en Personas', async () => {
+  it('para rol RECEPCIONISTA muestra sus 6 módulos habilitados, oculta los 4 exclusivos de Admin y silencia Forbidden en Personas', async () => {
     mockedInvoke.mockImplementation(async (cmd) => {
       if (cmd === 'get_current_session') return recepcionistaSession;
       if (cmd === 'list_clients') return [];
@@ -103,14 +103,14 @@ describe('Integration: App Session & RBAC (2 Roles)', () => {
 
     expect(screen.getAllByText('RECEPCIONISTA').length).toBeGreaterThanOrEqual(1);
 
-    // 7 módulos habilitados para RECEPCIONISTA en Sidebar
+    // 6 módulos habilitados para RECEPCIONISTA en Sidebar (Panel Operativo eliminado)
     const sidebar = within(screen.getByLabelText(/navegación lateral zaramagym/i));
     expect(sidebar.getByRole('button', { name: /^Inicio$/i })).toBeInTheDocument();
-    expect(sidebar.getByRole('button', { name: /panel operativo/i })).toBeInTheDocument();
+    expect(sidebar.queryByRole('button', { name: /panel operativo/i })).not.toBeInTheDocument();
     expect(sidebar.getByRole('button', { name: /asistencias y semáforo/i })).toBeInTheDocument();
     expect(sidebar.getByRole('button', { name: /caja y pos/i })).toBeInTheDocument();
     expect(
-      sidebar.getByRole('button', { name: /directorio \(clientes \/ proveedores \/ empresas\)/i })
+      sidebar.getByRole('button', { name: /^directorio$/i })
     ).toBeInTheDocument();
     expect(sidebar.getByRole('button', { name: /catálogo e inventario/i })).toBeInTheDocument();
     expect(sidebar.getByRole('button', { name: /compras, gastos y finanzas/i })).toBeInTheDocument();
@@ -132,9 +132,9 @@ describe('Integration: App Session & RBAC (2 Roles)', () => {
       screen.queryByRole('button', { name: /bloquear turno/i })
     ).not.toBeInTheDocument();
 
-    // Dashboard operativo presente
-    expect(screen.getByText(/¡Hola, Laura Recepcionista!/i)).toBeInTheDocument();
-    expect(screen.getByText(/Turno Activo/i)).toBeInTheDocument();
+    // Inicia directamente en Inicio (HomeDashboardView)
+    expect(screen.getByText(/Bienvenido, Laura Recepcionista/i)).toBeInTheDocument();
+    expect(screen.getByText(/TERMINAL 01 • ACTIVA/i)).toBeInTheDocument();
   });
 
   it('muestra el modal de bloqueo reactivo cuando is_locked es true y permite desbloqueo', async () => {

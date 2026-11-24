@@ -31,7 +31,7 @@ export interface LanServerViewProps {
 }
 
 const FIREWALL_POWERSHELL_CMD =
-  'New-NetFirewallRule -DisplayName "ZaramaGYM - Servidor Escaner Movil LAN (TCP 3443)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3443 -RemoteAddress LocalSubnet -Profile Private,Domain,Public -Enabled True';
+  'New-NetFirewallRule -DisplayName "ZaramaGYM - Servidor Escaner Movil LAN (TCP 3443)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3443 -RemoteAddress LocalSubnet -Profile Private,Domain,Public -Enabled True; New-NetFirewallRule -DisplayName "ZaramaGYM - Descubrimiento mDNS Local (UDP 5353)" -Direction Inbound -Action Allow -Protocol UDP -LocalPort 5353 -RemoteAddress LocalSubnet -Profile Private,Domain,Public -Enabled True';
 
 export const LanServerView: React.FC<LanServerViewProps> = ({
   currentSession,
@@ -193,8 +193,7 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
   const availableIps = serverStatus?.localIps?.length ? serverStatus.localIps : [];
   const mdnsHost = (serverStatus?.mdnsHostname || 'zaramagym.local').trim();
   const primaryIp = serverStatus?.primaryIp || '127.0.0.1';
-  const defaultTargetHost =
-    serverStatus?.mdnsActive && mdnsHost ? mdnsHost : primaryIp;
+  const defaultTargetHost = primaryIp;
   const activeTargetHost =
     selectedHost && (selectedHost === mdnsHost || availableIps.includes(selectedHost))
       ? selectedHost
@@ -311,7 +310,7 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
               className="text-xs font-bold text-txt-primary bg-canvas-subtle hover:bg-surface-hover border border-border px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
             >
               <Icon name="shield" className="w-4 h-4 text-brand" />
-              <span>Guía Firewall Windows (:3443)</span>
+              <span>Guía Firewall Windows</span>
             </button>
 
             <button
@@ -323,7 +322,7 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
               className="text-xs font-bold text-brand bg-brand/10 hover:bg-brand/20 border border-brand/30 px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
             >
               <Icon name="smartphone" className="w-4 h-4" />
-              <span>Simular Vista Móvil (M1 / M2)</span>
+              <span>Simular Vista Móvil</span>
             </button>
 
             {isManager ? (
@@ -385,16 +384,16 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
                 onChange={(e) => setSelectedHost(e.target.value)}
                 className="mt-1.5 w-full bg-surface border border-border rounded px-2 py-1 text-[11px] font-mono text-txt-primary"
               >
-                {mdnsHost && (
-                  <option value={mdnsHost}>
-                    {mdnsHost} (mDNS Recomendado)
-                  </option>
-                )}
                 {availableIps.map((ip) => (
                   <option key={ip} value={ip}>
-                    {ip}{ip === serverStatus.primaryIp ? ' (IP Principal - Respaldo)' : ' (IP Respaldo)'}
+                    {ip}{ip === serverStatus.primaryIp ? ' (IP Wi-Fi / Hotspot Recomendada)' : ' (IP Alternativa)'}
                   </option>
                 ))}
+                {mdnsHost && (
+                  <option value={mdnsHost}>
+                    {mdnsHost} (mDNS Local - Opcional)
+                  </option>
+                )}
               </select>
             )}
           </div>
@@ -493,7 +492,7 @@ export const LanServerView: React.FC<LanServerViewProps> = ({
         </div>
 
         {/* Mini KPIs Operacionales */}
-        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border/60">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-border/60">
           <div className="bg-surface border border-border rounded-lg p-3 text-center">
             <span className="text-[10px] uppercase font-bold text-txt-muted block">Vinculados</span>
             <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">

@@ -78,7 +78,9 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
     config?.smtp_enabled ?? false
   );
   const [smtpHost, setSmtpHost] = useState(config?.smtp_host || '');
-  const [smtpPort, setSmtpPort] = useState<number>(config?.smtp_port || 587);
+  const [smtpPortStr, setSmtpPortStr] = useState<string>(
+    String(config?.smtp_port ?? 587)
+  );
   const [smtpUser, setSmtpUser] = useState(config?.smtp_user || '');
   const [smtpFromEmail, setSmtpFromEmail] = useState(
     config?.smtp_from_email || ''
@@ -105,7 +107,7 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
       footerMessage !== config.printer_footer_message ||
       smtpEnabled !== config.smtp_enabled ||
       smtpHost !== config.smtp_host ||
-      smtpPort !== config.smtp_port ||
+      (parseInt(smtpPortStr, 10) || 0) !== config.smtp_port ||
       smtpUser !== config.smtp_user ||
       smtpFromEmail !== config.smtp_from_email ||
       smtpPassword.trim().length > 0
@@ -124,7 +126,7 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
     footerMessage,
     smtpEnabled,
     smtpHost,
-    smtpPort,
+    smtpPortStr,
     smtpUser,
     smtpFromEmail,
     smtpPassword,
@@ -146,7 +148,7 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
       setFooterMessage(config.printer_footer_message);
       setSmtpEnabled(config.smtp_enabled);
       setSmtpHost(config.smtp_host);
-      setSmtpPort(config.smtp_port);
+      setSmtpPortStr(String(config.smtp_port ?? 587));
       setSmtpUser(config.smtp_user);
       setSmtpFromEmail(config.smtp_from_email);
     }
@@ -157,6 +159,7 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
     if (!isAdmin) return;
 
     try {
+      const parsedPort = parseInt(smtpPortStr, 10);
       await onUpdateConfig({
         empresa_nombre_comercial: nombreComercial,
         empresa_razon_social: razonSocial,
@@ -170,7 +173,7 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
         printer_footer_message: footerMessage,
         smtp_enabled: smtpEnabled,
         smtp_host: smtpHost,
-        smtp_port: smtpPort,
+        smtp_port: !isNaN(parsedPort) && parsedPort > 0 ? parsedPort : 587,
         smtp_user: smtpUser,
         smtp_from_email: smtpFromEmail,
         smtp_password: smtpPassword.trim() ? smtpPassword.trim() : null,
@@ -198,7 +201,7 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
     if (!isAdmin) return;
     setSmtpEnabled(true);
     setSmtpHost('smtp.gmail.com');
-    setSmtpPort(587);
+    setSmtpPortStr('587');
   };
 
   return (
@@ -531,10 +534,14 @@ export const PrinterSmtpConfigTab: React.FC<PrinterSmtpConfigTabProps> = ({
                 label="Puerto"
                 type="text"
                 inputMode="numeric"
-                value={smtpPort === 0 ? '' : String(smtpPort)}
-                onChange={(e) => {
-                  const clean = sanitizeIntegerInput(e.target.value);
-                  setSmtpPort(clean ? Number(clean) : 0);
+                value={smtpPortStr}
+                onChange={(e) => setSmtpPortStr(sanitizeIntegerInput(e.target.value))}
+                onBlur={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  if (!e.target.value.trim()) return;
+                  if (!isNaN(n)) {
+                    setSmtpPortStr(String(Math.min(65535, Math.max(1, n))));
+                  }
                 }}
                 disabled={!isAdmin || !smtpEnabled || isActionLoading}
                 placeholder="587"

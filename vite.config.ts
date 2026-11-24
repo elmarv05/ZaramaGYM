@@ -17,6 +17,27 @@ export default defineConfig({
     strictPort: true,
     host: true,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('react-dom') || id.includes('/react/') || id.includes('\\react\\')) {
+            return 'vendor-react';
+          }
+          if (id.includes('lucide-react')) {
+            return 'vendor-icons';
+          }
+          if (id.includes('qrcode') || id.includes('jsqr')) {
+            return 'vendor-qr';
+          }
+          if (id.includes('@tauri-apps')) {
+            return 'vendor-tauri';
+          }
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

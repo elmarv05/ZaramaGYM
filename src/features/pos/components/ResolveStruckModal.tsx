@@ -57,7 +57,7 @@ export const ResolveStruckModal: React.FC<ResolveStruckModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Bandeja Admin: Resolución de Venta #${sale.id} (Paso 2)`}
+      title={`Bandeja Admin: Resolución de Venta #${sale.id}`}
       description="Dictamen administrativo definitivo sobre una venta tachada en turno."
       size="md"
     >

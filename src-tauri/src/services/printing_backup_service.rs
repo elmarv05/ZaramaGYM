@@ -27,9 +27,18 @@ impl KeyringStore {
     pub fn set_secret(key: &str, value: &str) -> Result<(), AppError> {
         #[cfg(not(test))]
         {
-            if let Ok(entry) = keyring::Entry::new("ZaramaGYM", key) {
-                let _ = entry.set_password(value);
-            }
+            let entry = keyring::Entry::new("ZaramaGYM", key).map_err(|e| {
+                AppError::Internal(format!(
+                    "No se pudo inicializar el Administrador de Credenciales de Windows para '{}': {}",
+                    key, e
+                ))
+            })?;
+            entry.set_password(value).map_err(|e| {
+                AppError::Internal(format!(
+                    "No se pudo guardar '{}' en el Administrador de Credenciales de Windows: {}",
+                    key, e
+                ))
+            })?;
         }
 
         let mut map = KEYRING_FALLBACK.write().map_err(|e| {
@@ -856,9 +865,12 @@ pub async fn dispatch_ticket(
             formatted_text: formatted_text.to_string(),
             width_columns: cols,
             width_mm,
-            is_simulated: false,
+            is_simulated: true,
             target_mode: mode,
-            message: format!("Ticket despachado a cola Windows RAW: {}", target_address),
+            message: format!(
+                "Modo Windows RAW ({}) pendiente de integración directa con driver USB físico. Usa modo Red TCP (:9100) o imprime el PDF generado.",
+                target_address
+            ),
         }),
     }
 }
@@ -1687,16 +1699,34 @@ pub async fn send_receipt_email(
     let config = get_printing_backup_config(pool, session).await?;
     let smtp_pwd_opt = KeyringStore::get_secret("SMTP_PASSWORD")?;
 
-    let is_simulated = !config.smtp_enabled
-        || config.smtp_user.trim().is_empty()
-        || smtp_pwd_opt
-            .as_deref()
-            .map(|p| p.trim().is_empty())
-            .unwrap_or(true)
-        || smtp_pwd_opt.as_deref() == Some("SmtpAppPassword123#");
+    // Validar configuración real de SMTP antes de intentar envío (evita falsos éxitos silenciosos en producción)
+    if !config.smtp_enabled {
+        return Err(AppError::Validation(
+            "El envío de correos SMTP está desactivado. Actívalo en Impresión, PDFs y Backups -> Impresora Térmica & SMTP."
+                .to_string(),
+        ));
+    }
+    if config.smtp_host.trim().is_empty() || config.smtp_user.trim().is_empty() {
+        return Err(AppError::Validation(
+            "Falta configurar el Servidor SMTP Host o el Usuario SMTP (correo Gmail) antes de enviar correos."
+                .to_string(),
+        ));
+    }
+    let smtp_pwd = smtp_pwd_opt
+        .as_deref()
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .ok_or_else(|| {
+            AppError::Validation(
+                "No hay Contraseña de Aplicación SMTP guardada en Windows Keyring. Ingresa tu clave de 16 letras de Gmail y guarda la configuración."
+                    .to_string(),
+            )
+        })?;
 
-    if is_simulated {
-        // Auditar despacho simulado de comprobante por correo
+    let is_test_sentinel = smtp_pwd == "SmtpAppPassword123#";
+
+    if is_test_sentinel {
+        // Auditar despacho simulado exclusivo para entorno de pruebas automatizadas
         let audit_detail = serde_json::json!({
             "venta_id": request.venta_id,
             "destinatario": request.destinatario_email,
@@ -1727,8 +1757,7 @@ pub async fn send_receipt_email(
     // Modo Real: envío SMTP con lettre
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let raw_pwd = smtp_pwd_opt.unwrap_or_default();
-    let clean_pwd: String = raw_pwd.chars().filter(|c| !c.is_whitespace()).collect();
+    let clean_pwd: String = smtp_pwd.chars().filter(|c| !c.is_whitespace()).collect();
 
     let pdf_bytes = base64::engine::general_purpose::STANDARD
         .decode(&pdf.pdf_base64)
@@ -1891,12 +1920,25 @@ pub async fn execute_hot_backup(
     }
 
     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
-    let filename = format!("zaramagym_backup_{}.db", timestamp);
-    let dest_path = target_dir.join(&filename);
+    let mut filename = format!("zaramagym_backup_{}.db", timestamp);
+    let mut dest_path = target_dir.join(&filename);
+    if dest_path.exists() {
+        let mut suffix: u32 = 1;
+        loop {
+            let candidate = format!("zaramagym_backup_{}_{:02}.db", timestamp, suffix);
+            let candidate_path = target_dir.join(&candidate);
+            if !candidate_path.exists() {
+                filename = candidate;
+                dest_path = candidate_path;
+                break;
+            }
+            suffix += 1;
+        }
+    }
     let dest_path_str = dest_path.to_string_lossy().replace('\\', "/");
 
     // Ejecución segura de VACUUM INTO en SQLite WAL
-    let query_str = format!("VACUUM INTO '{}';", dest_path_str);
+    let query_str = format!("VACUUM INTO '{}';", dest_path_str.replace('\'', "''"));
     sqlx::raw_sql(&query_str)
         .execute(pool)
         .await
@@ -2671,6 +2713,20 @@ fn extract_gdrive_folder_id(raw: &str) -> String {
     trimmed.to_string()
 }
 
+/// Limpia espacios, comillas y prefijos accidentales "Bearer " en tokens OAuth de Google Drive.
+fn normalize_gdrive_token(raw: &str) -> String {
+    let trimmed = raw.trim().trim_matches(|c| c == '"' || c == '\'').trim();
+    let without_bearer = if trimmed.len() >= 7 && trimmed[..7].eq_ignore_ascii_case("bearer ") {
+        &trimmed[7..]
+    } else {
+        trimmed
+    };
+    without_bearer
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != '"' && *c != '\'')
+        .collect()
+}
+
 pub async fn sync_backup_to_gdrive(
     pool: &SqlitePool,
     session: &AuthSession,
@@ -2725,21 +2781,30 @@ pub async fn sync_backup_to_gdrive_with_actor(
     let token_opt = KeyringStore::get_secret("GDRIVE_ACCESS_TOKEN")?;
     let secret_opt = KeyringStore::get_secret("GDRIVE_CLIENT_SECRET")?;
 
-    let is_simulated = !config.backup_gdrive_enabled
-        || token_opt
-            .as_deref()
-            .map(|t| t.trim().is_empty())
-            .unwrap_or(true)
-        || token_opt.as_deref() == Some("ya29.a0ARrda8-GdriveToken-Secured");
+    if !config.backup_gdrive_enabled {
+        return Err(AppError::Validation(
+            "Google Drive está desactivado. Habilita 'subida automática de respaldos a Google Drive API v3' y guarda los parámetros Cloud antes de subir."
+                .to_string(),
+        ));
+    }
 
-    let drive_file_id = if is_simulated {
-        if let Some(tok) = token_opt.as_deref().filter(|t| !t.trim().is_empty()) {
-            let mut hasher = Sha256::new();
-            hasher.update(format!("{}:{}", tok, backup_id).as_bytes());
-            format!("gdrive_file_{}", &format!("{:x}", hasher.finalize())[..16])
-        } else {
-            format!("gdrive_sim_{}", backup_id)
-        }
+    let raw_token = token_opt
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .ok_or_else(|| {
+            AppError::Validation(
+                "No hay un Refresh Token de Google Drive configurado en Windows Keyring. Pega tu Refresh Token (1//...) y pulsa 'Guardar Parámetros Cloud'."
+                    .to_string(),
+            )
+        })?;
+
+    let is_test_sentinel = raw_token == "ya29.a0ARrda8-GdriveToken-Secured";
+
+    let drive_file_id = if is_test_sentinel {
+        let mut hasher = Sha256::new();
+        hasher.update(format!("{}:{}", raw_token, backup_id).as_bytes());
+        format!("gdrive_file_{}", &format!("{:x}", hasher.finalize())[..16])
     } else {
         // Modo Real: Google Drive API v3 (OAuth2 refresh token si aplica + multipart/related)
         let _ = rustls::crypto::ring::default_provider().install_default();
@@ -2757,7 +2822,22 @@ pub async fn sync_backup_to_gdrive_with_actor(
                 .collect()
         };
 
-        let stored_token = clean_secret_str(&token_opt.unwrap_or_default());
+        let stored_token = normalize_gdrive_token(&token_opt.unwrap_or_default());
+
+        if stored_token.starts_with("GOCSPX-") {
+            return Err(AppError::Validation(
+                "Pegaste un Client Secret ('GOCSPX-...') en la casilla de Token. El Client Secret va en su propia casilla; en Token debes pegar tu Refresh Token ('1//...') generado en Google OAuth Playground."
+                    .to_string(),
+            ));
+        }
+
+        if stored_token.starts_with("4/") {
+            return Err(AppError::Validation(
+                "Pegaste un Authorization Code ('4/...') de un solo uso. En Google OAuth Playground debes pulsar primero 'Exchange authorization code for tokens' y copiar el Refresh Token ('1//...')."
+                    .to_string(),
+            ));
+        }
+
         let access_token = if stored_token.starts_with("1//") {
             let client_id = clean_secret_str(&config.backup_gdrive_client_id);
             if client_id.is_empty() {
@@ -2796,8 +2876,10 @@ pub async fn sync_backup_to_gdrive_with_actor(
 
             if !token_resp.status().is_success() {
                 let err_body = token_resp.text().await.unwrap_or_default();
-                let hint = if err_body.contains("unauthorized_client") {
-                    " (Sugerencia: pega el Access token 'ya29...' directo, o en OAuth Playground marca 'Use your own OAuth credentials' en el engranaje ANTES de autorizar en el Step 1)."
+                let hint = if err_body.contains("invalid_grant") {
+                    " (Tu Refresh Token expiró o fue revocado. Si tu app en Google Cloud sigue en estado 'En pruebas', caduca a los 7 días: publícala en 'Producción' en la Pantalla de consentimiento OAuth y genera un nuevo Refresh Token '1//...')."
+                } else if err_body.contains("unauthorized_client") || err_body.contains("invalid_client") {
+                    " (El Client ID o Client Secret no coinciden con los usados para emitir este token. En OAuth Playground marca 'Use your own OAuth credentials' en el engranaje ANTES de autorizar en el Paso 1)."
                 } else {
                     ""
                 };
@@ -2885,6 +2967,24 @@ pub async fn sync_backup_to_gdrive_with_actor(
         if !upload_resp.status().is_success() {
             let status = upload_resp.status();
             let body_text = upload_resp.text().await.unwrap_or_default();
+            if status == reqwest::StatusCode::UNAUTHORIZED {
+                return Err(AppError::Validation(
+                    "Google Drive API rechazó la subida (401 Unauthorized): tu token expiró o es inválido. Si pegaste un Access Token ('ya29...'), recuerda que Google lo vence en 1 hora; configura en su lugar un Refresh Token ('1//...') junto a tu Client ID y Client Secret para renovación automática permanente."
+                        .to_string(),
+                ));
+            }
+            if status == reqwest::StatusCode::NOT_FOUND {
+                return Err(AppError::Validation(format!(
+                    "Google Drive API no encontró la carpeta destino (404 Not Found). Verifica que el ID de Carpeta sea correcto y pertenezca a la cuenta de Google autorizada. Detalle: {}",
+                    body_text
+                )));
+            }
+            if status == reqwest::StatusCode::FORBIDDEN {
+                return Err(AppError::Validation(format!(
+                    "Google Drive API denegó permisos (403 Forbidden). Verifica que la Google Drive API esté habilitada en tu proyecto y hayas autorizado el permiso 'https://www.googleapis.com/auth/drive.file'. Detalle: {}",
+                    body_text
+                )));
+            }
             return Err(AppError::Validation(format!(
                 "Google Drive API rechazó la subida ({}): {}",
                 status, body_text
@@ -2937,7 +3037,7 @@ pub async fn sync_backup_to_gdrive_with_actor(
         "backup_id": backup_id,
         "drive_file_id": drive_file_id,
         "estado": "SINCRONIZADO_CLOUD",
-        "was_simulated": is_simulated,
+        "was_simulated": is_test_sentinel,
     });
     record_audit(
         pool,
@@ -3039,10 +3139,42 @@ pub async fn run_auto_backup_cycle_once(state: &AppState) -> Result<Option<Backu
         .is_some();
 
     if gdrive_enabled && has_gdrive_token {
-        if let Ok(synced) =
-            sync_backup_to_gdrive_with_actor(&pool, None, "SYSTEM_CRON", record.id).await
-        {
-            record = synced;
+        match sync_backup_to_gdrive_with_actor(&pool, None, "SYSTEM_CRON", record.id).await {
+            Ok(synced) => {
+                record = synced;
+            }
+            Err(sync_err) => {
+                // Resiliencia: el respaldo local es 100% válido y se conserva como COMPLETADO.
+                // Guardamos el motivo en mensaje_detalle para que el Admin pueda verlo o reintentar manualmente.
+                let err_summary: String = sync_err.to_string().chars().take(220).collect();
+                let pending_msg = format!(
+                    "Respaldo local OK. Subida automática a Google Drive pendiente: {}",
+                    err_summary
+                );
+                let _ = sqlx::query(
+                    "UPDATE historial_respaldos SET mensaje_detalle = ? WHERE id = ?",
+                )
+                .bind(&pending_msg)
+                .bind(record.id)
+                .execute(&pool)
+                .await;
+                record.mensaje_detalle = Some(pending_msg);
+
+                let pending_audit = serde_json::json!({
+                    "backup_id": record.id,
+                    "cloud_pending": true
+                });
+                let _ = record_audit(
+                    &pool,
+                    None,
+                    "SYSTEM_CRON",
+                    "AUTO_BACKUP_CLOUD_PENDING",
+                    "historial_respaldos",
+                    &pending_audit.to_string(),
+                    None,
+                )
+                .await;
+            }
         }
     }
 
@@ -3050,7 +3182,7 @@ pub async fn run_auto_backup_cycle_once(state: &AppState) -> Result<Option<Backu
 }
 
 pub fn start_auto_backup_scheduler(state: AppState) {
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(20)).await;
         loop {
             let _ = run_auto_backup_cycle_once(&state).await;
@@ -3219,8 +3351,9 @@ pub async fn update_printing_backup_config(
     }
 
     if let Some(ref tok) = request.backup_gdrive_token {
-        if !tok.trim().is_empty() {
-            KeyringStore::set_secret("GDRIVE_ACCESS_TOKEN", tok.trim())?;
+        let normalized = normalize_gdrive_token(tok);
+        if !normalized.is_empty() {
+            KeyringStore::set_secret("GDRIVE_ACCESS_TOKEN", &normalized)?;
         }
     }
 
@@ -3308,7 +3441,8 @@ pub async fn update_printing_backup_config(
         upsert_cfg(&mut tx, "BACKUP_GDRIVE_ENABLED", if val { "1" } else { "0" }).await?;
     }
     if let Some(ref val) = request.backup_gdrive_folder_id {
-        upsert_cfg(&mut tx, "BACKUP_GDRIVE_FOLDER_ID", val).await?;
+        let clean_folder = extract_gdrive_folder_id(val);
+        upsert_cfg(&mut tx, "BACKUP_GDRIVE_FOLDER_ID", &clean_folder).await?;
     }
     if let Some(ref val) = request.backup_gdrive_client_id {
         upsert_cfg(&mut tx, "BACKUP_GDRIVE_CLIENT_ID", val).await?;
@@ -3342,7 +3476,23 @@ pub async fn update_printing_backup_config(
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_gdrive_folder_id, KeyringStore};
+    use super::{extract_gdrive_folder_id, normalize_gdrive_token, KeyringStore};
+
+    #[test]
+    fn normalize_gdrive_token_strips_quotes_whitespace_and_bearer_prefix() {
+        assert_eq!(
+            normalize_gdrive_token("  \"Bearer 1//04abc_XYZ \"  "),
+            "1//04abc_XYZ"
+        );
+        assert_eq!(
+            normalize_gdrive_token("bearer ya29.a0ARrda8"),
+            "ya29.a0ARrda8"
+        );
+        assert_eq!(
+            normalize_gdrive_token("1//04-token\ncon\tsaltos"),
+            "1//04-tokenconsaltos"
+        );
+    }
 
     #[test]
     fn keyring_store_uses_in_memory_fallback_in_unit_tests() {

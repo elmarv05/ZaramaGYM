@@ -17,6 +17,11 @@ pub fn hash_password(password: &str) -> Result<String, AppError> {
     Ok(hash.to_string())
 }
 
+/// Verifica si una cadena posee formato PHC Argon2id válido y parseable
+pub fn is_valid_password_hash(hash: &str) -> bool {
+    PasswordHash::new(hash).is_ok()
+}
+
 /// Verifica si una contraseña en texto plano coincide con el hash PHC
 pub fn verify_password(hash: &str, password: &str) -> Result<bool, AppError> {
     let parsed_hash = match PasswordHash::new(hash) {

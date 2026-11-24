@@ -211,11 +211,6 @@ export const PrintingBackupView: React.FC<PrintingBackupViewProps> = ({
         >
           <Icon name="receipt" className="w-4 h-4" aria-hidden="true" />
           <span>Series Documentales</span>
-          {series.length > 0 && (
-            <Badge variant="default" size="sm">
-              {series.length}
-            </Badge>
-          )}
         </button>
 
         <button

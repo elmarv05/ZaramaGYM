@@ -131,8 +131,8 @@ export const AuthorizeRedPassModal: React.FC<AuthorizeRedPassModalProps> = ({
             <label htmlFor="input-monto-red-pass" className="text-xs font-bold text-txt-secondary">
               Monto del Pase Diario a Crédito (S/) <span className="text-status-danger">*</span>
             </label>
-            <div className="relative">
-              <span className="absolute left-3.5 top-2.5 text-sm font-bold text-txt-muted">
+            <div className="relative flex items-center">
+              <span className="absolute left-3.5 inset-y-0 flex items-center text-sm font-bold text-txt-muted pointer-events-none select-none z-10">
                 S/
               </span>
               <input

@@ -286,7 +286,7 @@ pub async fn record_runtime_heartbeat(pool: &SqlitePool) -> Result<(), AppError>
 /// Lanza un latido (heartbeat) en segundo plano cada 30 segundos para registrar la última hora
 /// de actividad real en caso de apagado brusco o terminación forzada desde el Administrador de Tareas.
 pub fn start_runtime_heartbeat_task(state: AppState) {
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(30));
         // Descartar el tick inmediato del segundo 0
         interval.tick().await;

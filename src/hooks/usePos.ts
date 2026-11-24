@@ -16,6 +16,7 @@ import {
 import { catalogIpc } from '../services/ipc/catalogIpc';
 import { entityIpc } from '../services/ipc/entityIpc';
 import { posIpc } from '../services/ipc/posIpc';
+import { emitSidebarAlertsRefresh } from '../utils/sidebarAlerts';
 import { AppError } from '../types/auth';
 import { PlanListItem, ProductListItem } from '../types/catalog';
 import { ClientListItem } from '../types/entity';
@@ -424,10 +425,14 @@ export function usePos(options: UsePosOptions = { autoFetch: true }): UsePosResu
       try {
         const created = await posIpc.createPosSale(saleInput);
         clearCart();
-        await refreshShift();
-        await fetchSales();
-        await fetchCredits();
-        await fetchMemberships();
+        await Promise.all([
+          refreshShift(),
+          fetchCatalogs(),
+          fetchSales(),
+          fetchCredits(),
+          fetchMemberships(),
+        ]);
+        emitSidebarAlertsRefresh();
         return created;
       } catch (err: any) {
         setError(err);
@@ -436,7 +441,7 @@ export function usePos(options: UsePosOptions = { autoFetch: true }): UsePosResu
         setIsActionLoading(false);
       }
     },
-    [cartItems, descuento, pagos, selectedClient, clearCart, refreshShift, fetchSales, fetchCredits, fetchMemberships]
+    [cartItems, descuento, pagos, selectedClient, clearCart, refreshShift, fetchCatalogs, fetchSales, fetchCredits, fetchMemberships]
   );
 
   // Tachado Paso 1
@@ -446,9 +451,8 @@ export function usePos(options: UsePosOptions = { autoFetch: true }): UsePosResu
       setError(null);
       try {
         const struck = await posIpc.strikeSale(saleId, input);
-        await refreshShift();
-        await fetchSales();
-        await fetchCredits();
+        await Promise.all([refreshShift(), fetchCatalogs(), fetchSales(), fetchCredits()]);
+        emitSidebarAlertsRefresh();
         return struck;
       } catch (err: any) {
         setError(err);
@@ -457,7 +461,7 @@ export function usePos(options: UsePosOptions = { autoFetch: true }): UsePosResu
         setIsActionLoading(false);
       }
     },
-    [refreshShift, fetchSales, fetchCredits]
+    [refreshShift, fetchCatalogs, fetchSales, fetchCredits]
   );
 
   // Tachado Paso 2 (Admin)
@@ -467,9 +471,8 @@ export function usePos(options: UsePosOptions = { autoFetch: true }): UsePosResu
       setError(null);
       try {
         const resolved = await posIpc.resolveStruckSale(saleId, input);
-        await refreshShift();
-        await fetchSales();
-        await fetchCredits();
+        await Promise.all([refreshShift(), fetchCatalogs(), fetchSales(), fetchCredits()]);
+        emitSidebarAlertsRefresh();
         return resolved;
       } catch (err: any) {
         setError(err);
@@ -478,7 +481,7 @@ export function usePos(options: UsePosOptions = { autoFetch: true }): UsePosResu
         setIsActionLoading(false);
       }
     },
-    [refreshShift, fetchSales, fetchCredits]
+    [refreshShift, fetchCatalogs, fetchSales, fetchCredits]
   );
 
   // Cargar cuota/amortización al carrito con 1 clic

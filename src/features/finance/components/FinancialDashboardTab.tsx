@@ -116,7 +116,7 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
             }`}
           >
             <Icon name="cash" className="w-4 h-4" aria-hidden="true" />
-            <span>Caja Física (Efectivo)</span>
+            <span>Caja Física</span>
           </button>
 
           <button
@@ -129,7 +129,7 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
             }`}
           >
             <Icon name="smartphone" className="w-4 h-4" aria-hidden="true" />
-            <span>Caja Digital (Bancos / Apps)</span>
+            <span>Caja Digital</span>
           </button>
 
           <button
@@ -472,7 +472,7 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
             </p>
           </div>
 
-          {/* Ventas Tachadas Pendientes (Paso 2) */}
+          {/* Ventas Tachadas Pendientes */}
           <div className="p-3 bg-canvas rounded-lg border border-amber-300 dark:border-amber-900/50 bg-amber-50/20 dark:bg-amber-950/10 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between">

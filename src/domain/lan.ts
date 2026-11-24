@@ -97,14 +97,14 @@ export function canManageLanDevices(role?: string | null): boolean {
 
 /**
  * Construye la URL completa del escáner móvil para abrir en el navegador del teléfono,
- * priorizando el dominio mDNS local (`zaramagym.local:3443`) cuando está activo para
- * conservar la sesión incluso si cambia la IP del Mobile Hotspot, e incorporando
- * opcionalmente el código de vinculación como parámetro `?pair=XXXXXX`.
+ * priorizando por defecto la IP local directa (`https://<IP>:3443/scanner`) para evitar
+ * errores `DNS_PROBE_FINISHED_NXDOMAIN` en Hotspots móviles, y permitiendo usar `zaramagym.local`
+ * cuando `preferMdns = true`. Incorpora opcionalmente el código `?pair=XXXXXX`.
  */
 export function formatScannerUrl(
   status: LanServerStatusDto,
   pairingCode?: string,
-  preferMdns = true
+  preferMdns = false
 ): string {
   const port = status.port || 3443;
   const mdnsHost = (status.mdnsHostname || '').trim();
@@ -114,9 +114,11 @@ export function formatScannerUrl(
     ? status.httpsUrl
     : preferMdns && status.mdnsActive && mdnsHost
     ? `https://${mdnsHost}:${port}/scanner`
+    : status.primaryIp
+    ? `https://${status.primaryIp}:${port}/scanner`
     : status.httpsUrl ||
       status.httpUrl ||
-      `https://${status.primaryIp || '127.0.0.1'}:${port}/scanner`;
+      `https://127.0.0.1:${port}/scanner`;
 
   if (!pairingCode) {
     return base;

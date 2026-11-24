@@ -17,6 +17,13 @@ export default {
           hover: 'var(--color-bg-surface-hover)',
           active: 'var(--color-bg-surface-active)',
         },
+        chrome: {
+          sidebar: 'var(--color-chrome-sidebar)',
+          bar: 'var(--color-chrome-bar)',
+          surface: 'var(--color-chrome-surface)',
+          hover: 'var(--color-chrome-hover)',
+          border: 'var(--color-chrome-border)',
+        },
         elevated: {
           DEFAULT: 'var(--color-bg-elevated)',
           border: 'var(--color-border-elevated)',

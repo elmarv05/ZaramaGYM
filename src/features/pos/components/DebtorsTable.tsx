@@ -133,9 +133,8 @@ export const DebtorsTable: React.FC<DebtorsTableProps> = ({
           <div className="flex items-center gap-2">
             <h3 className="font-bold text-txt-primary text-base sm:text-lg flex items-center gap-2">
               <Icon name="credit-card" className="w-5 h-5 text-brand" aria-hidden="true" />
-              Cartera de Cuentas por Cobrar (Deudores)
+              Cartera de Cuentas por Cobrar
             </h3>
-            <span className="text-xs text-txt-muted">({filteredCredits.length} registros)</span>
           </div>
           <p className="text-xs text-txt-secondary">
             Control centralizado de créditos generados por membresías con pago parcial, productos a crédito o pases diarios.

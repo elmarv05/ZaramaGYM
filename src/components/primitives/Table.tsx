@@ -4,7 +4,10 @@ import { cn } from '../../utils/cn';
 export interface TableProps extends React.TableHTMLAttributes<HTMLTableElement> {}
 
 export const Table: React.FC<TableProps> = ({ className, ...props }) => (
-  <div className="w-full overflow-x-auto rounded-md border border-border bg-surface">
+  <div
+    tabIndex={0}
+    className="w-full min-w-0 overflow-x-auto overscroll-x-contain rounded-md border border-border bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+  >
     <table className={cn('w-full text-left border-collapse text-sm', className)} {...props} />
   </div>
 );

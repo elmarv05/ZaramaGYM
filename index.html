@@ -3,21 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="color-scheme" content="light dark" />
-    <script>
-      (function () {
-        try {
-          var stored = localStorage.getItem('zaramagym-theme');
-          var prefersDark =
-            window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          var isDark = stored === 'dark' || (!stored && prefersDark);
-          document.documentElement.classList.toggle('dark', isDark);
-          if (stored === 'light' || stored === 'dark') {
-            var meta = document.querySelector('meta[name="color-scheme"]');
-            if (meta) meta.setAttribute('content', stored);
-          }
-        } catch (e) {}
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
     <link rel="icon" type="image/png" href="/zaramagym-logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ZaramaGYM - Sistema de Gestión</title>

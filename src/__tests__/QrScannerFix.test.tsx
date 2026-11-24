@@ -43,14 +43,14 @@ describe('Reparación QR & Red LAN Multi-NIC', () => {
     expect(normalizeQrTokenClient('QR-LEGACY-01')).toBe('QR-LEGACY-01');
   });
 
-  it('2. LanServerView usa mDNS (zaramagym.local) por defecto y permite cambiar a IPs de respaldo y HTTP actualizando URL y QR', async () => {
+  it('2. LanServerView prioriza IP local directa por defecto y permite cambiar a mDNS (zaramagym.local), IP alternativa y HTTP actualizando URL y QR', async () => {
     const multiNicStatus: LanServerStatusDto = {
       isRunning: true,
       port: 3443,
       localIps: ['192.168.100.6', '192.168.100.9'],
       primaryIp: '192.168.100.6',
-      httpsUrl: 'https://zaramagym.local:3443/scanner',
-      httpUrl: 'http://zaramagym.local:3443/scanner',
+      httpsUrl: 'https://192.168.100.6:3443/scanner',
+      httpUrl: 'http://192.168.100.6:3443/scanner',
       mdnsHostname: 'zaramagym.local',
       mdnsActive: true,
       caCertPem: '-----BEGIN CERTIFICATE-----\nTEST\n-----END CERTIFICATE-----',
@@ -64,7 +64,7 @@ describe('Reparación QR & Red LAN Multi-NIC', () => {
       deviceId: 50,
       nombreDispositivo: 'Android Recepción',
       codigoVinculacion: 'V7HAJ7',
-      pairingUrl: 'https://zaramagym.local:3443/scanner?pair=V7HAJ7',
+      pairingUrl: 'https://192.168.100.6:3443/scanner?pair=V7HAJ7',
       qrDataUrl: 'data:image/svg+xml;base64,PHN2Zy8+',
       expiresInMinutes: 60,
     };
@@ -79,16 +79,21 @@ describe('Reparación QR & Red LAN Multi-NIC', () => {
     render(<LanServerView currentSession={adminSession} clients={[]} />);
 
     const ipSelect = await screen.findByLabelText(/Seleccionar adaptador de red LAN/i);
-    expect(ipSelect).toHaveValue('zaramagym.local');
-    expect(screen.getByText('https://zaramagym.local:3443/scanner')).toBeInTheDocument();
+    expect(ipSelect).toHaveValue('192.168.100.6');
+    expect(screen.getByText('https://192.168.100.6:3443/scanner')).toBeInTheDocument();
 
-    // Generar código de vinculación -> usa mDNS por defecto
+    // Generar código de vinculación -> usa IP Wi-Fi/Hotspot directa por defecto
     fireEvent.change(screen.getByPlaceholderText(/Nombre del dispositivo/i), {
       target: { value: 'Android Recepción' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Generar Código de Enlace/i }));
 
     expect(await screen.findByText('V7HAJ7')).toBeInTheDocument();
+    expect(screen.getByText('https://192.168.100.6:3443/scanner?pair=V7HAJ7')).toBeInTheDocument();
+
+    // Cambiar opcionalmente a dominio mDNS local (zaramagym.local)
+    fireEvent.change(ipSelect, { target: { value: 'zaramagym.local' } });
+    expect(screen.getByText('https://zaramagym.local:3443/scanner')).toBeInTheDocument();
     expect(screen.getByText('https://zaramagym.local:3443/scanner?pair=V7HAJ7')).toBeInTheDocument();
 
     // Cambiar a IP de respaldo Ethernet (192.168.100.9)
@@ -202,7 +207,7 @@ describe('Reparación QR & Red LAN Multi-NIC', () => {
     render(<LanServerView currentSession={adminSession} clients={[]} />);
 
     // Transición isOpen: false -> true al pulsar Simular Vista Móvil (M1 / M2)
-    const openSimBtn = await screen.findByRole('button', { name: /Simular Vista Móvil \(M1 \/ M2\)/i });
+    const openSimBtn = await screen.findByRole('button', { name: /^Simular Vista Móvil$/i });
     fireEvent.click(openSimBtn);
 
     const codeInput = await screen.findByLabelText(/Código de Vinculación/i);
@@ -219,7 +224,7 @@ describe('Reparación QR & Red LAN Multi-NIC', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Simular Vista Móvil \(M1 \/ M2\)/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Simular Vista Móvil$/i }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 });

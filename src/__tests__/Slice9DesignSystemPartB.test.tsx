@@ -91,7 +91,7 @@ describe('Slice 9 Parte B: Login Split-Screen, HomeDashboard y Shell 4 Component
       const user = userEvent.setup();
       render(<LoginForm onLogin={vi.fn().mockResolvedValue(true)} />);
 
-      expect(screen.getByText(/(Area recepción|ESTACIÓN #TK-01)/i)).toBeInTheDocument();
+      expect(screen.getByText(/(Área recepción|Area recepción|ESTACIÓN #TK-01)/i)).toBeInTheDocument();
       expect(screen.queryByText(/admin123/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/Default: admin/i)).not.toBeInTheDocument();
 
@@ -141,14 +141,10 @@ describe('Slice 9 Parte B: Login Split-Screen, HomeDashboard y Shell 4 Component
       expect(screen.getByText('42')).toBeInTheDocument();
       expect(screen.getByText(/Afluencia de Asistencias por Franja Horaria/i)).toBeInTheDocument();
 
-      await user.click(screen.getByRole('button', { name: /Ir a Asistencias QR/i }));
-      expect(onNavigate).toHaveBeenCalledWith('attendance');
-
-      await user.click(screen.getByRole('button', { name: /Abrir Caja \/ POS/i }));
-      expect(onNavigate).toHaveBeenCalledWith('pos');
-
-      await user.click(screen.getByRole('button', { name: /Explorar Directorio/i }));
-      expect(onNavigate).toHaveBeenCalledWith('directory');
+      // Los botones redundantes de cabecera (QR, POS, Directorio) no deben renderizarse
+      expect(screen.queryByRole('button', { name: /Ir a Asistencias QR/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Abrir Caja \/ POS/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Explorar Directorio/i })).not.toBeInTheDocument();
 
       await user.click(screen.getByRole('button', { name: /Búsqueda Rápida de Funciones/i }));
       expect(onOpenSearch).toHaveBeenCalledTimes(1);
@@ -197,7 +193,7 @@ describe('Slice 9 Parte B: Login Split-Screen, HomeDashboard y Shell 4 Component
 
       await waitFor(() => {
         expect(
-          screen.getByText(/Caja, Punto de Venta \(POS\) y Cuentas por Cobrar/i)
+          screen.getByText(/Caja, Punto de Venta y Cuentas por Cobrar/i)
         ).toBeInTheDocument();
       });
 

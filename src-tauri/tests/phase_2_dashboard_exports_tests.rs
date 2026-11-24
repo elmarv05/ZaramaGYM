@@ -375,7 +375,7 @@ async fn test_home_dashboard_metrics_aggregations_and_rbac() {
 
     // 5. Insertar también una venta histórica del mes pasado (NO debe sumar en mes actual)
     let prev_month_date = (today - Duration::days(35)).format("%Y-%m-%d 12:00:00").to_string();
-    sqlx::query(
+    let old_venta_res = sqlx::query(
         r#"
         INSERT INTO ventas (turno_caja_id, cliente_id, usuario_vendedor_id, subtotal, descuento, total_venta, monto_pagado_efectivo, monto_pagado_digital, saldo_credito_generado, estado_venta, created_at, updated_at)
         VALUES (1, NULL, ?, 100.00, 0.00, 100.00, 100.00, 0.00, 0.00, 'COMPLETADA', ?, ?)
@@ -387,10 +387,7 @@ async fn test_home_dashboard_metrics_aggregations_and_rbac() {
     .execute(&state.pool())
     .await
     .unwrap();
-    let old_venta_id: i64 = sqlx::query_scalar("SELECT last_insert_rowid()")
-        .fetch_one(&state.pool())
-        .await
-        .unwrap();
+    let old_venta_id: i64 = old_venta_res.last_insert_rowid();
     sqlx::query(
         "INSERT INTO pagos (venta_id, turno_caja_id, metodo_pago, canal_caja, monto, estado_pago, created_at) VALUES (?, 1, 'EFECTIVO', 'FISICA', 100.00, 'ACTIVO', ?)",
     )

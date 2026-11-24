@@ -201,8 +201,8 @@ export const CartTable: React.FC<CartTableProps> = ({
           <label htmlFor="cart-discount-input" className="text-txt-secondary flex items-center gap-1">
             Descuento Especial (S/):
           </label>
-          <div className="w-28 relative">
-            <span className="absolute left-2.5 top-1.5 text-txt-muted text-xs font-bold">S/</span>
+          <div className="w-28 relative flex items-center">
+            <span className="absolute left-2.5 inset-y-0 flex items-center text-txt-muted text-xs font-bold pointer-events-none select-none z-10">S/</span>
             <input
               id="cart-discount-input"
               type="text"

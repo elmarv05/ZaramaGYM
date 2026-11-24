@@ -112,11 +112,6 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
     runSimulation(simFechaInicio, plan.tipo_plan, plan.duracion_meses, plan.id);
   };
 
-  const handleQuickDate = (dateStr: string) => {
-    setSimFechaInicio(dateStr);
-    runSimulation(dateStr, simTipoPlan, simDuracionMeses, simSelectedPlanId);
-  };
-
   const handleQuickDuration = (tipo: TipoPlan, duracion: number) => {
     setSimTipoPlan(tipo);
     setSimDuracionMeses(duracion);
@@ -149,7 +144,7 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
             <Icon name="calendar" className="w-5 h-5 text-brand shrink-0" aria-hidden="true" />
             <div>
               <h3 id="simulador-heading" className="text-sm font-bold text-txt-primary">
-                Simulador Canónico de Vencimientos (*Day Overflow*)
+                Simulador de Vencimientos
               </h3>
               <p className="text-xs text-txt-muted">
                 Calcula con precisión de segundos y compensa días en meses de 28, 29 y 30 días para proteger al socio.
@@ -174,9 +169,9 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
         </div>
 
         {/* Controles del Simulador */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
           {/* Fecha de Inicio */}
-          <div className="flex flex-col gap-2">
+          <div className="md:col-span-2 flex flex-col gap-2">
             <Input
               label="Fecha de Inicio de Membresía"
               type="date"
@@ -188,57 +183,17 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
               }}
               required
             />
-            {/* Botones rápidos de fechas borde */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-1">
-              <span className="text-[11px] font-semibold text-txt-muted">Casos borde:</span>
-              <button
-                type="button"
-                onClick={() => handleQuickDate('2024-01-31')}
-                className="text-[11px] px-2 py-0.5 rounded bg-canvas-subtle hover:bg-slate-200 dark:hover:bg-slate-700 text-txt-secondary border border-border"
-                title="CP-01: Bisiesto Feb=29 (+2 días)"
-              >
-                31 Ene 2024
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDate('2025-01-31')}
-                className="text-[11px] px-2 py-0.5 rounded bg-canvas-subtle hover:bg-slate-200 dark:hover:bg-slate-700 text-txt-secondary border border-border"
-                title="CP-02: Común Feb=28 (+3 días)"
-              >
-                31 Ene 2025
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDate('2026-01-31')}
-                className="text-[11px] px-2 py-0.5 rounded bg-canvas-subtle hover:bg-slate-200 dark:hover:bg-slate-700 text-txt-secondary border border-border"
-                title="CP-03/CP-04: Mar/Abr 2026"
-              >
-                31 Ene 2026
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDate('2024-02-29')}
-                className="text-[11px] px-2 py-0.5 rounded bg-canvas-subtle hover:bg-slate-200 dark:hover:bg-slate-700 text-txt-secondary border border-border"
-                title="CP-07: 29 Feb bisiesto anual"
-              >
-                29 Feb 2024
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDate(todayStr)}
-                className="text-[11px] px-2 py-0.5 rounded bg-brand/10 text-brand font-medium border border-brand/20"
-              >
-                Hoy
-              </button>
-            </div>
+            <span className="text-[11px] text-txt-muted">
+              Selecciona la fecha de inicio de la membresía para la simulación.
+            </span>
           </div>
 
           {/* Duración rápida */}
-          <div className="flex flex-col gap-2">
+          <div className="md:col-span-4 flex flex-col gap-2">
             <label className="text-xs font-semibold text-txt-secondary uppercase tracking-wider select-none">
               Tipo / Duración a Cotizar
             </label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               <button
                 type="button"
                 onClick={() => handleQuickDuration('PASE_DIARIO', 0)}
@@ -307,12 +262,12 @@ export const PlanListTab: React.FC<PlanListTabProps> = ({
               </button>
             </div>
             <span className="text-[11px] text-txt-muted">
-              O haz clic en "Simular" en cualquier plan del listado inferior.
+              Selecciona la duración de la membresía para la simulación.
             </span>
           </div>
 
           {/* Tarjeta de Resultado */}
-          <div className="bg-canvas-subtle p-3.5 rounded-xl border border-border flex flex-col gap-2">
+          <div className="md:col-span-6 bg-canvas-subtle p-3.5 rounded-xl border border-border flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-txt-secondary">
                 Vencimiento Oficial

@@ -498,13 +498,13 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
       );
 
       // Venta #101 es COMPLETADA en turno abierto -> Botón Tachar habilitado
-      const strikeBtn = screen.getByRole('button', { name: /Tachar \(Paso 1\)/i });
+      const strikeBtn = screen.getByRole('button', { name: /^Tachar$/i });
       expect(strikeBtn).toBeInTheDocument();
 
       fireEvent.click(strikeBtn);
 
       // Modal abierto
-      expect(screen.getByText(/Tachar Venta #101 \(Paso 1\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Tachar Venta #101/i)).toBeInTheDocument();
       expect(screen.getByText(/Efectos Inmediatos del Tachado en Caja/i)).toBeInTheDocument();
 
       const textarea = screen.getByLabelText(/Motivo Obligatorio del Tachado/i);
@@ -545,13 +545,13 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
       expect(screen.getByText('#102')).toBeInTheDocument();
 
       // Botón Resolver disponible para Admin
-      const resolveBtn = screen.getByRole('button', { name: /Resolver \(Paso 2\)/i });
+      const resolveBtn = screen.getByRole('button', { name: /^Resolver$/i });
       expect(resolveBtn).toBeInTheDocument();
 
       // Abrir modal de resolución
       fireEvent.click(resolveBtn);
       expect(
-        screen.getByText(/Bandeja Admin: Resolución de Venta #102 \(Paso 2\)/i)
+        screen.getByText(/Bandeja Admin: Resolución de Venta #102/i)
       ).toBeInTheDocument();
       expect(screen.getByText(/Confirmar Anulación Definitiva/i)).toBeInTheDocument();
       expect(screen.getByText(/Revertir Tachado \(Reactivar Venta\)/i)).toBeInTheDocument();
@@ -579,7 +579,7 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
 
       // No debe existir el botón Resolver
       expect(
-        screen.queryByRole('button', { name: /Resolver \(Paso 2\)/i })
+        screen.queryByRole('button', { name: /^Resolver$/i })
       ).not.toBeInTheDocument();
       expect(screen.getByText(/Pendiente de Admin/i)).toBeInTheDocument();
     });
@@ -604,7 +604,7 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
       );
 
       // Tabla de deudores
-      expect(screen.getByText(/Cartera de Cuentas por Cobrar \(Deudores\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Cartera de Cuentas por Cobrar/i)).toBeInTheDocument();
       expect(screen.getByText(/Juan Pérez García/i)).toBeInTheDocument();
       expect(screen.getAllByText(/S\/ 90.00/i).length).toBeGreaterThanOrEqual(1); // Saldo pendiente
       expect(screen.getByText(/Membresía Parcial/i)).toBeInTheDocument();
@@ -617,7 +617,7 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
       fireEvent.click(amortizeBtn);
 
       await waitFor(() => {
-        expect(screen.getByText(/Punto de Venta \(POS\)/i)).toBeInTheDocument();
+        expect(screen.getByText(/^Punto de Venta$/i)).toBeInTheDocument();
       });
     });
   });

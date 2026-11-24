@@ -4,7 +4,7 @@
 // Ubicación: src/features/pos/components/StrikeSaleModal.tsx
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert } from '../../../components/primitives/Alert';
 import { Button } from '../../../components/primitives/Button';
 import { Icon } from '../../../components/primitives/Icon';
@@ -33,6 +33,13 @@ export const StrikeSaleModal: React.FC<StrikeSaleModalProps> = ({
   const [motivo, setMotivo] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (isOpen) {
+      setMotivo('');
+      setErrorMsg(null);
+    }
+  }, [isOpen, sale?.id]);
+
   if (!sale) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,7 +63,7 @@ export const StrikeSaleModal: React.FC<StrikeSaleModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Tachar Venta #${sale.id} (Paso 1)`}
+      title={`Tachar Venta #${sale.id}`}
       description="Procedimiento operativo de reversión para ventas emitidas por error en el turno activo."
       size="md"
     >
@@ -123,7 +130,7 @@ export const StrikeSaleModal: React.FC<StrikeSaleModalProps> = ({
             isLoading={isLoading}
             leftIcon={<Icon name="scissors" className="w-4 h-4" aria-hidden="true" />}
           >
-            Confirmar Tachado (Paso 1)
+            Confirmar Tachado
           </Button>
         </div>
       </form>

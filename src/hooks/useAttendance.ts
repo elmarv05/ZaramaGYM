@@ -11,6 +11,7 @@ import {
   validateSystemConfig,
 } from '../domain/attendance';
 import { attendanceIpc } from '../services/ipc/attendanceIpc';
+import { emitSidebarAlertsRefresh } from '../utils/sidebarAlerts';
 import {
   AttendanceFilter,
   AttendanceListItemDto,
@@ -157,6 +158,7 @@ export function useAttendance(autoFetch = true): UseAttendanceReturn {
 
         void fetchSummary();
         void fetchAttendances();
+        emitSidebarAlertsRefresh();
 
         return result;
       } catch (err: unknown) {

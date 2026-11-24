@@ -44,28 +44,28 @@ export const ShiftStatusHeader: React.FC<ShiftStatusHeaderProps> = ({
     );
   }
 
-  // 2. Estado Caja Cerrada (Alerta Ámbar)
+  // 2. Estado Caja Cerrada (Alerta Roja con borde fuerte y fondo sutil)
   if (!shift || shift.estado === 'CERRADO') {
     return (
       <div
         role="region"
         aria-label="Estado de Caja"
-        className="w-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all"
+        className="w-full bg-rose-500/[0.04] dark:bg-rose-500/[0.06] border-2 border-rose-500/80 dark:border-rose-500/70 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all"
       >
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 p-2 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+          <div className="mt-0.5 p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
             <Icon name="lock" className="w-5 h-5" aria-hidden="true" />
           </div>
           <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-amber-900 dark:text-amber-200 text-sm sm:text-base">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-rose-700 dark:text-rose-300 text-sm sm:text-base">
                 Caja Cerrada — Abre un turno para operar el Punto de Venta
               </span>
-              <Badge variant="warning" size="sm">
+              <Badge variant="danger" size="sm">
                 Sin Turno Activo
               </Badge>
             </div>
-            <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+            <p className="text-xs text-rose-700/85 dark:text-rose-300/85">
               Para registrar ventas de productos, planes o amortizaciones de deuda física y digital, primero debes asignar el fondo inicial en gaveta.
             </p>
           </div>

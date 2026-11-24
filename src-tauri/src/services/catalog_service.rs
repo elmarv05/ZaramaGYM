@@ -637,6 +637,7 @@ pub async fn create_product(
             "El nombre del producto no puede estar vacío.".into(),
         ));
     }
+
     if input.precio_venta <= Decimal::ZERO {
         return Err(AppError::Validation(
             "El precio de venta debe ser mayor a 0.".into(),

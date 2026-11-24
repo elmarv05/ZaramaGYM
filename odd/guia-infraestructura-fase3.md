@@ -1,6 +1,8 @@
 # 🛡️ GUÍA DIDÁCTICA DE INFRAESTRUCTURA Y CREDENCIALES (FASE 3 - ZARAMAGYM)
 
-Esta guía paso a paso explica en lenguaje claro qué son, para qué sirven y cómo configurar las credenciales en la nube (**Google Drive** y **Correo SMTP**) y la regla de red local (**Windows Firewall `:3443`**) en **ZaramaGYM**.
+> **Manual Completo Actualizado:** Para el paso a paso extendido de las 3 conexiones (**Google Drive cada 2 horas**, **Gmail SMTP** y **Celulares Wi-Fi LAN `:3443`** con certificados iOS/Android, PWA y tablas de solución de errores), consulta el manual oficial: [`odd/manual-conexiones-zaramagym.md`](file:///c:/Users/USER/Desktop/Objeto/ZaramaGYM/odd/manual-conexiones-zaramagym.md).
+
+Esta guía resume qué son, para qué sirven y cómo configurar las credenciales en la nube (**Google Drive** y **Correo SMTP**) y la regla de red local (**Windows Firewall `:3443`**) en **ZaramaGYM**.
 
 ---
 
@@ -60,21 +62,22 @@ Google Drive requiere que te identifiques mediante un proyecto gratuito propio e
 ### Pasos para generarlos gratuitamente en Google Cloud Console:
 1. Ingresa a [console.cloud.google.com](https://console.cloud.google.com/) con tu cuenta de Google y crea un proyecto llamado **`ZaramaGYM Backups`**.
 2. En el menú lateral ve a **APIs y Servicios → Biblioteca**, busca **`Google Drive API`** y haz clic en **Habilitar**.
-3. Ve a **APIs y Servicios → Pantalla de consentimiento de OAuth**:
+3. Ve a **APIs y Servicios → Pantalla de consentimiento de OAuth** (o *Google Auth Platform → Público / Audience*):
    - Elige **Externo**, coloca como nombre `ZaramaGYM` y tu correo de soporte.
-   - En la sección **Usuarios de prueba (Test users)**, agrega tu propio correo `@gmail.com`.
+   - **CRÍTICO:** Pulsa **Publicar aplicación (Publish app)** para pasar a estado **En producción** (en modo *En pruebas / Testing* Google caduca el Refresh Token cada 7 días).
 4. Ve a **APIs y Servicios → Credenciales → + Crear Credenciales → ID de cliente de OAuth**:
-   - Tipo de aplicación: **Aplicación web** (para usar con OAuth Playground) o **App de Escritorio**.
-   - Si eliges *Aplicación web*, en **URI de redireccionamiento autorizados** agrega: `https://developers.google.com/oauthplayground`.
-   - Google te mostrará tu **`Client ID`** y tu **`Client Secret`**.
-5. Para generar tu **Token OAuth**:
+   - Tipo de aplicación: **Aplicación web** (para usar con OAuth Playground).
+   - En **URI de redireccionamiento autorizados** agrega exactamente: `https://developers.google.com/oauthplayground`.
+   - Google te mostrará tu **`Client ID`** y tu **`Client Secret` (`GOCSPX-...`)**.
+5. Para generar tu **Refresh Token permanente (`1//...`)**:
    - Abre [developers.google.com/oauthplayground](https://developers.google.com/oauthplayground).
-   - Haz clic en el engranaje ⚙️ (arriba a la derecha), marca **"Use your own OAuth credentials"** y pega tu `Client ID` y `Client Secret`.
-   - En la lista de la izquierda (Step 1), busca **Drive API v3**, selecciona `https://www.googleapis.com/auth/drive.file` y pulsa **Authorize APIs**.
-   - En el Step 2, pulsa **Exchange authorization code for tokens** y copia el **`Refresh token`** o **`Access token`**.
-6. En **ZaramaGYM**, ve a **Impresión, PDFs y Backups → Pestaña Respaldos SQLite y Cloud**:
+   - **Antes del Step 1:** haz clic en el engranaje ⚙️ (arriba a la derecha), marca **"Use your own OAuth credentials"** y pega tu `Client ID` y `Client Secret`.
+   - En la lista de la izquierda (Step 1), busca **Drive API v3**, selecciona `https://www.googleapis.com/auth/drive.file` y pulsa **Authorize APIs** (si Google muestra *"App no verificada"*, elige *Configuración avanzada → Ir a ZaramaGYM*).
+   - En el Step 2, pulsa **Exchange authorization code for tokens** y copia **únicamente el `Refresh token` (`1//...`)** *(NO copies el `Access token` `ya29...`, porque vence en 1 hora)*.
+6. En **ZaramaGYM**, ve a **Administración y Red → Impresión, PDFs y Backups → Pestaña Respaldos SQLite & Drive**:
    - Activa la casilla **Habilitar subida automática de respaldos a Google Drive API v3**.
-   - Pega el **ID de Carpeta Google Drive**, tu **Client ID**, tu **Client Secret** y tu **Token OAuth**, y pulsa **Guardar Configuración Cloud**.
+   - Verifica **Intervalo Auto-Respaldo (Horas): `2`** (genera copia local `VACUUM INTO` y la sube a Drive cada 2 horas).
+   - Pega el **ID de Carpeta Google Drive** (o URL completa), tu **Client ID**, tu **Client Secret** y tu **Refresh Token (`1//...`)**, y pulsa **Guardar Parámetros Cloud**.
 
 ---
 

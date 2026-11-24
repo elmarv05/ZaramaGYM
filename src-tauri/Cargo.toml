@@ -30,6 +30,7 @@ tower-http = { version = "0.5", features = ["cors"] }
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 base64 = "0.22"
 if-addrs = "0.13"
+socket2 = "0.6"
 rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
@@ -43,3 +44,10 @@ lettre = { version = "0.11", default-features = false, features = ["builder", "h
 [dev-dependencies]
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"

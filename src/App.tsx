@@ -4,25 +4,24 @@
 // Ubicación: src/App.tsx
 // ============================================================================
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { Alert } from './components/primitives/Alert';
 import { Badge } from './components/primitives/Badge';
 import { Button } from './components/primitives/Button';
 import { DeveloperContactModal } from './components/DeveloperContactModal';
 import { Icon, IconName } from './components/primitives/Icon';
-import { AppShellSkeleton } from './components/primitives/Skeleton';
+import { AppShellSkeleton, ModuleSkeleton } from './components/primitives/Skeleton';
 import { fileToDataUrl } from './domain/user';
 import { useAudit } from './hooks/useAudit';
 import { useAuth } from './hooks/useAuth';
 import { useEntities } from './hooks/useEntities';
+import { useSidebarAlerts } from './hooks/useSidebarAlerts';
 import { useTheme } from './hooks/useTheme';
 import { useUsers } from './hooks/useUsers';
 import { authIpc } from './services/ipc/authIpc';
 import { userIpc } from './services/ipc/userIpc';
 import { CloseBlockedPayload, CrashRecoveryNotice } from './types/auth';
-import { AttendanceMainTab, AttendanceView } from './features/attendance/AttendanceView';
-import { AuditLogViewer } from './features/audit/AuditLogViewer';
 import {
   CloseBlockedModal,
   CrashRecoveryModal,
@@ -36,31 +35,95 @@ import {
 } from './services/updater/appUpdater';
 import { LockModal } from './features/auth/LockModal';
 import { LoginForm } from './features/auth/LoginForm';
-import { UserManagementTable } from './features/auth/UserManagementTable';
-import { CatalogSubTab, CatalogView } from './features/catalog/CatalogView';
-import { DirectorySubTab, EntityDirectoryView } from './features/entities/EntityDirectoryView';
-import { FinanceMainTab, FinanceView } from './features/finance/FinanceView';
 import { HomeDashboardView } from './features/home/HomeDashboardView';
-import { LanServerView } from './features/lan/LanServerView';
-import { PosMainTab, PosView } from './features/pos/PosView';
-import {
-  PrintingBackupTab,
-  PrintingBackupView,
-} from './features/printing_backup/PrintingBackupView';
-import { ReceptionDashboard } from './features/reception/ReceptionDashboard';
+import type { AttendanceMainTab } from './features/attendance/AttendanceView';
+import type { CatalogSubTab } from './features/catalog/CatalogView';
+import type { DirectorySubTab } from './features/entities/EntityDirectoryView';
+import type { FinanceMainTab } from './features/finance/FinanceView';
+import type { PosMainTab } from './features/pos/PosView';
+import type { PrintingBackupTab } from './features/printing_backup/PrintingBackupView';
+
+// Code-splitting por módulo: reduce el bundle inicial y acelera el arranque en frío
+const AttendanceView = lazy(() =>
+  import('./features/attendance/AttendanceView').then((m) => ({
+    default: m.AttendanceView,
+  }))
+);
+const AuditLogViewer = lazy(() =>
+  import('./features/audit/AuditLogViewer').then((m) => ({
+    default: m.AuditLogViewer,
+  }))
+);
+const UserManagementTable = lazy(() =>
+  import('./features/auth/UserManagementTable').then((m) => ({
+    default: m.UserManagementTable,
+  }))
+);
+const CatalogView = lazy(() =>
+  import('./features/catalog/CatalogView').then((m) => ({
+    default: m.CatalogView,
+  }))
+);
+const EntityDirectoryView = lazy(() =>
+  import('./features/entities/EntityDirectoryView').then((m) => ({
+    default: m.EntityDirectoryView,
+  }))
+);
+const FinanceView = lazy(() =>
+  import('./features/finance/FinanceView').then((m) => ({
+    default: m.FinanceView,
+  }))
+);
+const LanServerView = lazy(() =>
+  import('./features/lan/LanServerView').then((m) => ({
+    default: m.LanServerView,
+  }))
+);
+const PosView = lazy(() =>
+  import('./features/pos/PosView').then((m) => ({
+    default: m.PosView,
+  }))
+);
+const PrintingBackupView = lazy(() =>
+  import('./features/printing_backup/PrintingBackupView').then((m) => ({
+    default: m.PrintingBackupView,
+  }))
+);
 
 export type NavigationTab =
   | 'home'
   | 'directory'
   | 'users'
   | 'audit'
-  | 'reception'
   | 'catalog'
   | 'pos'
   | 'attendance'
   | 'lan'
   | 'finance'
   | 'printing_backup';
+
+const tabPreloaders: Partial<Record<NavigationTab, () => Promise<unknown>>> = {
+  attendance: () => import('./features/attendance/AttendanceView'),
+  audit: () => import('./features/audit/AuditLogViewer'),
+  users: () => import('./features/auth/UserManagementTable'),
+  catalog: () => import('./features/catalog/CatalogView'),
+  directory: () => import('./features/entities/EntityDirectoryView'),
+  finance: () => import('./features/finance/FinanceView'),
+  lan: () => import('./features/lan/LanServerView'),
+  pos: () => import('./features/pos/PosView'),
+  printing_backup: () => import('./features/printing_backup/PrintingBackupView'),
+};
+
+const preloadedTabs = new Set<NavigationTab>();
+function preloadTabModule(tab: NavigationTab): void {
+  if (preloadedTabs.has(tab)) return;
+  const loader = tabPreloaders[tab];
+  if (!loader) return;
+  preloadedTabs.add(tab);
+  void loader().catch(() => {
+    preloadedTabs.delete(tab);
+  });
+}
 
 interface NavItemConfig {
   id: NavigationTab;
@@ -98,7 +161,7 @@ export const App: React.FC = () => {
 
   const { theme, toggleTheme } = useTheme();
 
-  const [activeTab, setActiveTab] = useState<NavigationTab>('directory');
+  const [activeTab, setActiveTab] = useState<NavigationTab>('home');
   const [posInitialTab, setPosInitialTab] = useState<PosMainTab>('pos');
   const [directoryInitialSubTab, setDirectoryInitialSubTab] =
     useState<DirectorySubTab>('clients');
@@ -261,13 +324,11 @@ export const App: React.FC = () => {
   const canAccessUsers = Boolean(isAdmin && !session?.is_locked);
   const canAccessAudit = Boolean(isAdmin && !session?.is_locked);
 
-  // Ajustar pestaña inicial al cambiar de sesión según rol (sin parpadeo en primer render)
+  // Ajustar pestaña inicial al cambiar de sesión (ambos roles aterrizan en Inicio / Dashboard)
   const lastSessionUserRef = useRef<number | null>(null);
   const effectiveActiveTab: NavigationTab =
     session && lastSessionUserRef.current !== session.user_id
-      ? session.rol === 'RECEPCIONISTA'
-        ? 'reception'
-        : 'directory'
+      ? 'home'
       : activeTab;
 
   useEffect(() => {
@@ -277,11 +338,11 @@ export const App: React.FC = () => {
     }
     if (lastSessionUserRef.current !== session.user_id) {
       lastSessionUserRef.current = session.user_id;
-      setActiveTab(session.rol === 'RECEPCIONISTA' ? 'reception' : 'directory');
+      setActiveTab('home');
     }
   }, [session?.user_id, session?.rol]);
 
-  // Hook de Usuarios (Exclusivo Admin)
+  // Hook de Usuarios (Exclusivo Admin — carga diferida al abrir el módulo)
   const {
     users,
     isLoading: isUsersLoading,
@@ -293,9 +354,9 @@ export const App: React.FC = () => {
     updatePhoto: updateOtherUserPhoto,
     toggleActive: toggleUserActive,
     clearError: clearUsersError,
-  } = useUsers(canAccessUsers);
+  } = useUsers(canAccessUsers && effectiveActiveTab === 'users');
 
-  // Hook de Auditoría (Exclusivo Admin)
+  // Hook de Auditoría (Exclusivo Admin — carga diferida al abrir el módulo)
   const {
     logs,
     filter: auditFilter,
@@ -304,13 +365,23 @@ export const App: React.FC = () => {
     setFilter: setAuditFilter,
     fetchLogs: fetchAuditLogs,
     clearError: clearAuditError,
-  } = useAudit({}, canAccessAudit);
+  } = useAudit({}, canAccessAudit && effectiveActiveTab === 'audit');
 
   // Hook de Entidades (Directorio Segmentado)
   const entitiesHook = useEntities(Boolean(session && !session.is_locked));
 
+  // Hook de Notificaciones Inteligentes de Negocio en el Sidebar (Stock bajo, Deudores, Tachados)
+  const { visibleAlerts: sidebarAlerts, acknowledgeModule: acknowledgeSidebarAlert } =
+    useSidebarAlerts({
+      enabled: Boolean(session && !session.is_locked),
+      sessionUserId: session?.user_id ?? null,
+      isAdmin,
+      activeTab: effectiveActiveTab,
+    });
+
   const navigateToTab = (tab: NavigationTab) => {
     if (tab === 'pos') setPosInitialTab('pos');
+    acknowledgeSidebarAlert(tab);
     setActiveTab(tab);
     setIsMobileSidebarOpen(false);
   };
@@ -322,13 +393,6 @@ export const App: React.FC = () => {
         id: 'home',
         label: 'Inicio',
         icon: 'home',
-        group: 'Operación',
-        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
-      },
-      {
-        id: 'reception',
-        label: 'Panel Operativo',
-        icon: 'dashboard',
         group: 'Operación',
         roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
       },
@@ -348,9 +412,7 @@ export const App: React.FC = () => {
       },
       {
         id: 'directory',
-        label: isRecepcionista
-          ? 'Directorio (Clientes / Proveedores / Empresas)'
-          : 'Directorio (Clientes / Proveedores / Personas)',
+        label: 'Directorio',
         icon: 'directory',
         group: 'Gestión y Catálogo',
         roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
@@ -434,16 +496,6 @@ export const App: React.FC = () => {
         onSelect: () => setActiveTab('home'),
       },
       {
-        id: 'cmd-reception',
-        title: 'Panel Operativo',
-        subtitle: 'Vista operativa de recepción y mostrador',
-        tab: 'reception',
-        icon: 'dashboard',
-        keywords: 'panel operativo recepcion mostrador socios',
-        roles: ['ADMINISTRADOR', 'RECEPCIONISTA'],
-        onSelect: () => setActiveTab('reception'),
-      },
-      {
         id: 'cmd-attendance-monitor',
         title: 'Asistencias QR y Semáforo',
         subtitle: 'Escáner QR de acceso, evaluación verde/ámbar/rojo',
@@ -484,7 +536,7 @@ export const App: React.FC = () => {
       },
       {
         id: 'cmd-pos-main',
-        title: 'Caja y Punto de Venta (POS)',
+        title: 'Caja y Punto de Venta',
         subtitle: 'Abrir/cerrar turno, arqueo físico, carrito y cobro mixto',
         tab: 'pos',
         icon: 'pos',
@@ -523,7 +575,7 @@ export const App: React.FC = () => {
       },
       {
         id: 'cmd-pos-struck',
-        title: 'Caja y POS -> Tachados (Admin)',
+        title: 'Caja y POS -> Tachados',
         subtitle: 'Resolución definitiva o reversión de ventas tachadas',
         tab: 'pos',
         icon: 'scissors',
@@ -725,7 +777,7 @@ export const App: React.FC = () => {
       },
       {
         id: 'cmd-lan',
-        title: 'Wi-Fi & Escáner Móvil (LAN)',
+        title: 'Wi-Fi & Escáner Móvil',
         subtitle: 'Servidor local HTTPS :3443, mDNS y vinculación móvil',
         tab: 'lan',
         icon: 'wifi',
@@ -752,6 +804,7 @@ export const App: React.FC = () => {
   }, [searchCatalog, searchQuery]);
 
   const handleExecuteSearchItem = (item: SearchCommandItem) => {
+    acknowledgeSidebarAlert(item.tab);
     item.onSelect();
     setSearchQuery('');
     setIsSearchOpen(false);
@@ -788,6 +841,7 @@ export const App: React.FC = () => {
 
       if (e.key === 'F9') {
         e.preventDefault();
+        acknowledgeSidebarAlert('pos');
         setPosInitialTab('pos');
         setActiveTab('pos');
         return;
@@ -896,29 +950,35 @@ export const App: React.FC = () => {
       {/* 1. SIDEBAR IZQUIERDO COLAPSABLE CON SCROLL INDEPENDIENTE */}
       <aside
         aria-label="Navegación lateral ZaramaGYM"
-        className={`fixed inset-y-0 left-0 z-40 md:static md:inset-auto h-full flex flex-col overflow-hidden bg-surface border-r border-border transition-all duration-200 select-none ${
-          isMobileSidebarOpen ? 'translate-x-0 w-72 shadow-xl' : '-translate-x-full md:translate-x-0'
-        } ${isSidebarCollapsed ? 'md:w-20' : 'md:w-72'} shrink-0`}
+        className={`fixed inset-y-0 left-0 z-40 md:static md:inset-auto h-full flex flex-col overflow-hidden bg-chrome-sidebar border-r border-chrome-border transition-[transform,width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform select-none w-72 ${
+          isMobileSidebarOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full md:translate-x-0'
+        } ${isSidebarCollapsed ? 'md:w-20' : 'md:w-64 lg:w-72'} shrink-0`}
       >
-        {/* Cabecera del Sidebar */}
-        <div className="h-16 px-4 border-b border-border flex items-center justify-between gap-2 shrink-0">
+        {/* Cabecera del Sidebar: Logo siempre visible (sin flecha duplicada; el toggle vive en el Header) */}
+        <div
+          className={`h-16 border-b border-chrome-border flex items-center gap-2 shrink-0 ${
+            isSidebarCollapsed ? 'md:justify-center md:px-2 px-4 justify-between' : 'justify-between px-4'
+          }`}
+        >
             <button
               type="button"
               onClick={() => navigateToTab('home')}
-              className="flex items-center gap-2.5 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus rounded-lg p-1"
+              className={`flex items-center gap-2.5 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus rounded-lg p-1 ${
+                isSidebarCollapsed ? 'md:justify-center' : ''
+              }`}
               title="Ir a Inicio"
             >
               <img
                 src="/zaramagym-logo.png"
                 alt="ZaramaGYM"
-                className="w-9 h-9 rounded-lg object-contain shrink-0 bg-canvas-subtle p-0.5 border border-border"
+                className="w-9 h-9 rounded-lg object-contain shrink-0 bg-surface/90 p-0.5 border border-chrome-border shadow-xs"
               />
               {!isSidebarCollapsed && (
                 <div className="min-w-0">
                   <div className="text-sm font-black tracking-tight text-txt-primary truncate">
                     Zarama GYM
                   </div>
-                  <div className="text-[10px] text-txt-muted font-medium truncate">
+                  <div className="text-[10px] text-txt-secondary font-medium truncate">
                     Sistema Integral
                   </div>
                 </div>
@@ -927,23 +987,20 @@ export const App: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-              aria-label={isSidebarCollapsed ? 'Expandir barra lateral' : 'Colapsar barra lateral'}
-              className="hidden md:inline-flex p-1.5 rounded-md text-txt-muted hover:text-txt-primary hover:bg-surface-hover transition-colors"
-              title={isSidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+              onClick={() => setIsMobileSidebarOpen(false)}
+              aria-label="Cerrar menú lateral"
+              className="md:hidden inline-flex p-1.5 rounded-md text-txt-secondary hover:text-txt-primary hover:bg-chrome-hover transition-colors"
+              title="Cerrar menú"
             >
-              <Icon
-                name={isSidebarCollapsed ? 'chevron-right' : 'chevron-left'}
-                className="w-4 h-4"
-              />
+              <Icon name="x" className="w-4 h-4" />
             </button>
           </div>
 
           {/* Tarjeta de Perfil del Usuario Autenticado */}
-          <div className="p-3 border-b border-border shrink-0">
+          <div className="p-3 border-b border-chrome-border shrink-0">
             <div
-              className={`flex items-center gap-3 p-2 rounded-xl bg-canvas-subtle/70 border border-border ${
-                isSidebarCollapsed ? 'justify-center' : ''
+              className={`flex items-center gap-3 p-2 rounded-xl bg-chrome-surface/80 border border-chrome-border ${
+                isSidebarCollapsed ? 'md:justify-center' : ''
               }`}
             >
               <div className="relative shrink-0">
@@ -953,7 +1010,7 @@ export const App: React.FC = () => {
                   disabled={isUploadingPhoto || isAuthActionLoading}
                   title="Haz clic para cambiar tu foto de perfil"
                   aria-label="Cambiar foto de perfil"
-                  className="w-10 h-10 rounded-full border-2 border-border overflow-hidden flex items-center justify-center bg-surface hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand transition-all cursor-pointer relative"
+                  className="w-10 h-10 rounded-full border-2 border-chrome-border overflow-hidden flex items-center justify-center bg-surface hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand transition-colors duration-150 cursor-pointer relative"
                 >
                   {isUploadingPhoto ? (
                     <span className="text-[10px] font-bold text-txt-muted animate-pulse">
@@ -994,7 +1051,7 @@ export const App: React.FC = () => {
                     >
                       {session.rol}
                     </Badge>
-                    <span className="text-[11px] text-txt-muted font-mono truncate">
+                    <span className="text-[11px] text-txt-secondary font-mono truncate">
                       @{session.username}
                     </span>
                   </div>
@@ -1011,37 +1068,71 @@ export const App: React.FC = () => {
             {groupedNavItems.map(({ group, items }) => (
               <div key={group} className="flex flex-col gap-1">
                 {!isSidebarCollapsed && (
-                  <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-txt-muted">
+                  <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-txt-secondary">
                     {group}
                   </div>
                 )}
                 {items.map((item) => {
                   const isActive = effectiveActiveTab === item.id;
+                  const moduleAlert =
+                    item.id === 'catalog' ||
+                    item.id === 'pos' ||
+                    item.id === 'finance'
+                      ? sidebarAlerts[item.id]
+                      : undefined;
 
                   return (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => navigateToTab(item.id)}
+                      onMouseEnter={() => preloadTabModule(item.id)}
+                      onFocus={() => preloadTabModule(item.id)}
                       aria-label={item.label}
-                      title={item.label}
+                      title={
+                        moduleAlert
+                          ? `${item.label} — ${moduleAlert.label}`
+                          : item.label
+                      }
                       aria-current={isActive ? 'page' : undefined}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left ${
-                        isSidebarCollapsed ? 'justify-center px-2' : ''
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-[background-color,color,border-color,transform] duration-150 ease-out active:scale-[0.99] motion-reduce:active:scale-100 text-left ${
+                        isSidebarCollapsed ? 'md:justify-center md:px-2' : ''
                       } ${
                         isActive
-                          ? 'bg-status-success-bg text-status-success border border-status-success/25 shadow-xs'
-                          : 'text-txt-secondary hover:text-txt-primary hover:bg-surface-hover border border-transparent'
+                          ? 'bg-surface dark:bg-status-success-bg text-status-success border border-status-success/35 shadow-xs'
+                          : 'text-txt-secondary hover:text-txt-primary hover:bg-chrome-hover border border-transparent'
                       }`}
                     >
-                      <Icon
-                        name={item.icon}
-                        className={`w-4 h-4 shrink-0 ${
-                          isActive ? 'text-status-success' : 'text-txt-muted'
-                        }`}
-                      />
+                      <span className="relative inline-flex shrink-0">
+                        <Icon
+                          name={item.icon}
+                          className={`w-4 h-4 shrink-0 ${
+                            isActive ? 'text-status-success' : 'text-txt-secondary'
+                          }`}
+                        />
+                        {isSidebarCollapsed && moduleAlert && (
+                          <span
+                            data-testid={`sidebar-alert-${item.id}`}
+                            aria-hidden="true"
+                            className="hidden md:inline-flex items-center justify-center absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white font-mono text-[9px] font-bold shadow-xs"
+                          >
+                            {moduleAlert.count > 99 ? '99+' : moduleAlert.count}
+                          </span>
+                        )}
+                      </span>
                       {!isSidebarCollapsed && (
-                        <span className="truncate">{item.label}</span>
+                        <>
+                          <span className="truncate flex-1">{item.label}</span>
+                          {moduleAlert && (
+                            <span
+                              data-testid={`sidebar-alert-${item.id}`}
+                              title={moduleAlert.label}
+                              className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-amber-500 text-white font-mono text-[10px] font-bold shrink-0 shadow-xs"
+                            >
+                              {moduleAlert.count > 99 ? '99+' : moduleAlert.count}
+                            </span>
+                          )}
+                        </>
                       )}
                     </button>
                   );
@@ -1051,7 +1142,7 @@ export const App: React.FC = () => {
           </nav>
 
         {/* Pie del Sidebar: Cerrar Sesión */}
-        <div className="p-3 border-t border-border flex flex-col gap-2 shrink-0 bg-canvas-subtle/40">
+        <div className="p-3 border-t border-chrome-border flex flex-col gap-2 shrink-0 bg-chrome-surface/60">
           <Button
             type="button"
             variant="ghost"
@@ -1060,7 +1151,7 @@ export const App: React.FC = () => {
             disabled={isAuthActionLoading}
             aria-label="Cerrar Sesión"
             title="Cerrar Sesión"
-            className="w-full px-2.5 text-status-danger hover:bg-status-danger-bg hover:text-status-danger border border-status-danger/20"
+            className="w-full px-2.5 text-status-danger hover:bg-status-danger-bg hover:text-status-danger border border-status-danger/25"
             leftIcon={<Icon name="logout" className="w-3.5 h-3.5" />}
           >
             {!isSidebarCollapsed ? 'Cerrar Sesión' : ''}
@@ -1071,13 +1162,14 @@ export const App: React.FC = () => {
       {/* COLUMNA PRINCIPAL (HEADER FIJO + MAIN SCROLLABLE + FOOTER FIJO) */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* 2. HEADER SUPERIOR CON HAMBURGUESA + BUSCADOR CTRL+K */}
-        <header className="h-16 bg-surface border-b border-border px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0 z-20">
+        <header className="h-16 bg-chrome-bar border-b border-chrome-border px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0 z-20">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               type="button"
               onClick={handleToggleSidebar}
               aria-label="Alternar barra lateral"
-              className="p-2 rounded-lg border border-border bg-canvas-subtle/60 hover:bg-surface-hover text-txt-secondary hover:text-txt-primary transition-colors shrink-0"
+              title={isSidebarCollapsed ? 'Expandir menú lateral' : 'Minimizar menú lateral'}
+              className="p-2 rounded-lg border border-chrome-border bg-chrome-surface/80 hover:bg-chrome-hover text-txt-secondary hover:text-txt-primary transition-colors shrink-0"
             >
               <Icon name="menu" className="w-4 h-4" />
             </button>
@@ -1127,9 +1219,9 @@ export const App: React.FC = () => {
                     }}
                     placeholder="Buscar módulos, submódulos o funciones (ej. RUC 20, arqueo, mermas, QR, backup)..."
                     aria-label="Buscador inteligente de módulos y submódulos"
-                    className="w-full bg-canvas-subtle border border-border rounded-xl pl-9 pr-16 py-2 text-xs sm:text-sm text-txt-primary placeholder:text-txt-muted focus:outline-none focus:bg-surface focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                    className="w-full bg-surface/90 border border-chrome-border rounded-xl pl-9 pr-3 sm:pr-16 py-2 text-xs sm:text-sm text-txt-primary placeholder:text-txt-muted focus:outline-none focus:bg-surface focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
                   />
-                  <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded bg-surface border border-border font-mono text-[10px] font-bold text-txt-muted absolute right-2.5 pointer-events-none">
+                  <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded bg-chrome-surface border border-chrome-border font-mono text-[10px] font-bold text-txt-secondary absolute right-2.5 pointer-events-none">
                     Ctrl+K
                   </kbd>
                 </div>
@@ -1140,7 +1232,7 @@ export const App: React.FC = () => {
                 <div
                   role="listbox"
                   aria-label="Resultados de navegación"
-                  className="absolute left-0 right-0 mt-2 bg-surface border border-elevated rounded-xl shadow-lg overflow-hidden z-50 max-h-80 overflow-y-auto"
+                  className="zg-dropdown-enter absolute left-0 right-0 mt-2 bg-surface border border-elevated rounded-xl shadow-lg overflow-hidden z-50 max-h-80 overflow-y-auto"
                 >
                   {searchResults.length === 0 ? (
                     <div className="p-4 text-center text-xs text-txt-muted">
@@ -1156,7 +1248,10 @@ export const App: React.FC = () => {
                             type="button"
                             role="option"
                             aria-selected={isHighlighted}
-                            onMouseEnter={() => setSelectedSearchIndex(idx)}
+                            onMouseEnter={() => {
+                              setSelectedSearchIndex(idx);
+                              preloadTabModule(item.tab);
+                            }}
                             onClick={() => handleExecuteSearchItem(item)}
                             className={`w-full px-3.5 py-2.5 flex items-center gap-3 text-left transition-colors ${
                               isHighlighted
@@ -1201,7 +1296,7 @@ export const App: React.FC = () => {
                   ? 'Modo Oscuro activo (clic para cambiar a Claro)'
                   : 'Modo Claro activo (clic para cambiar a Oscuro)'
               }
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-canvas-subtle hover:bg-surface-hover border border-border text-txt-primary transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-chrome-surface/80 hover:bg-chrome-hover border border-chrome-border text-txt-primary transition-colors"
             >
               <Icon
                 name={theme === 'dark' ? 'moon' : 'sun'}
@@ -1225,13 +1320,6 @@ export const App: React.FC = () => {
             >
               <span className="hidden sm:inline">Bloquear</span>
             </Button>
-
-            
-            <img
-              src="/zaramagym-logo.png"
-              alt="ZaramaGYM"
-              className="w-8 h-8 rounded-lg object-contain bg-canvas-subtle p-0.5 border border-border"
-            />
           </div>
         </header>
 
@@ -1302,34 +1390,36 @@ export const App: React.FC = () => {
                       Gestión de socios con credencial QR y control de peso, empresas jurídicas y directorio de personas.
                     </p>
                   </div>
-                  <EntityDirectoryView
-                    currentSession={session}
-                    initialSubTab={directoryInitialSubTab}
-                    clients={entitiesHook.clients}
-                    suppliers={entitiesHook.suppliers}
-                    persons={entitiesHook.persons}
-                    companies={entitiesHook.companies}
-                    isLoading={entitiesHook.isLoading}
-                    isActionLoading={entitiesHook.isActionLoading}
-                    error={entitiesHook.error}
-                    onRefresh={entitiesHook.refreshAll}
-                    onCreateClient={entitiesHook.createClient}
-                    onUpdateClient={entitiesHook.updateClient}
-                    onToggleClientActive={entitiesHook.toggleClientActive}
-                    onRegenerateClientQr={entitiesHook.regenerateClientQr}
-                    onRecordClientWeight={entitiesHook.recordClientWeight}
-                    onGetClientWeightHistory={entitiesHook.getClientWeightHistory}
-                    onCreateSupplier={entitiesHook.createSupplier}
-                    onUpdateSupplier={entitiesHook.updateSupplier}
-                    onToggleSupplierActive={entitiesHook.toggleSupplierActive}
-                    onCreatePerson={entitiesHook.createPerson}
-                    onUpdatePerson={entitiesHook.updatePerson}
-                    onTogglePersonActive={entitiesHook.togglePersonActive}
-                    onCreateCompany={entitiesHook.createCompany}
-                    onUpdateCompany={entitiesHook.updateCompany}
-                    onToggleCompanyActive={entitiesHook.toggleCompanyActive}
-                    onClearError={entitiesHook.clearError}
-                  />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Directorio..." />}>
+                    <EntityDirectoryView
+                      currentSession={session}
+                      initialSubTab={directoryInitialSubTab}
+                      clients={entitiesHook.clients}
+                      suppliers={entitiesHook.suppliers}
+                      persons={entitiesHook.persons}
+                      companies={entitiesHook.companies}
+                      isLoading={entitiesHook.isLoading}
+                      isActionLoading={entitiesHook.isActionLoading}
+                      error={entitiesHook.error}
+                      onRefresh={entitiesHook.refreshAll}
+                      onCreateClient={entitiesHook.createClient}
+                      onUpdateClient={entitiesHook.updateClient}
+                      onToggleClientActive={entitiesHook.toggleClientActive}
+                      onRegenerateClientQr={entitiesHook.regenerateClientQr}
+                      onRecordClientWeight={entitiesHook.recordClientWeight}
+                      onGetClientWeightHistory={entitiesHook.getClientWeightHistory}
+                      onCreateSupplier={entitiesHook.createSupplier}
+                      onUpdateSupplier={entitiesHook.updateSupplier}
+                      onToggleSupplierActive={entitiesHook.toggleSupplierActive}
+                      onCreatePerson={entitiesHook.createPerson}
+                      onUpdatePerson={entitiesHook.updatePerson}
+                      onTogglePersonActive={entitiesHook.togglePersonActive}
+                      onCreateCompany={entitiesHook.createCompany}
+                      onUpdateCompany={entitiesHook.updateCompany}
+                      onToggleCompanyActive={entitiesHook.toggleCompanyActive}
+                      onClearError={entitiesHook.clearError}
+                    />
+                  </Suspense>
                 </section>
               )}
 
@@ -1343,20 +1433,22 @@ export const App: React.FC = () => {
                       Administra administradores, recepcionistas y credenciales del gimnasio.
                     </p>
                   </div>
-                  <UserManagementTable
-                    currentSession={session}
-                    users={users}
-                    persons={entitiesHook.persons}
-                    isLoading={isUsersLoading}
-                    isActionLoading={isUserActionLoading}
-                    error={usersError}
-                    onRefresh={fetchUsers}
-                    onCreateUser={createUser}
-                    onUpdateUser={updateUser}
-                    onToggleActive={toggleUserActive}
-                    onUpdatePhoto={updateOtherUserPhoto}
-                    onClearError={clearUsersError}
-                  />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Usuarios..." />}>
+                    <UserManagementTable
+                      currentSession={session}
+                      users={users}
+                      persons={entitiesHook.persons}
+                      isLoading={isUsersLoading}
+                      isActionLoading={isUserActionLoading}
+                      error={usersError}
+                      onRefresh={fetchUsers}
+                      onCreateUser={createUser}
+                      onUpdateUser={updateUser}
+                      onToggleActive={toggleUserActive}
+                      onUpdatePhoto={updateOtherUserPhoto}
+                      onClearError={clearUsersError}
+                    />
+                  </Suspense>
                 </section>
               )}
 
@@ -1370,57 +1462,21 @@ export const App: React.FC = () => {
                       Historial inmutable de eventos de acceso, modificaciones y seguridad del gimnasio.
                     </p>
                   </div>
-                  <AuditLogViewer
-                    logs={logs}
-                    filter={auditFilter}
-                    isLoading={isAuditLoading}
-                    error={auditError}
-                    onFilterChange={(newFilter) => {
-                      setAuditFilter(newFilter);
-                      fetchAuditLogs(newFilter);
-                    }}
-                    onRefresh={() => fetchAuditLogs()}
-                    onClearError={clearAuditError}
-                  />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Auditoría..." />}>
+                    <AuditLogViewer
+                      logs={logs}
+                      filter={auditFilter}
+                      isLoading={isAuditLoading}
+                      error={auditError}
+                      onFilterChange={(newFilter) => {
+                        setAuditFilter(newFilter);
+                        fetchAuditLogs(newFilter);
+                      }}
+                      onRefresh={() => fetchAuditLogs()}
+                      onClearError={clearAuditError}
+                    />
+                  </Suspense>
                 </section>
-              )}
-
-              {effectiveActiveTab === 'reception' && (
-                <ReceptionDashboard
-                  session={session}
-                  onLockSession={lockSession}
-                  onNavigateToPos={(tab) => {
-                    if (tab) setPosInitialTab(tab);
-                    setActiveTab('pos');
-                  }}
-                  onNavigateToAttendance={() => setActiveTab('attendance')}
-                  entitiesProps={{
-                    clients: entitiesHook.clients,
-                    suppliers: entitiesHook.suppliers,
-                    persons: entitiesHook.persons,
-                    companies: entitiesHook.companies,
-                    isLoading: entitiesHook.isLoading,
-                    isActionLoading: entitiesHook.isActionLoading,
-                    error: entitiesHook.error,
-                    onRefresh: entitiesHook.refreshAll,
-                    onCreateClient: entitiesHook.createClient,
-                    onUpdateClient: entitiesHook.updateClient,
-                    onToggleClientActive: entitiesHook.toggleClientActive,
-                    onRegenerateClientQr: entitiesHook.regenerateClientQr,
-                    onRecordClientWeight: entitiesHook.recordClientWeight,
-                    onGetClientWeightHistory: entitiesHook.getClientWeightHistory,
-                    onCreateSupplier: entitiesHook.createSupplier,
-                    onUpdateSupplier: entitiesHook.updateSupplier,
-                    onToggleSupplierActive: entitiesHook.toggleSupplierActive,
-                    onCreatePerson: entitiesHook.createPerson,
-                    onUpdatePerson: entitiesHook.updatePerson,
-                    onTogglePersonActive: entitiesHook.togglePersonActive,
-                    onCreateCompany: entitiesHook.createCompany,
-                    onUpdateCompany: entitiesHook.updateCompany,
-                    onToggleCompanyActive: entitiesHook.toggleCompanyActive,
-                    onClearError: entitiesHook.clearError,
-                  }}
-                />
               )}
 
               {effectiveActiveTab === 'catalog' && (
@@ -1433,7 +1489,9 @@ export const App: React.FC = () => {
                       Gestión de planes, inventario de productos y bitácora de mermas.
                     </p>
                   </div>
-                  <CatalogView currentSession={session} initialTab={catalogInitialTab} />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Catálogo..." />}>
+                    <CatalogView currentSession={session} initialTab={catalogInitialTab} />
+                  </Suspense>
                 </section>
               )}
 
@@ -1441,13 +1499,15 @@ export const App: React.FC = () => {
                 <section aria-labelledby="pos-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="pos-heading" className="text-lg font-bold text-txt-primary">
-                      Caja, Punto de Venta (POS) y Cuentas por Cobrar
+                      Caja, Punto de Venta y Cuentas por Cobrar
                     </h2>
                     <p className="text-xs text-txt-muted">
                       Apertura/Cierre de turnos de caja física y digital, registro de ventas multidominio y auditoría de tachados.
                     </p>
                   </div>
-                  <PosView currentSession={session} initialTab={posInitialTab} />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Caja y POS..." />}>
+                    <PosView currentSession={session} initialTab={posInitialTab} />
+                  </Suspense>
                 </section>
               )}
 
@@ -1461,15 +1521,17 @@ export const App: React.FC = () => {
                       Escáner QR en mostrador, evaluación automática de vigencia y crédito, destrabe en rojo y prórrogas.
                     </p>
                   </div>
-                  <AttendanceView
-                    currentSession={session}
-                    clients={entitiesHook.clients}
-                    initialTab={attendanceInitialTab}
-                    onNavigateToPos={(subTab) => {
-                      if (subTab) setPosInitialTab(subTab);
-                      setActiveTab('pos');
-                    }}
-                  />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Asistencias..." />}>
+                    <AttendanceView
+                      currentSession={session}
+                      clients={entitiesHook.clients}
+                      initialTab={attendanceInitialTab}
+                      onNavigateToPos={(subTab) => {
+                        if (subTab) setPosInitialTab(subTab);
+                        setActiveTab('pos');
+                      }}
+                    />
+                  </Suspense>
                 </section>
               )}
 
@@ -1477,40 +1539,46 @@ export const App: React.FC = () => {
                 <section aria-labelledby="lan-heading" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="lan-heading" className="text-lg font-bold text-txt-primary">
-                      Servidor Wi-Fi Local, Certificado CA y Escáner Móvil (iOS / Android)
+                      Servidor Wi-Fi Local, Certificado CA y Escáner Móvil
                     </h2>
                     <p className="text-xs text-txt-muted">
                       Conexión local sin Internet (:3443 + mDNS), vinculación de smartphones por código de 6 caracteres y semáforo instantáneo.
                     </p>
                   </div>
-                  <LanServerView currentSession={session} clients={entitiesHook.clients} />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Servidor Wi-Fi..." />}>
+                    <LanServerView currentSession={session} clients={entitiesHook.clients} />
+                  </Suspense>
                 </section>
               )}
 
               {effectiveActiveTab === 'finance' && (
                 <section aria-labelledby="finance-heading" className="w-full min-w-0 flex-1 flex flex-col">
-                  <FinanceView currentSession={session} initialTab={financeInitialTab} />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Finanzas..." />}>
+                    <FinanceView currentSession={session} initialTab={financeInitialTab} />
+                  </Suspense>
                 </section>
               )}
 
               {effectiveActiveTab === 'printing_backup' && (
                 <section aria-labelledby="printing-backup-heading" className="w-full min-w-0 flex-1 flex flex-col">
-                  <PrintingBackupView
-                    currentSession={session}
-                    initialTab={printingInitialTab}
-                    onDatabaseRestored={async (result) => {
-                      if (result.requires_relogin) {
-                        await checkSession();
-                        return;
-                      }
-                      await Promise.allSettled([
-                        checkSession(),
-                        entitiesHook.refreshAll(),
-                        canAccessUsers ? fetchUsers() : Promise.resolve(),
-                        canAccessAudit ? fetchAuditLogs() : Promise.resolve(),
-                      ]);
-                    }}
-                  />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Impresión y Backups..." />}>
+                    <PrintingBackupView
+                      currentSession={session}
+                      initialTab={printingInitialTab}
+                      onDatabaseRestored={async (result) => {
+                        if (result.requires_relogin) {
+                          await checkSession();
+                          return;
+                        }
+                        await Promise.allSettled([
+                          checkSession(),
+                          entitiesHook.refreshAll(),
+                          canAccessUsers ? fetchUsers() : Promise.resolve(),
+                          canAccessAudit ? fetchAuditLogs() : Promise.resolve(),
+                        ]);
+                      }}
+                    />
+                  </Suspense>
                 </section>
               )}
             </div>
@@ -1537,31 +1605,35 @@ export const App: React.FC = () => {
                       Inscripción y edición de clientes con QR, y registro/consulta de proveedores y empresas RUC 20.
                     </p>
                   </div>
-                  <EntityDirectoryView
-                    currentSession={session}
-                    initialSubTab={directoryInitialSubTab}
-                    clients={entitiesHook.clients}
-                    suppliers={entitiesHook.suppliers}
-                    persons={entitiesHook.persons}
-                    companies={entitiesHook.companies}
-                    isLoading={entitiesHook.isLoading}
-                    isActionLoading={entitiesHook.isActionLoading}
-                    error={entitiesHook.error}
-                    onRefresh={entitiesHook.refreshAll}
-                    onCreateClient={entitiesHook.createClient}
-                    onUpdateClient={entitiesHook.updateClient}
-                    onToggleClientActive={entitiesHook.toggleClientActive}
-                    onRegenerateClientQr={entitiesHook.regenerateClientQr}
-                    onRecordClientWeight={entitiesHook.recordClientWeight}
-                    onGetClientWeightHistory={entitiesHook.getClientWeightHistory}
-                    onCreateSupplier={entitiesHook.createSupplier}
-                    onCreateCompany={entitiesHook.createCompany}
-                    onClearError={entitiesHook.clearError}
-                  />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Directorio..." />}>
+                    <EntityDirectoryView
+                      currentSession={session}
+                      initialSubTab={directoryInitialSubTab}
+                      clients={entitiesHook.clients}
+                      suppliers={entitiesHook.suppliers}
+                      persons={entitiesHook.persons}
+                      companies={entitiesHook.companies}
+                      isLoading={entitiesHook.isLoading}
+                      isActionLoading={entitiesHook.isActionLoading}
+                      error={entitiesHook.error}
+                      onRefresh={entitiesHook.refreshAll}
+                      onCreateClient={entitiesHook.createClient}
+                      onUpdateClient={entitiesHook.updateClient}
+                      onToggleClientActive={entitiesHook.toggleClientActive}
+                      onRegenerateClientQr={entitiesHook.regenerateClientQr}
+                      onRecordClientWeight={entitiesHook.recordClientWeight}
+                      onGetClientWeightHistory={entitiesHook.getClientWeightHistory}
+                      onCreateSupplier={entitiesHook.createSupplier}
+                      onCreateCompany={entitiesHook.createCompany}
+                      onClearError={entitiesHook.clearError}
+                    />
+                  </Suspense>
                 </section>
               ) : effectiveActiveTab === 'finance' ? (
                 <section aria-labelledby="finance-heading-recep" className="w-full min-w-0 flex-1 flex flex-col">
-                  <FinanceView currentSession={session} initialTab={financeInitialTab} />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Finanzas..." />}>
+                    <FinanceView currentSession={session} initialTab={financeInitialTab} />
+                  </Suspense>
                 </section>
               ) : effectiveActiveTab === 'catalog' ? (
                 <section aria-labelledby="catalogo-recep-heading" className="w-full min-w-0 flex-1 flex flex-col">
@@ -1573,19 +1645,23 @@ export const App: React.FC = () => {
                       Consulta de planes con simulador Day Overflow, registro/edición de productos y consulta de Kardex.
                     </p>
                   </div>
-                  <CatalogView currentSession={session} initialTab={catalogInitialTab} />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Catálogo..." />}>
+                    <CatalogView currentSession={session} initialTab={catalogInitialTab} />
+                  </Suspense>
                 </section>
               ) : effectiveActiveTab === 'pos' ? (
                 <section aria-labelledby="pos-heading-recep" className="w-full min-w-0 flex-1 flex flex-col">
                   <div className="mb-4">
                     <h2 id="pos-heading-recep" className="text-lg font-bold text-txt-primary">
-                      Caja, Punto de Venta (POS) y Cuentas por Cobrar
+                      Caja, Punto de Venta y Cuentas por Cobrar
                     </h2>
                     <p className="text-xs text-txt-muted">
                       Apertura/cierre de turnos de caja física y digital, registro de ventas multidominio y cobro de deudores.
                     </p>
                   </div>
-                  <PosView currentSession={session} initialTab={posInitialTab} />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Caja y POS..." />}>
+                    <PosView currentSession={session} initialTab={posInitialTab} />
+                  </Suspense>
                 </section>
               ) : effectiveActiveTab === 'attendance' ? (
                 <section aria-labelledby="attendance-heading-recep" className="w-full min-w-0 flex-1 flex flex-col">
@@ -1600,43 +1676,26 @@ export const App: React.FC = () => {
                       Escáner QR en mostrador, evaluación automática de vigencia y crédito, destrabe en rojo y prórrogas.
                     </p>
                   </div>
-                  <AttendanceView
-                    currentSession={session}
-                    clients={entitiesHook.clients}
-                    initialTab={attendanceInitialTab}
-                    onNavigateToPos={(subTab) => {
-                      if (subTab) setPosInitialTab(subTab);
-                      setActiveTab('pos');
-                    }}
-                  />
+                  <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Asistencias..." />}>
+                    <AttendanceView
+                      currentSession={session}
+                      clients={entitiesHook.clients}
+                      initialTab={attendanceInitialTab}
+                      onNavigateToPos={(subTab) => {
+                        if (subTab) setPosInitialTab(subTab);
+                        setActiveTab('pos');
+                      }}
+                    />
+                  </Suspense>
                 </section>
               ) : (
-                <ReceptionDashboard
+                <HomeDashboardView
                   session={session}
-                  onLockSession={lockSession}
-                  onNavigateToPos={(tab) => {
-                    if (tab) setPosInitialTab(tab);
-                    setActiveTab('pos');
-                  }}
-                  onNavigateToAttendance={() => setActiveTab('attendance')}
-                  entitiesProps={{
-                    clients: entitiesHook.clients,
-                    suppliers: entitiesHook.suppliers,
-                    persons: entitiesHook.persons,
-                    companies: entitiesHook.companies,
-                    isLoading: entitiesHook.isLoading,
-                    isActionLoading: entitiesHook.isActionLoading,
-                    error: entitiesHook.error,
-                    onRefresh: entitiesHook.refreshAll,
-                    onCreateClient: entitiesHook.createClient,
-                    onUpdateClient: entitiesHook.updateClient,
-                    onToggleClientActive: entitiesHook.toggleClientActive,
-                    onRegenerateClientQr: entitiesHook.regenerateClientQr,
-                    onRecordClientWeight: entitiesHook.recordClientWeight,
-                    onGetClientWeightHistory: entitiesHook.getClientWeightHistory,
-                    onCreateSupplier: entitiesHook.createSupplier,
-                    onCreateCompany: entitiesHook.createCompany,
-                    onClearError: entitiesHook.clearError,
+                  clientsCount={entitiesHook.clients.length}
+                  onNavigate={(tab) => navigateToTab(tab)}
+                  onOpenSearch={() => {
+                    setIsSearchOpen(true);
+                    searchInputRef.current?.focus();
                   }}
                 />
               )}
@@ -1646,7 +1705,7 @@ export const App: React.FC = () => {
         </main>
 
         {/* 4. FOOTER INFERIOR COMPACTO FIJO */}
-        <footer className="min-h-[42px] border-t border-border bg-surface px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-txt-muted shrink-0">
+        <footer className="min-h-[42px] border-t border-chrome-border bg-chrome-bar px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-txt-secondary shrink-0">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-status-success" aria-hidden="true" />
             <span>
@@ -1655,7 +1714,7 @@ export const App: React.FC = () => {
                 type="button"
                 onClick={() => setIsDeveloperCardOpen(true)}
                 title="Ver información de contacto de Max Rios"
-                className="font-semibold text-txt-secondary hover:text-brand underline decoration-border-strong underline-offset-2 hover:decoration-brand transition-colors rounded-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
+                className="font-semibold text-txt-primary hover:text-brand underline decoration-border-strong underline-offset-2 hover:decoration-brand transition-colors rounded-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
               >
                 Contacto: Max Rios
               </button>
@@ -1669,7 +1728,7 @@ export const App: React.FC = () => {
                     className={`inline-flex items-center gap-1 font-semibold rounded-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus ${
                       availableUpdate
                         ? 'text-status-success hover:underline'
-                        : 'text-txt-secondary hover:text-brand underline decoration-border-strong underline-offset-2 hover:decoration-brand'
+                        : 'text-txt-primary hover:text-brand underline decoration-border-strong underline-offset-2 hover:decoration-brand'
                     }`}
                   >
                     <Icon name={availableUpdate ? 'download' : 'refresh'} className="w-3 h-3" />
@@ -1685,19 +1744,19 @@ export const App: React.FC = () => {
           </div>
 
           <div className="hidden sm:flex items-center gap-2 flex-wrap">
-            <span className="px-2 py-0.5 rounded bg-canvas-subtle border border-border font-mono text-[10px]">
+            <span className="px-2 py-0.5 rounded bg-chrome-surface border border-chrome-border font-mono text-[10px]">
               Ctrl+K Buscar
             </span>
             <span aria-hidden="true">•</span>
-            <span className="px-2 py-0.5 rounded bg-canvas-subtle border border-border font-mono text-[10px]">
+            <span className="px-2 py-0.5 rounded bg-chrome-surface border border-chrome-border font-mono text-[10px]">
               F2 Directorio
             </span>
             <span aria-hidden="true">•</span>
-            <span className="px-2 py-0.5 rounded bg-canvas-subtle border border-border font-mono text-[10px]">
+            <span className="px-2 py-0.5 rounded bg-chrome-surface border border-chrome-border font-mono text-[10px]">
               F4 Asistencias
             </span>
             <span aria-hidden="true">•</span>
-            <span className="px-2 py-0.5 rounded bg-canvas-subtle border border-border font-mono text-[10px]">
+            <span className="px-2 py-0.5 rounded bg-chrome-surface border border-chrome-border font-mono text-[10px]">
               F9 Caja POS
             </span>
           </div>
