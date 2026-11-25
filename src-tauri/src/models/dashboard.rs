@@ -128,3 +128,23 @@ pub struct ExportSalesReportRequest {
     pub canal_filtro: Option<String>,
     pub format: ExportFormat,
 }
+
+// ============================================================================
+// PERMISOS CONFIGURABLES DE RECEPCIONISTA (BI-SLICE 1)
+// ============================================================================
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ReceptionistPermissionsDto {
+    pub ver_ingresos_mes_operativo: bool,
+    pub ver_tab_finanzas: bool,
+    pub ver_dashboard_modulo_finanzas: bool,
+    pub ver_tab_socios: bool,
+    pub ver_tab_asistencia: bool,
+    pub ver_tab_inventario: bool,
+    pub ver_tab_control: bool,
+    pub exportar_clientes: bool,
+    pub exportar_deudores: bool,
+    pub exportar_ventas_caja: bool,
+    pub exportar_contextual_bi: bool,
+    pub exportar_reporte_ejecutivo_pdf: bool,
+}

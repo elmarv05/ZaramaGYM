@@ -1467,136 +1467,357 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       background: var(--danger-hover);
     }
 
-    /* Overlay Semafórico (tonos ejecutivos mate de alta legibilidad, sin destello neón) */
+    /* Overlay Semafórico estilo shadcn/ui con entrada/salida fluida (compositor-only) */
     .overlay {
       position: fixed;
       inset: 0;
       z-index: 100;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      text-align: center;
-      color: #ffffff;
-    }
-    .overlay.VERDE { background-color: #065f46; }
-    .overlay.AMARILLO { background-color: #92400e; }
-    .overlay.ROJO { background-color: #991b1b; }
-    .overlay-icon-circle {
-      width: 72px;
-      height: 72px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.14);
-      border: 1.5px solid rgba(255, 255, 255, 0.32);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 14px;
+      padding: 18px;
+      opacity: 1;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition:
+        display 0.2s ease-out,
+        opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+      transition-behavior: allow-discrete;
     }
-    .overlay-icon-circle svg {
-      width: 38px;
-      height: 38px;
+    .overlay.VERDE {
+      background: rgba(6, 78, 59, 0.86);
+      --tl-accent: var(--brand);
+      --tl-soft-bg: var(--brand-soft-bg);
+      --tl-soft-border: var(--brand-soft-border);
+      --tl-soft-text: var(--brand-soft-text);
+    }
+    .overlay.AMARILLO {
+      background: rgba(120, 53, 15, 0.86);
+      --tl-accent: var(--amber-dot);
+      --tl-soft-bg: var(--amber-bg);
+      --tl-soft-border: var(--amber-border);
+      --tl-soft-text: var(--amber-text);
+    }
+    .overlay.ROJO {
+      background: rgba(127, 29, 29, 0.88);
+      --tl-accent: var(--danger);
+      --tl-soft-bg: var(--danger-bg);
+      --tl-soft-border: var(--danger-border);
+      --tl-soft-text: var(--danger-text);
+    }
+    @starting-style {
+      .overlay {
+        opacity: 0;
+      }
+      .overlay .overlay-card {
+        opacity: 0;
+        transform: translateY(16px) scale(0.96);
+      }
+    }
+    .overlay:where([hidden], [data-closing]) {
+      opacity: 0;
+    }
+    .overlay:where([hidden], [data-closing]) .overlay-card {
+      opacity: 0;
+      transform: translateY(10px) scale(0.97);
+    }
+    .overlay[hidden] {
       display: none;
     }
-    .overlay h1 {
-      font-size: 1.55rem;
-      font-weight: 800;
-      letter-spacing: -0.01em;
-      text-transform: uppercase;
-      margin-bottom: 4px;
+
+    .overlay-card {
+      position: relative;
+      width: 100%;
+      max-width: 376px;
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-top: 4px solid var(--tl-accent);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-modal);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      opacity: 1;
+      transform: none;
+      transition:
+        opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform, opacity;
     }
-    .overlay h2 {
-      font-size: 1.25rem;
+    .overlay-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 13px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .overlay-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      background: var(--tl-soft-bg);
+      border: 1px solid var(--tl-soft-border);
+      color: var(--tl-soft-text);
+      font-size: 0.7rem;
       font-weight: 700;
-      margin-bottom: 4px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .overlay-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--tl-accent);
+      flex-shrink: 0;
+    }
+    .overlay-timer {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-mut);
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+      background: var(--card-subtle);
+      border: 1px solid var(--border);
+    }
+    .overlay-card-body {
+      padding: 18px 16px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 12px;
+    }
+    .overlay-icon-wrap {
+      position: relative;
+      width: 58px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay-icon-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1.5px solid var(--tl-accent);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .overlay-icon-circle {
+      position: relative;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: var(--tl-soft-bg);
+      border: 1.5px solid var(--tl-soft-border);
+      color: var(--tl-soft-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay-icon-circle svg {
+      width: 28px;
+      height: 28px;
+      display: none;
+    }
+    .overlay-identity {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      width: 100%;
+    }
+    .overlay-client-name {
+      font-size: 1.18rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      line-height: 1.25;
+      word-break: break-word;
     }
     .overlay-doc {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.8rem;
-      opacity: 0.88;
-      margin-bottom: 12px;
+      font-size: 0.76rem;
+      color: var(--text-mut);
     }
-    .overlay-box {
-      background: rgba(0, 0, 0, 0.24);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: var(--radius-xl);
-      padding: 14px;
+    .overlay-details {
       width: 100%;
-      max-width: 350px;
+      background: var(--card-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      text-align: left;
+      overflow: hidden;
+    }
+    .overlay-detail-row {
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 7px;
-      margin-bottom: 14px;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.78rem;
+    }
+    .overlay-detail-row:last-child {
+      border-bottom: none;
+    }
+    .overlay-detail-key {
+      color: var(--text-mut);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .overlay-detail-val {
+      color: var(--text);
+      font-weight: 600;
+      text-align: right;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .overlay-plan-pill {
       display: inline-block;
-      padding: 3px 10px;
+      padding: 2px 8px;
       border-radius: var(--radius-sm);
-      background: rgba(255, 255, 255, 0.16);
-      font-size: 0.8rem;
+      background: var(--control);
+      border: 1px solid var(--border);
+      font-size: 0.74rem;
       font-weight: 600;
+      color: var(--text);
     }
     .overlay-days {
-      font-size: 1rem;
+      font-size: 0.8rem;
       font-weight: 700;
+      color: var(--tl-soft-text);
+    }
+    .overlay-reason-box {
+      padding: 9px 12px;
+      font-size: 0.78rem;
+      color: var(--text-sec);
+      line-height: 1.4;
+      background: var(--card);
+      border-top: 1px solid var(--border);
     }
     .overlay-debt {
       display: none;
-      padding: 4px 10px;
-      border-radius: var(--radius-sm);
-      background: rgba(0, 0, 0, 0.3);
-      font-size: 0.8rem;
+      width: 100%;
+      padding: 7px 11px;
+      border-radius: var(--radius-md);
+      background: var(--amber-bg);
+      border: 1px solid var(--amber-border);
+      color: var(--amber-text);
+      font-size: 0.78rem;
       font-weight: 700;
-      color: #fef08a;
-    }
-    .overlay-reason {
-      font-size: 0.84rem;
-      opacity: 0.92;
-      line-height: 1.35;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
     }
     .overlay-cashier {
       display: none;
       width: 100%;
-      max-width: 350px;
       padding: 9px 12px;
-      border-radius: var(--radius-lg);
-      background: rgba(255, 255, 255, 0.14);
-      border: 1px solid rgba(255, 255, 255, 0.45);
-      font-size: 0.9rem;
+      border-radius: var(--radius-md);
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      border-left: 3px solid var(--danger);
+      color: var(--danger-text);
+      font-size: 0.78rem;
       font-weight: 800;
       letter-spacing: 0.03em;
-      margin-bottom: 14px;
+      text-align: center;
+    }
+    .overlay-card-footer {
+      padding: 0 16px 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
     .overlay-progress-track {
       width: 100%;
-      max-width: 250px;
       height: 3px;
       border-radius: 9999px;
-      background: rgba(255, 255, 255, 0.24);
+      background: var(--border);
       overflow: hidden;
-      margin-bottom: 14px;
       display: none;
     }
     .overlay-progress-bar {
       width: 100%;
       height: 100%;
-      background: #ffffff;
+      background: var(--tl-accent);
       transform-origin: left center;
     }
     @keyframes overlayDrain {
       from { transform: scaleX(1); }
       to { transform: scaleX(0); }
     }
-    .btn-overlay-close {
-      max-width: 250px;
-      background: #ffffff;
-      color: #0f1714;
-      border-color: transparent;
+    @keyframes overlayIconPop {
+      0% { opacity: 0; transform: scale(0.76); }
+      65% { opacity: 1; transform: scale(1.04); }
+      100% { opacity: 1; transform: scale(1); }
     }
-    .btn-overlay-close:hover {
-      background: #f1f5f3;
+    @keyframes overlayRingOut {
+      0% { opacity: 0.42; transform: scale(0.95); }
+      100% { opacity: 0; transform: scale(1.38); }
+    }
+    @keyframes overlayStrokeDraw {
+      from { stroke-dashoffset: 68; }
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes overlayContentRise {
+      from { opacity: 0; transform: translateY(7px); }
+      to { opacity: 1; transform: none; }
+    }
+    @keyframes overlayRejectShake {
+      0%, 100% { transform: translateX(0); }
+      22% { transform: translateX(-5px); }
+      45% { transform: translateX(4px); }
+      68% { transform: translateX(-3px); }
+      85% { transform: translateX(2px); }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .overlay.is-animating .overlay-icon-circle {
+        animation: overlayIconPop 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+      .overlay.is-animating .overlay-icon-ring {
+        animation: overlayRingOut 520ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+      }
+      .overlay.is-animating .overlay-icon-circle svg path,
+      .overlay.is-animating .overlay-icon-circle svg polyline,
+      .overlay.is-animating .overlay-icon-circle svg line,
+      .overlay.is-animating .overlay-icon-circle svg circle {
+        stroke-dasharray: 68;
+        stroke-dashoffset: 68;
+        animation: overlayStrokeDraw 360ms cubic-bezier(0.22, 1, 0.36, 1) 110ms forwards;
+      }
+      .overlay.is-animating .overlay-identity {
+        animation: overlayContentRise 240ms cubic-bezier(0.22, 1, 0.36, 1) 70ms both;
+      }
+      .overlay.is-animating .overlay-details {
+        animation: overlayContentRise 260ms cubic-bezier(0.22, 1, 0.36, 1) 110ms both;
+      }
+      .overlay.ROJO.is-animating .overlay-card {
+        animation: overlayRejectShake 320ms cubic-bezier(0.36, 0.07, 0.19, 0.97) 120ms both;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .overlay {
+        transition-duration: 0.1s;
+      }
+      .overlay .overlay-card {
+        transition: opacity 0.1s ease-out;
+        transform: none;
+      }
+      @starting-style {
+        .overlay .overlay-card {
+          transform: none;
+        }
+      }
+      .overlay:where([hidden], [data-closing]) .overlay-card {
+        transform: none;
+      }
     }
   </style>
 </head>
@@ -1860,37 +2081,64 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- OVERLAY SEMAFÓRICO COMPLETO -->
-  <div id="trafficOverlay" class="overlay" role="alertdialog" aria-modal="true" aria-labelledby="overlayTitle">
-    <div class="overlay-icon-circle" aria-hidden="true">
-      <svg id="iconVerde" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-      </svg>
-      <svg id="iconAmarillo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-        <line x1="12" y1="9" x2="12" y2="13"></line>
-        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-      </svg>
-      <svg id="iconRojo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-      </svg>
+  <!-- OVERLAY SEMAFÓRICO COMPLETO (ESTILO SHADCN/UI) -->
+  <div id="trafficOverlay" class="overlay" hidden role="alertdialog" aria-modal="true" aria-labelledby="overlayTitle">
+    <div class="overlay-card" data-slot="traffic-light-card">
+      <div class="overlay-card-head">
+        <span class="overlay-status-badge">
+          <span class="overlay-status-dot" aria-hidden="true"></span>
+          <span id="overlayTitle">ACCESO CONCEDIDO</span>
+        </span>
+        <span id="overlayTimer" class="overlay-timer">Listo</span>
+      </div>
+
+      <div class="overlay-card-body">
+        <div class="overlay-icon-wrap" aria-hidden="true">
+          <span class="overlay-icon-ring"></span>
+          <div class="overlay-icon-circle">
+            <svg id="iconVerde" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <svg id="iconAmarillo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <svg id="iconRojo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"></circle>
+              <line x1="5.64" y1="5.64" x2="18.36" y2="18.36"></line>
+            </svg>
+          </div>
+        </div>
+
+        <div class="overlay-identity">
+          <h2 id="overlayClientName" class="overlay-client-name">Socio</h2>
+          <div id="overlayDoc" class="overlay-doc"></div>
+        </div>
+
+        <div class="overlay-details">
+          <div class="overlay-detail-row">
+            <span class="overlay-detail-key">Plan</span>
+            <span id="overlayPlan" class="overlay-plan-pill">Plan</span>
+          </div>
+          <div class="overlay-detail-row">
+            <span class="overlay-detail-key">Vigencia</span>
+            <span id="overlayDays" class="overlay-days"></span>
+          </div>
+          <div id="overlayReason" class="overlay-reason-box"></div>
+        </div>
+
+        <div id="overlayDebt" class="overlay-debt"></div>
+        <div id="overlayCashierNote" class="overlay-cashier">POR FAVOR DIRÍJASE A CAJA</div>
+      </div>
+
+      <div class="overlay-card-footer">
+        <div id="overlayProgressTrack" class="overlay-progress-track">
+          <div id="overlayProgressBar" class="overlay-progress-bar"></div>
+        </div>
+        <button type="button" id="overlayCloseBtn" class="btn btn-primary">Continuar Escaneando</button>
+      </div>
     </div>
-    <h1 id="overlayTitle">ACCESO CONCEDIDO</h1>
-    <h2 id="overlayClientName">Socio</h2>
-    <div id="overlayDoc" class="overlay-doc"></div>
-    <div class="overlay-box">
-      <span id="overlayPlan" class="overlay-plan-pill">Plan</span>
-      <p id="overlayDays" class="overlay-days"></p>
-      <p id="overlayDebt" class="overlay-debt"></p>
-      <p id="overlayReason" class="overlay-reason"></p>
-    </div>
-    <div id="overlayCashierNote" class="overlay-cashier">POR FAVOR DIRÍJASE A CAJA</div>
-    <div id="overlayProgressTrack" class="overlay-progress-track">
-      <div id="overlayProgressBar" class="overlay-progress-bar"></div>
-    </div>
-    <button type="button" id="overlayCloseBtn" class="btn btn-overlay-close">Continuar Escaneando</button>
   </div>
 
   <script src="/assets/jsqr.js"></script>
@@ -2438,7 +2686,7 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       const cleaned = String(raw || '').trim();
       if (!cleaned) return;
       const now = Date.now();
-      if (cleaned === lastDecodedCode && (now - lastDecodedAt) < 2800) {
+      if (cleaned === lastDecodedCode && (now - lastDecodedAt) < 5000) {
         return;
       }
       lastDecodedCode = cleaned;
@@ -2623,10 +2871,52 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       }
     }
 
-    function closeOverlay() {
-      if (overlayTimeout) clearTimeout(overlayTimeout);
-      document.getElementById('trafficOverlay').style.display = 'none';
+    let supportsDisplayTransition;
+    function canTransitionDisplay() {
+      if (supportsDisplayTransition !== undefined) return supportsDisplayTransition;
+      if (!window.CSS || typeof window.CSS.supports !== 'function' || !window.CSS.supports('transition-behavior', 'allow-discrete') || !document.body) {
+        return false;
+      }
+      const probe = document.createElement('div');
+      probe.style.cssText = 'transition: display 1s allow-discrete !important; display: block;';
+      document.body.appendChild(probe);
+      getComputedStyle(probe).display;
+      probe.style.display = 'none';
+      supportsDisplayTransition = getComputedStyle(probe).display === 'block';
+      probe.remove();
+      return supportsDisplayTransition;
+    }
+
+    let overlayCountdownInterval = null;
+
+    async function closeOverlay() {
+      if (overlayTimeout) { clearTimeout(overlayTimeout); overlayTimeout = null; }
+      if (overlayCountdownInterval) { clearInterval(overlayCountdownInterval); overlayCountdownInterval = null; }
+      const overlay = document.getElementById('trafficOverlay');
+      if (!overlay || overlay.hidden) {
+        overlayOpen = false;
+        return;
+      }
       overlayOpen = false;
+      overlay.classList.remove('is-animating');
+      if (canTransitionDisplay()) {
+        overlay.hidden = true;
+      } else {
+        overlay.setAttribute('data-closing', '');
+        const anims = typeof overlay.getAnimations === 'function'
+          ? overlay.getAnimations({ subtree: true })
+          : [];
+        if (anims.length > 0) {
+          await Promise.race([
+            Promise.allSettled(anims.map((a) => a.finished)),
+            new Promise((r) => setTimeout(r, 240))
+          ]);
+        }
+        if (overlay.hasAttribute('data-closing')) {
+          overlay.removeAttribute('data-closing');
+          overlay.hidden = true;
+        }
+      }
       if (currentStream) {
         setCamStatus('Escáner activo • Apunta al QR del socio', '');
       } else {
@@ -2635,13 +2925,15 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
     }
 
     function showTrafficLight(data) {
-      if (overlayTimeout) clearTimeout(overlayTimeout);
+      if (overlayTimeout) { clearTimeout(overlayTimeout); overlayTimeout = null; }
+      if (overlayCountdownInterval) { clearInterval(overlayCountdownInterval); overlayCountdownInterval = null; }
       overlayOpen = true;
       const overlay = document.getElementById('trafficOverlay');
       const iconVerde = document.getElementById('iconVerde');
       const iconAmarillo = document.getElementById('iconAmarillo');
       const iconRojo = document.getElementById('iconRojo');
       const title = document.getElementById('overlayTitle');
+      const timerEl = document.getElementById('overlayTimer');
       const clientName = document.getElementById('overlayClientName');
       const docEl = document.getElementById('overlayDoc');
       const plan = document.getElementById('overlayPlan');
@@ -2654,6 +2946,7 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       const closeBtn = document.getElementById('overlayCloseBtn');
 
       const color = data.colorSemaforo || 'ROJO';
+      overlay.removeAttribute('data-closing');
       overlay.className = 'overlay ' + color;
       clientName.textContent = data.nombreCompleto || 'Socio';
 
@@ -2663,12 +2956,14 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
       docEl.style.display = docNum ? 'block' : 'none';
 
       plan.textContent = data.nombrePlan || 'Sin membresía activa';
-      reason.textContent = data.motivoSemaforo || '';
+      const motivoTxt = data.motivoSemaforo || '';
+      reason.textContent = motivoTxt;
+      reason.style.display = motivoTxt ? 'block' : 'none';
 
       const deuda = Number(data.deudaTotalPendiente || 0);
       if (deuda > 0) {
-        debtEl.textContent = 'Deuda pendiente: S/ ' + deuda.toFixed(2);
-        debtEl.style.display = 'inline-block';
+        debtEl.textContent = 'Saldo deudor: S/ ' + deuda.toFixed(2);
+        debtEl.style.display = 'block';
       } else {
         debtEl.textContent = '';
         debtEl.style.display = 'none';
@@ -2683,43 +2978,72 @@ pub const SCANNER_HTML: &str = r##"<!DOCTYPE html>
 
       playBeep(color);
 
+      const startCountdown = (ms) => {
+        let secs = Math.ceil(ms / 1000);
+        timerEl.textContent = secs + 's';
+        overlayCountdownInterval = setInterval(() => {
+          secs = Math.max(0, secs - 1);
+          timerEl.textContent = secs + 's';
+          if (secs <= 0 && overlayCountdownInterval) {
+            clearInterval(overlayCountdownInterval);
+            overlayCountdownInterval = null;
+          }
+        }, 1000);
+      };
+
       if (color === 'VERDE') {
         iconVerde.style.display = 'block';
         title.textContent = 'ACCESO CONCEDIDO';
         days.textContent = data.diasRestantes != null
           ? ('Quedan ' + data.diasRestantes + ' días vigentes')
           : 'Membresía vigente';
+        closeBtn.className = 'btn btn-primary';
         closeBtn.textContent = 'Continuar Escaneando';
         progressTrack.style.display = 'block';
-        void progressBar.offsetWidth;
-        progressBar.style.animation = 'overlayDrain 2500ms linear forwards';
-        overlay.style.display = 'flex';
-        overlayTimeout = setTimeout(closeOverlay, 2500);
+        overlay.hidden = false;
+        void overlay.offsetWidth;
+        overlay.classList.add('is-animating');
+        progressBar.style.animation = 'overlayDrain 5000ms linear forwards';
+        startCountdown(5000);
+        overlayTimeout = setTimeout(() => { void closeOverlay(); }, 5000);
       } else if (color === 'AMARILLO') {
         iconAmarillo.style.display = 'block';
         title.textContent = 'ALERTA PREVENTIVA';
         days.textContent = data.diasRestantes != null
           ? ('Vence en ' + data.diasRestantes + ' días')
           : 'Revisar membresía';
+        closeBtn.className = 'btn btn-secondary';
         closeBtn.textContent = 'Continuar Escaneando';
         progressTrack.style.display = 'block';
-        void progressBar.offsetWidth;
-        progressBar.style.animation = 'overlayDrain 3500ms linear forwards';
-        overlay.style.display = 'flex';
-        overlayTimeout = setTimeout(closeOverlay, 3500);
+        overlay.hidden = false;
+        void overlay.offsetWidth;
+        overlay.classList.add('is-animating');
+        progressBar.style.animation = 'overlayDrain 5000ms linear forwards';
+        startCountdown(5000);
+        overlayTimeout = setTimeout(() => { void closeOverlay(); }, 5000);
       } else {
         iconRojo.style.display = 'block';
         title.textContent = 'ACCESO BLOQUEADO';
+        timerEl.textContent = 'Requiere acción';
         days.textContent = data.diasRestantes != null && data.diasRestantes < 0
           ? ('Vencida hace ' + Math.abs(data.diasRestantes) + ' días')
           : 'Membresía no habilitada';
         cashierNote.style.display = 'block';
+        closeBtn.className = 'btn btn-danger';
         closeBtn.textContent = 'Cerrar y Escanear Siguiente';
-        overlay.style.display = 'flex';
+        overlay.hidden = false;
+        void overlay.offsetWidth;
+        overlay.classList.add('is-animating');
       }
+      if (closeBtn) closeBtn.focus();
     }
 
-    document.getElementById('overlayCloseBtn').addEventListener('click', closeOverlay);
+    document.getElementById('overlayCloseBtn').addEventListener('click', () => { void closeOverlay(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && overlayOpen) {
+        void closeOverlay();
+      }
+    });
 
     async function refreshPingHealth() {
       const dbEl = document.getElementById('footerDbStatus');

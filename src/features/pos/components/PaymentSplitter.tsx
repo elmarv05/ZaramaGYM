@@ -22,6 +22,7 @@ export interface PaymentSplitterProps {
   onUpdatePayment: (metodo: PaymentMethod, monto: string, ref?: string) => void;
   onRemovePayment: (metodo: PaymentMethod) => void;
   onSubmitSale: () => void;
+  submitLabel?: string;
   isLoading?: boolean;
   disabled?: boolean;
 }
@@ -78,6 +79,7 @@ export const PaymentSplitter: React.FC<PaymentSplitterProps> = ({
   onUpdatePayment,
   onRemovePayment,
   onSubmitSale,
+  submitLabel = 'Confirmar Venta',
   isLoading = false,
   disabled = false,
 }) => {
@@ -259,7 +261,7 @@ export const PaymentSplitter: React.FC<PaymentSplitterProps> = ({
         )}
       </div>
 
-      {/* Botón de Envío */}
+      {/* Botón de Confirmación Final */}
       <Button
         type="button"
         variant="primary"
@@ -269,7 +271,7 @@ export const PaymentSplitter: React.FC<PaymentSplitterProps> = ({
         leftIcon={<Icon name="check" className="w-4 h-4" />}
         className="w-full py-2.5 font-extrabold text-sm shadow-sm"
       >
-        Registrar Venta (POS)
+        {submitLabel}
       </Button>
     </Card>
   );

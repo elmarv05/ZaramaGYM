@@ -5,7 +5,7 @@
 // ============================================================================
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { LanServerView } from '../features/lan/LanServerView';
 import { MobileScannerSimulatorModal } from '../features/lan/MobileScannerSimulatorModal';
 import { AuthSession } from '../types/auth';
@@ -381,8 +381,11 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
       });
     });
 
-    // Debe aparecer el Overlay VERDE con "INGRESO CONCEDIDO"
+    // Debe aparecer el Overlay VERDE estilo shadcn/ui con "INGRESO CONCEDIDO"
     expect(await screen.findByText(/INGRESO CONCEDIDO/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('alertdialog').querySelector('[data-slot="traffic-light-card"]')
+    ).toHaveAttribute('data-state', 'VERDE');
     expect(screen.getByText('Carlos Rodríguez Mendoza')).toBeInTheDocument();
     expect(screen.getByText(/¡Quedan 45 días de vigencia!/i)).toBeInTheDocument();
 
@@ -556,5 +559,72 @@ describe('Suite Frontend: Slice 6 - Servidor Wi-Fi Local y Escáner Móvil', () 
 
     fireEvent.click(toggleBtn);
     expect(preview).toHaveAttribute('data-scanner-theme', 'light');
+  });
+
+  // --------------------------------------------------------------------------
+  // CP-11: TIEMPO DE ESPERA DE 5 SEGUNDOS EN SEMÁFORO VERDE Y AMARILLO
+  // --------------------------------------------------------------------------
+  it('11. Mantiene 5 segundos exactos de espera en semáforo VERDE y AMARILLO antes de auto-cerrar el overlay', async () => {
+    render(
+      <MobileScannerSimulatorModal
+        isOpen={true}
+        onClose={vi.fn()}
+        initialPairingCode="ZG9988"
+        clients={mockClients}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Vincular este Teléfono/i }));
+    await screen.findByText(/ENTRADA DE VIDEO/i);
+
+    vi.useFakeTimers();
+    try {
+      // 11.1 Semáforo VERDE: cuenta regresiva inicia en 5s y cierra a los 5000ms
+      const inputQr = screen.getByPlaceholderText(/Token QR/i);
+      fireEvent.change(inputQr, { target: { value: 'ZG-A1B2C3D4E5F67890' } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Escanear$/i }));
+      });
+
+      expect(screen.getByText(/INGRESO CONCEDIDO/i)).toBeInTheDocument();
+      expect(screen.getByText('5s')).toBeInTheDocument();
+
+      // A los 4 segundos aún sigue abierto (antes cerraba a los 2.5s)
+      act(() => {
+        vi.advanceTimersByTime(4000);
+      });
+      expect(screen.getByText(/INGRESO CONCEDIDO/i)).toBeInTheDocument();
+
+      // Al completar los 5 segundos (5000ms) se cierra automáticamente el alertdialog
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+
+      // 11.2 Semáforo AMARILLO: cuenta regresiva inicia en 5s y cierra a los 5000ms
+      const dniInput = screen.getByPlaceholderText(/Ingreso manual por DNI \/ CE/i);
+      fireEvent.change(dniInput, { target: { value: '44556677' } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^DNI$/i }));
+      });
+
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      expect(screen.getByText('ALERTA PREVENTIVA')).toBeInTheDocument();
+      expect(screen.getByText('5s')).toBeInTheDocument();
+
+      // A los 4 segundos aún sigue abierto (antes cerraba a los 3.5s)
+      act(() => {
+        vi.advanceTimersByTime(4000);
+      });
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+      // Al completar los 5 segundos (5000ms) se cierra automáticamente el alertdialog
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

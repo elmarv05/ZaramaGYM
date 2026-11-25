@@ -1022,6 +1022,8 @@ pub async fn create_pos_sale(
                     Some(duracion_meses),
                 )?;
 
+                let fecha_vencimiento_eod = format!("{} 23:59:59", preview.fecha_vencimiento_date);
+
                 // Registrar en membresias_clientes
                 sqlx::query(
                     r#"
@@ -1036,7 +1038,7 @@ pub async fn create_pos_sale(
                 .bind(plan_id)
                 .bind(venta_id)
                 .bind(&fecha_inicio)
-                .bind(&preview.fecha_vencimiento_date)
+                .bind(&fecha_vencimiento_eod)
                 .bind(item.subtotal.to_string())
                 .bind(session.user_id)
                 .execute(&mut *tx)
@@ -1951,19 +1953,60 @@ pub async fn list_sales(
         builder.push_bind(cid);
     }
 
+    if let Some(ref c_busqueda) = filter.cliente_busqueda {
+        let term = c_busqueda.trim().to_lowercase();
+        if !term.is_empty() {
+            let pattern = format!("%{}%", term);
+            builder.push(" AND (LOWER(COALESCE(p.nombres || ' ' || p.apellidos, 'público general')) LIKE ");
+            builder.push_bind(pattern.clone());
+            builder.push(" OR LOWER(COALESCE(p.numero_documento, '')) LIKE ");
+            builder.push_bind(pattern);
+            builder.push(")");
+        }
+    }
+
+    if let Some(uid) = filter.usuario_vendedor_id {
+        builder.push(" AND v.usuario_vendedor_id = ");
+        builder.push_bind(uid);
+    }
+
+    if let Some(ref uname) = filter.usuario_vendedor_username {
+        let term = uname.trim().to_lowercase();
+        if !term.is_empty() {
+            builder.push(" AND LOWER(uv.username) LIKE ");
+            builder.push_bind(format!("%{}%", term));
+        }
+    }
+
     if let Some(st) = filter.estado_venta {
         builder.push(" AND v.estado_venta = ");
         builder.push_bind(st.to_string());
     }
 
     if let Some(ref desde) = filter.fecha_desde {
-        builder.push(" AND v.created_at >= ");
-        builder.push_bind(desde.clone());
+        let d = desde.trim();
+        if !d.is_empty() {
+            let normalized = if d.len() == 10 {
+                format!("{} 00:00:00", d)
+            } else {
+                d.to_string()
+            };
+            builder.push(" AND v.created_at >= ");
+            builder.push_bind(normalized);
+        }
     }
 
     if let Some(ref hasta) = filter.fecha_hasta {
-        builder.push(" AND v.created_at <= ");
-        builder.push_bind(hasta.clone());
+        let h = hasta.trim();
+        if !h.is_empty() {
+            let normalized = if h.len() == 10 {
+                format!("{} 23:59:59", h)
+            } else {
+                h.to_string()
+            };
+            builder.push(" AND v.created_at <= ");
+            builder.push_bind(normalized);
+        }
     }
 
     builder.push(" ORDER BY v.id DESC");

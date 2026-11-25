@@ -19,6 +19,7 @@ export interface ShiftStatusHeaderProps {
   onOpenShiftClick: () => void;
   onCloseShiftClick: () => void;
   onRefreshClick?: () => void;
+  hideClosedAction?: boolean;
 }
 
 export const ShiftStatusHeader: React.FC<ShiftStatusHeaderProps> = ({
@@ -29,6 +30,7 @@ export const ShiftStatusHeader: React.FC<ShiftStatusHeaderProps> = ({
   onOpenShiftClick,
   onCloseShiftClick,
   onRefreshClick,
+  hideClosedAction = false,
 }) => {
   // 1. Estado Loading
   if (isLoading && !shift) {
@@ -77,15 +79,17 @@ export const ShiftStatusHeader: React.FC<ShiftStatusHeaderProps> = ({
           </div>
         </div>
 
-        <Button
-          type="button"
-          variant="primary"
-          onClick={onOpenShiftClick}
-          leftIcon={<Icon name="key" className="w-4 h-4" aria-hidden="true" />}
-          className="whitespace-nowrap font-bold shadow-sm"
-        >
-          Abrir Turno de Caja
-        </Button>
+        {!hideClosedAction && (
+          <Button
+            type="button"
+            variant="primary"
+            onClick={onOpenShiftClick}
+            leftIcon={<Icon name="key" className="w-4 h-4" aria-hidden="true" />}
+            className="whitespace-nowrap font-bold shadow-sm"
+          >
+            Abrir Turno de Caja
+          </Button>
+        )}
       </Card>
     );
   }

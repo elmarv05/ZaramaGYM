@@ -201,6 +201,29 @@ describe('Suite Frontend: Slice 5 - Control de Asistencias, Semáforo y Prórrog
         screen.getByText(/Listo para escanear credencial QR o buscar socio por DNI/i)
       ).toBeInTheDocument();
     });
+
+    it('estructura el monitor de asistencias y semáforo en 2 paneles / 2 columnas diferenciadas', async () => {
+      render(
+        <AttendanceView currentSession={adminSession} clients={mockClients} />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('12')).toBeInTheDocument();
+      });
+
+      const twoColumnGrid = screen.getByTestId('attendance-two-column-layout');
+      expect(twoColumnGrid).toBeInTheDocument();
+
+      const capturePanel = screen.getByRole('region', {
+        name: /Panel de Escaneo y Captura/i,
+      });
+      const trafficLightPanel = screen.getByRole('region', {
+        name: /Panel del Semáforo en Vivo/i,
+      });
+
+      expect(capturePanel).toContainElement(screen.getByTestId('scanner-qr-input'));
+      expect(trafficLightPanel).toContainElement(screen.getByTestId('traffic-light-standby'));
+    });
   });
 
   describe('2. Evaluación del Semáforo en VERDE (Acceso Total)', () => {

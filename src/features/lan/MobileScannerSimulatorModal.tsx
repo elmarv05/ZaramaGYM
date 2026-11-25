@@ -92,22 +92,29 @@ export const MobileScannerSimulatorModal: React.FC<MobileScannerSimulatorModalPr
     }
 
     const { colorSemaforo } = currentEvaluation;
+    let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
     if (colorSemaforo === 'VERDE') {
       playWebAudioTone(880, 0.15);
-      setCountdownSeconds(3);
+      setCountdownSeconds(5);
+      countdownInterval = setInterval(() => {
+        setCountdownSeconds((prev) => (prev && prev > 1 ? prev - 1 : 0));
+      }, 1000);
 
       timerRef.current = setTimeout(() => {
         dismissOverlay();
-      }, 2500);
+      }, 5000);
     } else if (colorSemaforo === 'AMARILLO') {
       playWebAudioTone(660, 0.1);
       setTimeout(() => playWebAudioTone(880, 0.15), 120);
-      setCountdownSeconds(4);
+      setCountdownSeconds(5);
+      countdownInterval = setInterval(() => {
+        setCountdownSeconds((prev) => (prev && prev > 1 ? prev - 1 : 0));
+      }, 1000);
 
       timerRef.current = setTimeout(() => {
         dismissOverlay();
-      }, 3500);
+      }, 5000);
     } else if (colorSemaforo === 'ROJO') {
       playWebAudioTone(220, 0.35, 'sawtooth');
       setCountdownSeconds(null);
@@ -115,6 +122,7 @@ export const MobileScannerSimulatorModal: React.FC<MobileScannerSimulatorModalPr
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (countdownInterval) clearInterval(countdownInterval);
     };
   }, [currentEvaluation, dismissOverlay]);
 
@@ -188,6 +196,7 @@ export const MobileScannerSimulatorModal: React.FC<MobileScannerSimulatorModalPr
         qrToken: mode === 'qr' ? tokenToUse : undefined,
         numeroDocumento: mode === 'dni' ? dniToUse : undefined,
       });
+      setCountdownSeconds(result.colorSemaforo === 'ROJO' ? null : 5);
       setCurrentEvaluation((prev) => {
         if (prev) {
           setLastEvaluation(prev);
@@ -216,6 +225,7 @@ export const MobileScannerSimulatorModal: React.FC<MobileScannerSimulatorModalPr
   } = useWebcamQrScanner({
     active: isOpen && Boolean(mobileSession),
     onDetected: async (decodedToken) => {
+      if (currentEvaluation || isScanLoading) return;
       setQrTokenInput(decodedToken);
       await handleExecuteScan('qr', decodedToken);
     },
@@ -721,99 +731,190 @@ export const MobileScannerSimulatorModal: React.FC<MobileScannerSimulatorModalPr
                 </footer>
 
                 {/* ========================================================== */}
-                {/* OVERLAY SEMAFÓRICO MATE A PANTALLA COMPLETA (< 1s)         */}
+                {/* OVERLAY SEMAFÓRICO ESTILO SHADCN/UI CON ANIMACIÓN FLUIDA   */}
                 {/* ========================================================== */}
                 {currentEvaluation && (
                   <div
+                    key={`${currentEvaluation.clienteId}-${currentEvaluation.fechaHoraIngreso}-${currentEvaluation.colorSemaforo}`}
                     role="alertdialog"
                     aria-modal="true"
                     aria-label={`Resultado de Asistencia Semáforo ${currentEvaluation.colorSemaforo}`}
-                    className={`absolute inset-0 z-30 flex flex-col justify-between p-5 text-white transition-opacity duration-150 ${
+                    className={`zg-modal-backdrop absolute inset-0 z-30 flex items-center justify-center p-4 backdrop-blur-[6px] ${
                       currentEvaluation.colorSemaforo === 'VERDE'
-                        ? 'bg-[#065f46]'
+                        ? 'bg-[#064e3b]/85'
                         : currentEvaluation.colorSemaforo === 'AMARILLO'
-                        ? 'bg-[#92400e]'
-                        : 'bg-[#991b1b]'
+                        ? 'bg-[#78350f]/85'
+                        : 'bg-[#7f1d1d]/88'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold uppercase tracking-wider bg-black/25 px-2.5 py-1 rounded-md inline-flex items-center gap-1.5 border border-white/15">
-                        <span className="w-2 h-2 rounded-full bg-white" aria-hidden="true" />
-                        <span>
-                          {currentEvaluation.colorSemaforo === 'VERDE' && 'INGRESO CONCEDIDO'}
-                          {currentEvaluation.colorSemaforo === 'AMARILLO' && 'ALERTA PREVENTIVA'}
-                          {currentEvaluation.colorSemaforo === 'ROJO' && 'ACCESO BLOQUEADO'}
+                    <div
+                      data-slot="traffic-light-card"
+                      data-state={currentEvaluation.colorSemaforo}
+                      className={`w-full bg-surface text-txt-primary border border-border border-t-4 rounded-xl shadow-lg overflow-hidden flex flex-col ${
+                        currentEvaluation.colorSemaforo === 'ROJO'
+                          ? 'zg-traffic-card-reject border-t-status-danger-hover'
+                          : currentEvaluation.colorSemaforo === 'AMARILLO'
+                          ? 'zg-traffic-card border-t-status-warning'
+                          : 'zg-traffic-card border-t-brand'
+                      }`}
+                    >
+                      {/* Cabecera de estado */}
+                      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-border">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm border text-[10px] font-bold uppercase tracking-wider ${
+                            currentEvaluation.colorSemaforo === 'VERDE'
+                              ? 'bg-status-success-bg border-status-success-border text-status-success'
+                              : currentEvaluation.colorSemaforo === 'AMARILLO'
+                              ? 'bg-status-warning-bg border-status-warning-border text-status-warning'
+                              : 'bg-status-danger-bg border-status-danger-border text-status-danger'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              currentEvaluation.colorSemaforo === 'VERDE'
+                                ? 'bg-brand'
+                                : currentEvaluation.colorSemaforo === 'AMARILLO'
+                                ? 'bg-status-warning'
+                                : 'bg-status-danger'
+                            }`}
+                            aria-hidden="true"
+                          />
+                          <span>
+                            {currentEvaluation.colorSemaforo === 'VERDE' && 'INGRESO CONCEDIDO'}
+                            {currentEvaluation.colorSemaforo === 'AMARILLO' && 'ALERTA PREVENTIVA'}
+                            {currentEvaluation.colorSemaforo === 'ROJO' && 'ACCESO BLOQUEADO'}
+                          </span>
                         </span>
-                      </span>
-                      {countdownSeconds !== null && (
-                        <span className="text-xs font-mono font-bold bg-black/25 border border-white/15 px-2 py-0.5 rounded-sm">
-                          {countdownSeconds}s
-                        </span>
-                      )}
-                    </div>
 
-                    <div className="flex flex-col items-center text-center my-auto gap-2">
-                      <div className="w-16 h-16 rounded-full bg-white/15 border border-white/30 flex items-center justify-center mb-1">
-                        {currentEvaluation.colorSemaforo === 'VERDE' && (
-                          <Icon name="check" className="w-8 h-8" />
+                        <span className="text-[10px] font-mono font-bold tabular-nums text-txt-muted bg-canvas-subtle border border-border px-1.5 py-0.5 rounded-sm">
+                          {countdownSeconds !== null ? `${countdownSeconds}s` : 'Acción'}
+                        </span>
+                      </div>
+
+                      {/* Cuerpo principal */}
+                      <div className="px-4 py-4 flex flex-col items-center text-center gap-3">
+                        {/* Ícono animado con aro expansivo único + trazado SVG */}
+                        <div className="relative w-14 h-14 flex items-center justify-center" aria-hidden="true">
+                          <span
+                            className={`zg-traffic-ring absolute inset-0 rounded-full border ${
+                              currentEvaluation.colorSemaforo === 'VERDE'
+                                ? 'border-brand'
+                                : currentEvaluation.colorSemaforo === 'AMARILLO'
+                                ? 'border-status-warning'
+                                : 'border-status-danger'
+                            }`}
+                          />
+                          <div
+                            className={`zg-traffic-icon relative w-14 h-14 rounded-full border flex items-center justify-center ${
+                              currentEvaluation.colorSemaforo === 'VERDE'
+                                ? 'bg-status-success-bg border-status-success-border text-status-success'
+                                : currentEvaluation.colorSemaforo === 'AMARILLO'
+                                ? 'bg-status-warning-bg border-status-warning-border text-status-warning'
+                                : 'bg-status-danger-bg border-status-danger-border text-status-danger'
+                            }`}
+                          >
+                            {currentEvaluation.colorSemaforo === 'VERDE' && (
+                              <Icon name="check" className="w-7 h-7" />
+                            )}
+                            {currentEvaluation.colorSemaforo === 'AMARILLO' && (
+                              <Icon name="warning" className="w-7 h-7" />
+                            )}
+                            {currentEvaluation.colorSemaforo === 'ROJO' && (
+                              <Icon name="danger" className="w-7 h-7" />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Identidad del socio */}
+                        <div className="zg-traffic-stagger-1 flex flex-col items-center gap-0.5 w-full">
+                          <h2 className="text-lg font-extrabold tracking-tight leading-snug text-txt-primary">
+                            {currentEvaluation.nombreCompleto}
+                          </h2>
+                          <p className="text-[11px] font-mono text-txt-muted">
+                            {currentEvaluation.tipoDocumento}: {currentEvaluation.numeroDocumento}
+                          </p>
+                        </div>
+
+                        {/* Tabla estructurada de detalles */}
+                        <div className="zg-traffic-stagger-2 w-full bg-canvas-subtle border border-border rounded-lg text-left overflow-hidden">
+                          {currentEvaluation.nombrePlan && (
+                            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border text-xs">
+                              <span className="text-txt-muted font-medium">Plan</span>
+                              <span className="px-2 py-0.5 rounded-sm bg-surface border border-border text-[11px] font-semibold text-txt-primary truncate">
+                                {currentEvaluation.nombrePlan}
+                              </span>
+                            </div>
+                          )}
+
+                          {currentEvaluation.diasRestantes !== null &&
+                            currentEvaluation.diasRestantes !== undefined && (
+                              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border text-xs">
+                                <span className="text-txt-muted font-medium">Vigencia</span>
+                                <span
+                                  className={`font-bold text-[11px] ${
+                                    currentEvaluation.colorSemaforo === 'VERDE'
+                                      ? 'text-status-success'
+                                      : currentEvaluation.colorSemaforo === 'AMARILLO'
+                                      ? 'text-status-warning'
+                                      : 'text-status-danger'
+                                  }`}
+                                >
+                                  {currentEvaluation.diasRestantes > 0
+                                    ? `¡Quedan ${currentEvaluation.diasRestantes} días de vigencia!`
+                                    : `Vencido hace ${Math.abs(currentEvaluation.diasRestantes)} días`}
+                                </span>
+                              </div>
+                            )}
+
+                          <p className="px-3 py-2 text-[11px] text-txt-secondary bg-surface leading-relaxed">
+                            {currentEvaluation.motivoSemaforo}
+                          </p>
+                        </div>
+
+                        {Number(currentEvaluation.deudaTotalPendiente || 0) > 0 && (
+                          <div className="w-full bg-status-warning-bg border border-status-warning-border text-status-warning text-xs font-bold tabular-nums px-3 py-1.5 rounded-md">
+                            Saldo deudor: S/ {currentEvaluation.deudaTotalPendiente}
+                          </div>
                         )}
-                        {currentEvaluation.colorSemaforo === 'AMARILLO' && (
-                          <Icon name="warning" className="w-8 h-8" />
-                        )}
+
                         {currentEvaluation.colorSemaforo === 'ROJO' && (
-                          <Icon name="danger" className="w-8 h-8" />
+                          <div className="w-full bg-status-danger-bg border border-status-danger-border border-l-[3px] border-l-status-danger text-status-danger font-extrabold text-[11px] px-3 py-2 rounded-md tracking-wide uppercase">
+                            POR FAVOR DIRÍJASE A CAJA
+                          </div>
                         )}
                       </div>
 
-                      <h2 className="text-xl font-extrabold tracking-tight leading-tight">
-                        {currentEvaluation.nombreCompleto}
-                      </h2>
-
-                      <p className="text-xs font-mono font-medium text-white/90">
-                        {currentEvaluation.tipoDocumento}: {currentEvaluation.numeroDocumento}
-                      </p>
-
-                      {currentEvaluation.nombrePlan && (
-                        <div className="bg-white/15 px-2.5 py-0.5 rounded-sm text-xs font-semibold mt-0.5">
-                          {currentEvaluation.nombrePlan}
-                        </div>
-                      )}
-
-                      <p className="text-xs font-medium mt-2 px-3 py-1.5 bg-black/25 border border-white/15 rounded-lg">
-                        {currentEvaluation.motivoSemaforo}
-                      </p>
-
-                      {currentEvaluation.diasRestantes !== null &&
-                        currentEvaluation.diasRestantes !== undefined && (
-                          <p className="text-xs font-bold">
-                            {currentEvaluation.diasRestantes > 0
-                              ? `¡Quedan ${currentEvaluation.diasRestantes} días de vigencia!`
-                              : `Vencido hace ${Math.abs(currentEvaluation.diasRestantes)} días`}
-                          </p>
+                      {/* Pie con barra de drenado fluido + botón contextual shadcn/ui */}
+                      <div className="px-4 pb-3.5 flex flex-col gap-2.5">
+                        {currentEvaluation.colorSemaforo !== 'ROJO' && (
+                          <div className="w-full h-[3px] rounded-full bg-border overflow-hidden">
+                            <div
+                              className={`h-full w-full ${
+                                currentEvaluation.colorSemaforo === 'VERDE'
+                                  ? 'bg-brand zg-traffic-drain-verde'
+                                  : 'bg-status-warning zg-traffic-drain-amarillo'
+                              }`}
+                            />
+                          </div>
                         )}
 
-                      {Number(currentEvaluation.deudaTotalPendiente || 0) > 0 && (
-                        <div className="bg-black/30 border border-white/25 text-white text-xs font-bold px-3 py-1 rounded-md mt-1">
-                          Saldo deudor: S/ {currentEvaluation.deudaTotalPendiente}
-                        </div>
-                      )}
-
-                      {currentEvaluation.colorSemaforo === 'ROJO' && (
-                        <div className="mt-2 bg-white text-[#991b1b] font-extrabold text-xs px-3.5 py-2 rounded-md tracking-wide uppercase">
-                          POR FAVOR DIRÍJASE A CAJA
-                        </div>
-                      )}
+                        <button
+                          type="button"
+                          onClick={dismissOverlay}
+                          className={`w-full font-semibold py-2.5 px-3 rounded-md transition-colors text-xs ${
+                            currentEvaluation.colorSemaforo === 'VERDE'
+                              ? 'bg-brand hover:bg-brand-hover text-brand-text'
+                              : currentEvaluation.colorSemaforo === 'AMARILLO'
+                              ? 'bg-canvas-subtle hover:bg-surface-hover border border-border-strong text-txt-primary'
+                              : 'bg-status-danger-hover hover:opacity-90 text-white'
+                          }`}
+                        >
+                          {currentEvaluation.colorSemaforo === 'ROJO'
+                            ? 'Cerrar y Escanear Siguiente'
+                            : 'Continuar'}
+                        </button>
+                      </div>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={dismissOverlay}
-                      className="w-full bg-white hover:bg-white/90 text-[#0f1714] font-bold py-2.5 rounded-md transition-colors text-xs uppercase tracking-wider"
-                    >
-                      {currentEvaluation.colorSemaforo === 'ROJO'
-                        ? 'Cerrar y Escanear Siguiente'
-                        : 'Continuar'}
-                    </button>
                   </div>
                 )}
               </div>

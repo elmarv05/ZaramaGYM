@@ -725,6 +725,7 @@ pub async fn update_user(
         let n_doc = p_upd.numero_documento.trim();
         let nom = p_upd.nombres.trim();
         let ape = p_upd.apellidos.trim();
+        let genero = crate::services::entity_service::normalize_genero(&p_upd.genero)?;
 
         if t_doc.is_empty() || n_doc.is_empty() || nom.is_empty() || ape.is_empty() {
             return Err(AppError::Validation(
@@ -747,7 +748,7 @@ pub async fn update_user(
             r#"
             UPDATE personas
             SET tipo_documento = ?, numero_documento = ?, nombres = ?, apellidos = ?,
-                fecha_nacimiento = ?, telefono = ?, email = ?, direccion = ?,
+                fecha_nacimiento = ?, genero = ?, telefono = ?, email = ?, direccion = ?,
                 updated_at = datetime('now', 'localtime')
             WHERE id = ?
             "#,
@@ -757,6 +758,7 @@ pub async fn update_user(
         .bind(nom)
         .bind(ape)
         .bind(&p_upd.fecha_nacimiento)
+        .bind(&genero)
         .bind(&p_upd.telefono)
         .bind(&p_upd.email)
         .bind(&p_upd.direccion)

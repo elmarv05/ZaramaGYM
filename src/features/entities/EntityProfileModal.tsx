@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import QRCode from 'qrcode';
 import {
+  ClientAcquisitionChannel,
   ClientDetail,
   ClientListItem,
   ClientWeightRecord,
@@ -15,6 +16,7 @@ import {
   CompanyListItem,
   PersonDetail,
   PersonDocumentType,
+  PersonGender,
   PersonListItem,
   RecordClientWeightInput,
   SupplierDetail,
@@ -32,13 +34,17 @@ import {
   selectIfZeroDefault,
 } from '../../utils/formSafety';
 import {
+  CLIENT_ACQUISITION_CHANNEL_OPTIONS,
   PERSON_DOCUMENT_TYPES,
+  PERSON_GENDER_OPTIONS,
   buildWhatsAppWelcomeLink,
   canEditOrDeactivateSupplierOrCompany,
   canModifyLinkedPersonData,
   canToggleClientActive,
   formatKg,
   formatWeightVariation,
+  getAcquisitionChannelLabel,
+  getGenderLabel,
   validateClientForm,
   validateCompanyForm,
   validatePersonForm,
@@ -172,12 +178,14 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
   const [razonSocial, setRazonSocial] = useState('');
   const [nombreComercial, setNombreComercial] = useState('');
   const [fechaNacimiento, setFechaNacimiento] = useState('');
+  const [genero, setGenero] = useState<PersonGender | ''>('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
   const [direccion, setDireccion] = useState('');
   const [contactoEmergenciaNombre, setContactoEmergenciaNombre] = useState('');
   const [contactoEmergenciaNumero, setContactoEmergenciaNumero] = useState('');
   const [notasMedicas, setNotasMedicas] = useState('');
+  const [canalCaptacion, setCanalCaptacion] = useState<ClientAcquisitionChannel | ''>('');
   const [rubroProveedor, setRubroProveedor] = useState('');
   const [contactoReferencia, setContactoReferencia] = useState('');
   const [username, setUsername] = useState('');
@@ -256,12 +264,14 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
       setNombres(c.nombres);
       setApellidos(c.apellidos);
       setFechaNacimiento(c.fecha_nacimiento || '');
+      setGenero(c.genero || '');
       setTelefono(c.telefono || '');
       setEmail(c.email || '');
       setDireccion(c.direccion || '');
       setContactoEmergenciaNombre(c.nombre_contacto_emergencia || '');
       setContactoEmergenciaNumero(c.numero_contacto_emergencia || '');
       setNotasMedicas(c.notas_medicas || '');
+      setCanalCaptacion(c.canal_captacion || '');
     } else if (subject.kind === 'person') {
       const p = subject.data;
       setTipoDoc(p.tipo_documento);
@@ -269,6 +279,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
       setNombres(p.nombres);
       setApellidos(p.apellidos);
       setFechaNacimiento((p as PersonDetail).fecha_nacimiento || '');
+      setGenero(p.genero || '');
       setTelefono(p.telefono || '');
       setEmail(p.email || '');
       setDireccion((p as PersonDetail).direccion || '');
@@ -733,12 +744,14 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
           nombres: canEditLinkedPerson ? nombres.trim() : undefined,
           apellidos: canEditLinkedPerson ? apellidos.trim() : undefined,
           fecha_nacimiento: canEditLinkedPerson ? fechaNacimiento.trim() || null : undefined,
+          genero: canEditLinkedPerson ? genero || null : undefined,
           telefono: canEditLinkedPerson ? telefono.trim() || null : undefined,
           email: canEditLinkedPerson ? email.trim() || null : undefined,
           direccion: canEditLinkedPerson ? direccion.trim() || null : undefined,
           nombre_contacto_emergencia: contactoEmergenciaNombre.trim() || null,
           numero_contacto_emergencia: contactoEmergenciaNumero.trim() || null,
           notas_medicas: notasMedicas.trim() || null,
+          canal_captacion: canalCaptacion || null,
           modificar_datos_personales: canEditLinkedPerson,
         });
         if (updated) {
@@ -773,6 +786,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
           nombres: nombres.trim(),
           apellidos: apellidos.trim(),
           fecha_nacimiento: fechaNacimiento.trim() || null,
+          genero: genero || null,
           telefono: telefono.trim() || null,
           email: email.trim() || null,
           direccion: direccion.trim() || null,
@@ -1242,12 +1256,23 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                             required
                           />
                           {(subject.kind === 'client' || subject.kind === 'person') && (
-                            <Input
-                              label="Fecha de Nacimiento"
-                              type="date"
-                              value={fechaNacimiento}
-                              onChange={(e) => setFechaNacimiento(e.target.value)}
-                            />
+                            <>
+                              <Input
+                                label="Fecha de Nacimiento"
+                                type="date"
+                                value={fechaNacimiento}
+                                onChange={(e) => setFechaNacimiento(e.target.value)}
+                              />
+                              <Select
+                                label="Género"
+                                value={genero}
+                                onChange={(e) => setGenero(e.target.value as PersonGender | '')}
+                                options={[
+                                  { value: '', label: 'Sin especificar' },
+                                  ...PERSON_GENDER_OPTIONS,
+                                ]}
+                              />
+                            </>
                           )}
                         </>
                       ) : (
@@ -1256,8 +1281,12 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                           {renderReadOnlyField('Número de Documento', numDoc, true)}
                           {renderReadOnlyField('Nombres', nombres)}
                           {renderReadOnlyField('Apellidos', apellidos)}
-                          {(subject.kind === 'client' || subject.kind === 'person') &&
-                            renderReadOnlyField('Fecha de Nacimiento', fechaNacimiento)}
+                          {(subject.kind === 'client' || subject.kind === 'person') && (
+                            <>
+                              {renderReadOnlyField('Fecha de Nacimiento', fechaNacimiento)}
+                              {renderReadOnlyField('Género', getGenderLabel(genero))}
+                            </>
+                          )}
                         </>
                       )}
                     </div>
@@ -1311,7 +1340,7 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                     )}
                   </div>
 
-                  {/* Campos adicionales de Emergencia y Salud para Clientes */}
+                  {/* Campos adicionales de Emergencia, Salud y Captación para Clientes */}
                   {subject.kind === 'client' && (
                     <div className="pt-2 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       {isEditing ? (
@@ -1329,14 +1358,23 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                             error={formErrors.numero_contacto_emergencia}
                             placeholder="999888777"
                           />
-                          <div className="sm:col-span-2">
-                            <Input
-                              label="Notas Médicas / Observaciones"
-                              value={notasMedicas}
-                              onChange={(e) => setNotasMedicas(e.target.value)}
-                              placeholder="Alergias, lesiones o condiciones relevantes"
-                            />
-                          </div>
+                          <Select
+                            label="Canal de Captación"
+                            value={canalCaptacion}
+                            onChange={(e) =>
+                              setCanalCaptacion(e.target.value as ClientAcquisitionChannel | '')
+                            }
+                            options={[
+                              { value: '', label: 'Sin especificar' },
+                              ...CLIENT_ACQUISITION_CHANNEL_OPTIONS,
+                            ]}
+                          />
+                          <Input
+                            label="Notas Médicas / Observaciones"
+                            value={notasMedicas}
+                            onChange={(e) => setNotasMedicas(e.target.value)}
+                            placeholder="Alergias, lesiones o condiciones relevantes"
+                          />
                         </>
                       ) : (
                         <>
@@ -1349,9 +1387,11 @@ export const EntityProfileModal: React.FC<EntityProfileModalProps> = ({
                             contactoEmergenciaNumero,
                             true
                           )}
-                          <div className="sm:col-span-2">
-                            {renderReadOnlyField('Notas Médicas', notasMedicas)}
-                          </div>
+                          {renderReadOnlyField(
+                            'Canal de Captación',
+                            getAcquisitionChannelLabel(canalCaptacion)
+                          )}
+                          {renderReadOnlyField('Notas Médicas', notasMedicas)}
                         </>
                       )}
                     </div>

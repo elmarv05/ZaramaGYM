@@ -463,19 +463,23 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
   return (
     <div className="w-full flex flex-col gap-5">
       {/* Pestañas de Sub-Vistas Segmentadas */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
-        <div role="group" aria-label="Sub-vistas del directorio" className="flex items-center gap-2 flex-wrap">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+        <div
+          role="group"
+          aria-label="Sub-vistas del directorio"
+          className="inline-flex w-fit max-w-full items-center flex-wrap bg-canvas-subtle p-1.5 rounded-xl border border-border-elevated gap-1.5 shadow-xs"
+        >
           <Button
             type="button"
-            variant={effectiveSubTab === 'clients' ? 'secondary' : 'ghost'}
-            size="md"
+            variant={effectiveSubTab === 'clients' ? 'primary' : 'ghost'}
+            size="sm"
             aria-pressed={effectiveSubTab === 'clients'}
             onClick={() => setActiveSubTab('clients')}
             leftIcon={<Icon name="qr" className="w-4 h-4" aria-hidden="true" />}
-            className={`text-sm font-semibold ${
+            className={`px-3.5 py-1.5 text-xs sm:text-[13px] ${
               effectiveSubTab === 'clients'
-                ? 'shadow-sm'
-                : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
+                ? 'font-bold shadow-sm'
+                : 'font-semibold text-txt-secondary hover:text-txt-primary hover:bg-surface/75'
             }`}
           >
             {canAccessPersons ? 'Clientes' : 'Clientes & QR'}
@@ -484,15 +488,15 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
           {canCreateSupOrComp && (
             <Button
               type="button"
-              variant={effectiveSubTab === 'suppliers' ? 'secondary' : 'ghost'}
-              size="md"
+              variant={effectiveSubTab === 'suppliers' ? 'primary' : 'ghost'}
+              size="sm"
               aria-pressed={effectiveSubTab === 'suppliers'}
               onClick={() => setActiveSubTab('suppliers')}
               leftIcon={<Icon name="truck" className="w-4 h-4" aria-hidden="true" />}
-              className={`text-sm font-semibold ${
+              className={`px-3.5 py-1.5 text-xs sm:text-[13px] ${
                 effectiveSubTab === 'suppliers'
-                  ? 'shadow-sm'
-                  : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
+                  ? 'font-bold shadow-sm'
+                  : 'font-semibold text-txt-secondary hover:text-txt-primary hover:bg-surface/75'
               }`}
             >
               Proveedores
@@ -502,15 +506,15 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
           {canAccessPersons && (
             <Button
               type="button"
-              variant={effectiveSubTab === 'persons' ? 'secondary' : 'ghost'}
-              size="md"
+              variant={effectiveSubTab === 'persons' ? 'primary' : 'ghost'}
+              size="sm"
               aria-pressed={effectiveSubTab === 'persons'}
               onClick={() => setActiveSubTab('persons')}
               leftIcon={<Icon name="users" className="w-4 h-4" aria-hidden="true" />}
-              className={`text-sm font-semibold ${
+              className={`px-3.5 py-1.5 text-xs sm:text-[13px] ${
                 effectiveSubTab === 'persons'
-                  ? 'shadow-sm'
-                  : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
+                  ? 'font-bold shadow-sm'
+                  : 'font-semibold text-txt-secondary hover:text-txt-primary hover:bg-surface/75'
               }`}
             >
               Personas
@@ -520,15 +524,15 @@ export const EntityDirectoryView: React.FC<EntityDirectoryViewProps> = (props) =
           {canCreateSupOrComp && (
             <Button
               type="button"
-              variant={effectiveSubTab === 'companies' ? 'secondary' : 'ghost'}
-              size="md"
+              variant={effectiveSubTab === 'companies' ? 'primary' : 'ghost'}
+              size="sm"
               aria-pressed={effectiveSubTab === 'companies'}
               onClick={() => setActiveSubTab('companies')}
               leftIcon={<Icon name="building" className="w-4 h-4" aria-hidden="true" />}
-              className={`text-sm font-semibold ${
+              className={`px-3.5 py-1.5 text-xs sm:text-[13px] ${
                 effectiveSubTab === 'companies'
-                  ? 'shadow-sm'
-                  : 'text-txt-muted hover:text-txt-primary hover:bg-surface/50'
+                  ? 'font-bold shadow-sm'
+                  : 'font-semibold text-txt-secondary hover:text-txt-primary hover:bg-surface/75'
               }`}
             >
               Empresas

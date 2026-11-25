@@ -109,6 +109,8 @@ async fn create_client_with_membership(
             numero_contacto_emergencia: None,
             notas_medicas: None,
             peso_inicial_kg: None,
+            genero: None,
+            canal_captacion: None,
         },
     )
     .await
@@ -1164,6 +1166,12 @@ async fn test_cp_lan_17_scanner_v2_ui_controls_and_ping_health() {
         "btnThemeToggle",
         "color-scheme",
         "data-theme",
+        "overlay-card",
+        "overlayDrain 5000ms linear forwards",
+        "startCountdown(5000)",
+        "@starting-style",
+        "allow-discrete",
+        "canTransitionDisplay",
         "lastPassBar",
         "unlinkModal",
         "SQLite Local-First",

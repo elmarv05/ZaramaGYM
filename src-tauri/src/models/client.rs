@@ -19,6 +19,7 @@ pub struct ClientListItem {
     pub nombres: String,
     pub apellidos: String,
     pub fecha_nacimiento: Option<String>,
+    pub genero: Option<String>,
     pub telefono: Option<String>,
     pub email: Option<String>,
     pub direccion: Option<String>,
@@ -27,6 +28,7 @@ pub struct ClientListItem {
     pub numero_contacto_emergencia: Option<String>,
     pub notas_medicas: Option<String>,
     pub peso_actual_kg: Option<Decimal>,
+    pub canal_captacion: Option<String>,
     pub persona_rol_usuario: Option<UserRole>,
     pub estado_activo: bool,
     pub created_at: String,
@@ -41,6 +43,7 @@ pub struct ClientDetail {
     pub nombres: String,
     pub apellidos: String,
     pub fecha_nacimiento: Option<String>,
+    pub genero: Option<String>,
     pub telefono: Option<String>,
     pub email: Option<String>,
     pub direccion: Option<String>,
@@ -49,6 +52,7 @@ pub struct ClientDetail {
     pub numero_contacto_emergencia: Option<String>,
     pub notas_medicas: Option<String>,
     pub peso_actual_kg: Option<Decimal>,
+    pub canal_captacion: Option<String>,
     pub persona_rol_usuario: Option<UserRole>,
     pub estado_activo: bool,
     pub created_at: String,
@@ -63,6 +67,8 @@ pub struct CreateClientInput {
     pub nombres: Option<String>,
     pub apellidos: Option<String>,
     pub fecha_nacimiento: Option<String>,
+    #[serde(default)]
+    pub genero: Option<String>,
     pub telefono: Option<String>,
     pub email: Option<String>,
     pub direccion: Option<String>,
@@ -70,6 +76,8 @@ pub struct CreateClientInput {
     pub numero_contacto_emergencia: Option<String>,
     pub notas_medicas: Option<String>,
     pub peso_inicial_kg: Option<Decimal>,
+    #[serde(default)]
+    pub canal_captacion: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -85,6 +93,8 @@ pub struct UpdateClientInput {
     #[serde(default)]
     pub fecha_nacimiento: Option<String>,
     #[serde(default)]
+    pub genero: Option<String>,
+    #[serde(default)]
     pub telefono: Option<String>,
     #[serde(default)]
     pub email: Option<String>,
@@ -96,6 +106,8 @@ pub struct UpdateClientInput {
     pub numero_contacto_emergencia: Option<String>,
     #[serde(default)]
     pub notas_medicas: Option<String>,
+    #[serde(default)]
+    pub canal_captacion: Option<String>,
     #[serde(default)]
     pub modificar_datos_personales: Option<bool>,
 }

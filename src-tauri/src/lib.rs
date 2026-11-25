@@ -205,7 +205,26 @@ pub fn run() {
             commands::get_home_dashboard_metrics,
             commands::export_clients_roster,
             commands::export_debtors_portfolio,
-            commands::export_sales_cash_report
+            commands::export_sales_cash_report,
+            // BI-Slice 1: Permisos RBAC Configurables Home
+            commands::get_receptionist_permissions,
+            commands::get_my_effective_permissions,
+            commands::update_receptionist_permissions,
+            // BI-Slice 2: Motor Analítico BI - Finanzas y Rentabilidad
+            commands::get_bi_finance_analytics,
+            commands::export_bi_finance_analytics,
+            // BI-Slice 3: Socios/Retención y Asistencia/Demanda
+            commands::get_bi_members_analytics,
+            commands::export_bi_members_analytics,
+            commands::get_bi_attendance_analytics,
+            commands::export_bi_attendance_analytics,
+            // BI-Slice 4: Productos/Inventario y Control/Riesgo
+            commands::get_bi_inventory_analytics,
+            commands::export_bi_inventory_analytics,
+            commands::get_bi_control_analytics,
+            commands::export_bi_control_analytics,
+            // BI-Slice 5: Reporte Ejecutivo PDF Consolidado
+            commands::generate_executive_bi_report_pdf
         ])
         .run(tauri::generate_context!())
         .expect("Error al ejecutar la aplicación Tauri ZaramaGYM");

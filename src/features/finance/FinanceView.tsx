@@ -20,6 +20,7 @@ import {
   triggerBase64PdfDownload,
 } from '../../domain/printingBackup';
 import { useFinance } from '../../hooks/useFinance';
+import { useEffectivePermissions } from '../../hooks/useReceptionistPermissions';
 import { normalizeAppError } from '../../services/ipc/client';
 import { dashboardIpc } from '../../services/ipc/dashboardIpc';
 import { printingBackupIpc } from '../../services/ipc/printingBackupIpc';
@@ -70,6 +71,16 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   onClearError,
 }) => {
   const isAdmin = currentSession?.rol === 'ADMINISTRADOR';
+  const {
+    permissions: effectivePermissions,
+    isLoading: isPermissionsLoading,
+  } = useEffectivePermissions(currentSession?.rol);
+
+  const canViewFinanceDashboard =
+    isAdmin || (!isPermissionsLoading && effectivePermissions.ver_dashboard_modulo_finanzas);
+  const canExportSales =
+    isAdmin || (!isPermissionsLoading && effectivePermissions.exportar_ventas_caja);
+
   const shouldAutoFetch =
     propDashboard === undefined &&
     propPurchases === undefined &&
@@ -78,14 +89,22 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
   const hook = useFinance({
     isAdmin,
+    canViewDashboard: canViewFinanceDashboard,
     autoFetch: shouldAutoFetch,
   });
 
-  const [activeTab, setActiveTab] = useState<FinanceMainTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<FinanceMainTab>(
+    !canViewFinanceDashboard && initialTab === 'dashboard' ? 'compras' : initialTab
+  );
 
   useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
+    setActiveTab(
+      !canViewFinanceDashboard && initialTab === 'dashboard' ? 'compras' : initialTab
+    );
+  }, [initialTab, canViewFinanceDashboard]);
+
+  const effectiveTab: FinanceMainTab =
+    !canViewFinanceDashboard && activeTab === 'dashboard' ? 'compras' : activeTab;
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportingSalesFormat, setExportingSalesFormat] = useState<ExportFormat | null>(null);
   const [pdfFeedback, setPdfFeedback] = useState<{
@@ -191,32 +210,36 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {activeTab === 'dashboard' && (
+          {effectiveTab === 'dashboard' && canViewFinanceDashboard && (
             <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleExportSalesCashReport('CSV')}
-                isLoading={exportingSalesFormat === 'CSV'}
-                disabled={isExportingPdf || exportingSalesFormat !== null}
-                aria-label="Exportar Ventas y Caja en CSV"
-                leftIcon={<Icon name="download" className="w-4 h-4" aria-hidden="true" />}
-              >
-                Ventas CSV
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleExportSalesCashReport('XLSX')}
-                isLoading={exportingSalesFormat === 'XLSX'}
-                disabled={isExportingPdf || exportingSalesFormat !== null}
-                aria-label="Exportar Ventas y Caja en Excel (.xlsx)"
-                leftIcon={<Icon name="download" className="w-4 h-4" aria-hidden="true" />}
-              >
-                Ventas Excel (.xlsx)
-              </Button>
+              {canExportSales && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleExportSalesCashReport('CSV')}
+                    isLoading={exportingSalesFormat === 'CSV'}
+                    disabled={isExportingPdf || exportingSalesFormat !== null}
+                    aria-label="Exportar Ventas y Caja en CSV"
+                    leftIcon={<Icon name="download" className="w-4 h-4" aria-hidden="true" />}
+                  >
+                    Ventas CSV
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleExportSalesCashReport('XLSX')}
+                    isLoading={exportingSalesFormat === 'XLSX'}
+                    disabled={isExportingPdf || exportingSalesFormat !== null}
+                    aria-label="Exportar Ventas y Caja en Excel (.xlsx)"
+                    leftIcon={<Icon name="download" className="w-4 h-4" aria-hidden="true" />}
+                  >
+                    Ventas Excel (.xlsx)
+                  </Button>
+                </>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -273,15 +296,17 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
       {/* Navegación por Sub-Pestañas Accesibles (Radix Tabs) */}
       <Tabs
-        value={activeTab}
+        value={effectiveTab}
         onValueChange={(nextValue) => setActiveTab(nextValue as FinanceMainTab)}
         className="gap-6"
       >
         <TabsList aria-label="Pestañas de Finanzas">
-          <TabsTrigger value="dashboard">
-            <Icon name="bar-chart" className="w-4 h-4" aria-hidden="true" />
-            <span>Dashboard Financiero</span>
-          </TabsTrigger>
+          {canViewFinanceDashboard && (
+            <TabsTrigger value="dashboard">
+              <Icon name="bar-chart" className="w-4 h-4" aria-hidden="true" />
+              <span>Dashboard Financiero</span>
+            </TabsTrigger>
+          )}
 
           <TabsTrigger value="compras">
             <Icon name="package" className="w-4 h-4" aria-hidden="true" />
@@ -310,20 +335,22 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         </TabsList>
 
         {/* Contenido de la Sub-Pestaña Activa */}
-        <TabsContent value="dashboard">
-          <FinancialDashboardTab
-            dashboard={dashboard}
-            activeChannelView={hook.activeChannelView}
-            onSelectChannelView={hook.setActiveChannelView}
-            reportFilter={hook.reportFilter}
-            onApplyFilter={(f) => {
-              hook.setReportFilter(f);
-              hook.fetchDashboard(f);
-            }}
-            isLoading={isLoading}
-            onNavigateToStruckTray={() => setActiveTab('tachados')}
-          />
-        </TabsContent>
+        {canViewFinanceDashboard && (
+          <TabsContent value="dashboard">
+            <FinancialDashboardTab
+              dashboard={dashboard}
+              activeChannelView={hook.activeChannelView}
+              onSelectChannelView={hook.setActiveChannelView}
+              reportFilter={hook.reportFilter}
+              onApplyFilter={(f) => {
+                hook.setReportFilter(f);
+                hook.fetchDashboard(f);
+              }}
+              isLoading={isLoading}
+              onNavigateToStruckTray={() => setActiveTab('tachados')}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="compras">
           <SupplierPurchasesTab

@@ -17,8 +17,8 @@ export const tabsListVariants = cva(
     variants: {
       variant: {
         default:
-          'bg-canvas-subtle/95 p-1 rounded-xl border border-border/85 gap-1 shadow-2xs',
-        pills: 'bg-canvas-subtle p-1 rounded-xl border border-border gap-1',
+          'bg-canvas-subtle p-1.5 rounded-xl border border-border-elevated gap-1.5 shadow-xs',
+        pills: 'bg-canvas-subtle p-1.5 rounded-xl border border-border-elevated gap-1.5 shadow-xs',
         underline: 'flex w-full border-b border-border gap-4 pb-0',
       },
     },
@@ -34,9 +34,9 @@ export const tabsTriggerVariants = cva(
     variants: {
       variant: {
         default:
-          'text-xs sm:text-[13px] px-3.5 py-1.5 rounded-lg text-txt-secondary hover:text-txt-primary border border-transparent data-[state=active]:bg-surface data-[state=active]:text-txt-primary data-[state=active]:border-border/80 data-[state=active]:shadow-xs dark:data-[state=active]:shadow-[0_1px_3px_0_rgba(0,0,0,0.45),inset_0_1px_0_0_rgba(255,255,255,0.025)]',
+          'text-xs sm:text-[13px] px-3.5 py-1.5 rounded-lg text-txt-secondary hover:text-txt-primary hover:bg-surface/75 border border-transparent data-[state=active]:bg-brand data-[state=active]:text-brand-text data-[state=active]:border-brand data-[state=active]:font-bold data-[state=active]:shadow-sm',
         pills:
-          'text-xs sm:text-[13px] px-3.5 py-1.5 rounded-lg text-txt-secondary hover:text-txt-primary border border-transparent data-[state=active]:bg-surface data-[state=active]:text-txt-primary data-[state=active]:border-border/80 data-[state=active]:shadow-xs',
+          'text-xs sm:text-[13px] px-3.5 py-1.5 rounded-lg text-txt-secondary hover:text-txt-primary hover:bg-surface/75 border border-transparent data-[state=active]:bg-brand data-[state=active]:text-brand-text data-[state=active]:border-brand data-[state=active]:font-bold data-[state=active]:shadow-sm',
         underline:
           'text-xs sm:text-sm px-1 pb-2.5 pt-1 text-txt-muted hover:text-txt-primary data-[state=active]:text-txt-primary after:content-[""] after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:border-b-2 after:border-transparent data-[state=active]:after:border-brand',
       },

@@ -533,6 +533,12 @@ pub struct SaleFilter {
     pub turno_caja_id: Option<i64>,
     #[serde(alias = "clienteId")]
     pub cliente_id: Option<i64>,
+    #[serde(alias = "clienteBusqueda")]
+    pub cliente_busqueda: Option<String>,
+    #[serde(alias = "usuarioVendedorId")]
+    pub usuario_vendedor_id: Option<i64>,
+    #[serde(alias = "usuarioVendedorUsername")]
+    pub usuario_vendedor_username: Option<String>,
     #[serde(alias = "estadoVenta")]
     pub estado_venta: Option<SaleState>,
     #[serde(alias = "fechaDesde")]

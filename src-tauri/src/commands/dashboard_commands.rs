@@ -3,8 +3,9 @@
 use crate::errors::AppError;
 use crate::models::dashboard::{
     ExportFileResult, ExportFormat, ExportSalesReportRequest, HomeDashboardMetricsDto,
+    ReceptionistPermissionsDto,
 };
-use crate::services::dashboard_service;
+use crate::services::{dashboard_service, permissions_service};
 use crate::state::AppState;
 use tauri::State;
 
@@ -67,4 +68,37 @@ pub async fn export_sales_cash_report(
     };
 
     dashboard_service::export_sales_cash_report(&state.pool(), &session, resolved_req).await
+}
+
+// ============================================================================
+// COMANDOS IPC: PERMISOS RBAC CONFIGURABLES HOME (BI-SLICE 1)
+// ============================================================================
+
+#[tauri::command]
+pub async fn get_receptionist_permissions(
+    state: State<'_, AppState>,
+) -> Result<ReceptionistPermissionsDto, AppError> {
+    let _session = state.require_unlocked_session().await?;
+    permissions_service::get_receptionist_permissions(&state.pool()).await
+}
+
+#[tauri::command]
+pub async fn get_my_effective_permissions(
+    state: State<'_, AppState>,
+) -> Result<ReceptionistPermissionsDto, AppError> {
+    let session = state.require_unlocked_session().await?;
+    permissions_service::get_effective_permissions(&state.pool(), &session).await
+}
+
+#[tauri::command]
+pub async fn update_receptionist_permissions(
+    input: Option<ReceptionistPermissionsDto>,
+    permissions: Option<ReceptionistPermissionsDto>,
+    state: State<'_, AppState>,
+) -> Result<ReceptionistPermissionsDto, AppError> {
+    let session = state.require_admin().await?;
+    let dto = input.or(permissions).ok_or_else(|| {
+        AppError::Validation("Debe enviar el objeto de permisos de recepcionista.".into())
+    })?;
+    permissions_service::update_receptionist_permissions(&state.pool(), &session, dto).await
 }

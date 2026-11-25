@@ -53,3 +53,53 @@ export interface ExportSalesReportRequest {
   canal_filtro?: string | null;
   format: ExportFormat;
 }
+
+// ============================================================================
+// PERMISOS GRANULARES RBAC CONFIGURABLES PARA RECEPCIONISTA (BI-SLICE 1)
+// Secure-by-Default: todos en false para Recepcionista; todos en true para Admin
+// ============================================================================
+
+export interface ReceptionistPermissionsDto {
+  ver_ingresos_mes_operativo: boolean;
+  ver_tab_finanzas: boolean;
+  ver_dashboard_modulo_finanzas: boolean;
+  ver_tab_socios: boolean;
+  ver_tab_asistencia: boolean;
+  ver_tab_inventario: boolean;
+  ver_tab_control: boolean;
+  exportar_clientes: boolean;
+  exportar_deudores: boolean;
+  exportar_ventas_caja: boolean;
+  exportar_contextual_bi: boolean;
+  exportar_reporte_ejecutivo_pdf: boolean;
+}
+
+export const DEFAULT_RECEPTIONIST_PERMISSIONS: ReceptionistPermissionsDto = {
+  ver_ingresos_mes_operativo: false,
+  ver_tab_finanzas: false,
+  ver_dashboard_modulo_finanzas: false,
+  ver_tab_socios: false,
+  ver_tab_asistencia: false,
+  ver_tab_inventario: false,
+  ver_tab_control: false,
+  exportar_clientes: false,
+  exportar_deudores: false,
+  exportar_ventas_caja: false,
+  exportar_contextual_bi: false,
+  exportar_reporte_ejecutivo_pdf: false,
+};
+
+export const ADMIN_EFFECTIVE_PERMISSIONS: ReceptionistPermissionsDto = {
+  ver_ingresos_mes_operativo: true,
+  ver_tab_finanzas: true,
+  ver_dashboard_modulo_finanzas: true,
+  ver_tab_socios: true,
+  ver_tab_asistencia: true,
+  ver_tab_inventario: true,
+  ver_tab_control: true,
+  exportar_clientes: true,
+  exportar_deudores: true,
+  exportar_ventas_caja: true,
+  exportar_contextual_bi: true,
+  exportar_reporte_ejecutivo_pdf: true,
+};

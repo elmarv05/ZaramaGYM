@@ -1077,6 +1077,34 @@ async fn test_cp_prn_12_secrets_keyring_and_gdrive_sync() {
         "Recepcionista no debe tener permiso para modificar series de comprobantes"
     );
 
+    // Secure-by-Default: sin permiso ver_dashboard_modulo_finanzas, RECEPCIONISTA recibe Forbidden
+    let recep_fin_pdf_denied = printing_backup_service::generate_financial_report_pdf(
+        &state.pool(),
+        &recep,
+        GenerateFinancialReportPdfRequest {
+            fecha_desde: "2026-01-01".into(),
+            fecha_hasta: "2026-12-31".into(),
+            canal_filtro: None,
+        },
+    )
+    .await;
+    assert!(
+        matches!(recep_fin_pdf_denied, Err(AppError::Forbidden(_))),
+        "Recepcionista sin permiso ver_dashboard_modulo_finanzas debe recibir Forbidden al generar PDF financiero"
+    );
+
+    // Admin habilita ver_dashboard_modulo_finanzas
+    zarama_gym_lib::services::permissions_service::update_receptionist_permissions(
+        &state.pool(),
+        &admin,
+        zarama_gym_lib::models::ReceptionistPermissionsDto {
+            ver_dashboard_modulo_finanzas: true,
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
     let recep_fin_pdf = printing_backup_service::generate_financial_report_pdf(
         &state.pool(),
         &recep,
@@ -1089,7 +1117,7 @@ async fn test_cp_prn_12_secrets_keyring_and_gdrive_sync() {
     .await;
     assert!(
         recep_fin_pdf.is_ok(),
-        "Recepcionista debe poder generar el reporte financiero PDF"
+        "Recepcionista debe poder generar el reporte financiero PDF tras habilitar el permiso"
     );
     // 5. KeyringRestoreGuard restaura automáticamente los secretos previos al salir del bloque
 }

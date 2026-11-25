@@ -16,6 +16,7 @@ pub struct PersonListItem {
     pub numero_documento: String,
     pub nombres: String,
     pub apellidos: String,
+    pub genero: Option<String>,
     pub telefono: Option<String>,
     pub email: Option<String>,
     pub es_cliente: bool,
@@ -33,6 +34,7 @@ pub struct PersonDetail {
     pub nombres: String,
     pub apellidos: String,
     pub fecha_nacimiento: Option<String>,
+    pub genero: Option<String>,
     pub telefono: Option<String>,
     pub email: Option<String>,
     pub direccion: Option<String>,
@@ -54,6 +56,8 @@ pub struct CreatePersonInput {
     pub nombres: String,
     pub apellidos: String,
     pub fecha_nacimiento: Option<String>,
+    #[serde(default)]
+    pub genero: Option<String>,
     pub telefono: Option<String>,
     pub email: Option<String>,
     pub direccion: Option<String>,
@@ -66,6 +70,8 @@ pub struct UpdatePersonInput {
     pub nombres: String,
     pub apellidos: String,
     pub fecha_nacimiento: Option<String>,
+    #[serde(default)]
+    pub genero: Option<String>,
     pub telefono: Option<String>,
     pub email: Option<String>,
     pub direccion: Option<String>,

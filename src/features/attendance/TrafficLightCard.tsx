@@ -24,12 +24,13 @@ export const TrafficLightCard: React.FC<TrafficLightCardProps> = ({
   onNavigateToPos,
   isActionLoading = false,
 }) => {
-  // 1. ESTADO STANDBY / EN ESPERA DE LECTURA
+  // 1. ESTADO STANDBY / EN ESPERA DE LECTURA (Alineado para panel de 2 columnas sin CLS)
   if (!evaluation) {
     return (
       <Card
+        data-slot="traffic-light-standby"
         data-testid="traffic-light-standby"
-        className="w-full border-2 border-dashed rounded-2xl p-10 items-center justify-center text-center gap-4"
+        className="w-full min-h-[340px] lg:min-h-[372px] border-2 border-dashed rounded-2xl p-8 sm:p-10 items-center justify-center text-center gap-4"
       >
         <div
           aria-hidden="true"
@@ -37,7 +38,7 @@ export const TrafficLightCard: React.FC<TrafficLightCardProps> = ({
         >
           <Icon name="activity" className="w-9 h-9" />
         </div>
-        <div className="max-w-md flex flex-col gap-1">
+        <div className="max-w-md flex flex-col gap-1.5">
           <h3 className="text-lg font-bold text-txt-primary">
             Listo para escanear credencial QR o buscar socio por DNI
           </h3>
@@ -77,55 +78,57 @@ export const TrafficLightCard: React.FC<TrafficLightCardProps> = ({
 
   const deudaNum = parseFloat(deudaTotalPendiente) || 0;
 
-  // 2. CONFIGURACIÓN VISUAL POR COLOR DE SEMÁFORO (100% Design Tokens)
+  // 2. CONFIGURACIÓN VISUAL POR COLOR DE SEMÁFORO (100% Design Tokens semánticos)
   const colorStyles = {
     VERDE: {
-      cardBg: 'bg-status-success-bg/70 border-status-success text-txt-primary',
-      headerBg: 'bg-status-success text-white',
+      cardBg: 'bg-surface border-status-success-border border-t-4 border-t-status-success text-txt-primary',
+      headerBg: 'bg-status-success-bg border-b border-status-success-border text-status-success',
       badgeText: 'ACCESO PERMITIDO — MEMBRESÍA ACTIVA',
-      dotClass: 'bg-white',
-      statusBadgeBg: 'bg-status-success text-white',
+      dotClass: 'bg-status-success',
+      statusBadgeBg: 'bg-status-success-bg border border-status-success-border text-status-success',
     },
     AMARILLO: {
-      cardBg: 'bg-status-warning-bg/70 border-status-warning text-txt-primary',
-      headerBg: 'bg-status-warning text-white font-black',
+      cardBg: 'bg-surface border-status-warning-border border-t-4 border-t-status-warning text-txt-primary',
+      headerBg: 'bg-status-warning-bg border-b border-status-warning-border text-status-warning font-black',
       badgeText: 'INGRESO PERMITIDO CON ALERTA PREVENTIVA',
-      dotClass: 'bg-white',
-      statusBadgeBg: 'bg-status-warning text-white font-bold',
+      dotClass: 'bg-status-warning',
+      statusBadgeBg: 'bg-status-warning-bg border border-status-warning-border text-status-warning font-bold',
     },
     ROJO: {
-      cardBg: 'bg-status-danger-bg/70 border-status-danger text-txt-primary',
-      headerBg: 'bg-status-danger text-white',
+      cardBg: 'bg-surface border-status-danger-border border-t-4 border-t-status-danger text-txt-primary',
+      headerBg: 'bg-status-danger-bg border-b border-status-danger-border text-status-danger',
       badgeText: 'ACCESO DENEGADO — MEMBRESÍA VENCIDA O INEXISTENTE',
-      dotClass: 'bg-white',
-      statusBadgeBg: 'bg-status-danger text-white',
+      dotClass: 'bg-status-danger',
+      statusBadgeBg: 'bg-status-danger-bg border border-status-danger-border text-status-danger',
     },
   }[colorSemaforo];
 
   return (
     <article
+      data-slot="traffic-light-card"
+      data-state={colorSemaforo}
       data-testid={`traffic-light-card-${colorSemaforo.toLowerCase()}`}
-      className={`w-full border-2 rounded-2xl overflow-hidden shadow-md flex flex-col transition-all ${colorStyles.cardBg}`}
+      className={`w-full min-h-[340px] lg:min-h-[372px] border rounded-2xl overflow-hidden shadow-md flex flex-col justify-between transition-all ${colorStyles.cardBg}`}
     >
       {/* Barra de Título del Semáforo */}
-      <div className={`px-6 py-3 flex items-center justify-between ${colorStyles.headerBg}`}>
-        <div className="flex items-center gap-2.5">
+      <div className={`px-5 py-3.5 flex items-center justify-between gap-3 ${colorStyles.headerBg}`}>
+        <div className="flex items-center gap-2.5 min-w-0">
           <span
             className={`w-2.5 h-2.5 rounded-full shrink-0 ${colorStyles.dotClass}`}
             aria-hidden="true"
           />
-          <span className="text-sm font-extrabold uppercase tracking-wide">
+          <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wide truncate">
             {colorStyles.badgeText}
           </span>
         </div>
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={onClear}
           title="Limpiar semáforo y volver a standby"
           leftIcon={<Icon name="x" className="w-3.5 h-3.5" />}
-          className="text-white hover:text-white bg-black/20 hover:bg-black/30 min-h-[28px] px-2.5 py-1"
+          className="shrink-0 min-h-[28px] px-2.5 py-1 bg-surface"
         >
           Limpiar
         </Button>
@@ -135,29 +138,29 @@ export const TrafficLightCard: React.FC<TrafficLightCardProps> = ({
       {esRebote && (
         <div
           data-testid="anti-rebote-badge"
-          className="bg-accent-indigo text-white text-xs font-bold px-6 py-2 flex items-center justify-between shadow-xs"
+          className="bg-status-info-bg border-b border-status-info-border text-status-info text-xs font-bold px-5 py-2 flex flex-wrap items-center justify-between gap-2"
         >
           <div className="flex items-center gap-2">
             <Icon name="clock" className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>Lectura dentro de ventana anti-rebote (3 min) — No duplicada en registros</span>
           </div>
-          <span className="text-[11px] font-normal opacity-90">Ingreso ya validado previamente</span>
+          <span className="text-[11px] font-medium">Ingreso ya validado previamente</span>
         </div>
       )}
 
-      {/* Cuerpo Principal del Semáforo */}
-      <div className="p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+      {/* Cuerpo Principal del Semáforo (Optimizado para panel lateral de 2 columnas) */}
+      <div className="p-5 sm:p-6 flex-1 flex flex-col justify-center gap-5">
         {/* Identidad del Socio */}
-        <div className="flex items-center gap-5">
-          <div className="relative">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="relative shrink-0">
             {fotoPerfilDataUrl ? (
               <img
                 src={fotoPerfilDataUrl}
                 alt={nombreCompleto}
-                className="w-20 h-20 rounded-2xl object-cover border-2 border-surface shadow-sm"
+                className="w-20 h-20 rounded-2xl object-cover border-2 border-border shadow-sm block"
               />
             ) : (
-              <div className="w-20 h-20 rounded-2xl bg-surface border border-border flex items-center justify-center font-black text-2xl text-txt-secondary shadow-sm">
+              <div className="w-20 h-20 rounded-2xl bg-canvas-subtle border border-border flex items-center justify-center font-black text-2xl text-txt-secondary shadow-xs">
                 {nombreCompleto.substring(0, 2).toUpperCase()}
               </div>
             )}
@@ -178,8 +181,10 @@ export const TrafficLightCard: React.FC<TrafficLightCardProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <h2 className="text-xl font-black tracking-tight text-txt-primary">{nombreCompleto}</h2>
+          <div className="flex flex-col gap-1 min-w-0">
+            <h2 className="text-xl font-black tracking-tight text-txt-primary truncate">
+              {nombreCompleto}
+            </h2>
             <div className="flex flex-wrap items-center gap-2 text-xs text-txt-secondary">
               <span className="font-semibold text-txt-primary">
                 {tipoDocumento}: {numeroDocumento}
@@ -198,9 +203,9 @@ export const TrafficLightCard: React.FC<TrafficLightCardProps> = ({
           </div>
         </div>
 
-        {/* Datos de Membresía y Finanzas */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full lg:w-auto">
-          <div className="bg-surface/90 border border-border p-3 rounded-xl flex flex-col">
+        {/* Datos de Membresía y Finanzas en Grilla Equilibrada de 3 Tarjetas */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+          <div className="bg-canvas-subtle border border-border p-3.5 rounded-xl flex flex-col gap-0.5 min-w-0">
             <span className="text-[10px] uppercase font-bold text-txt-muted tracking-wider">
               Plan Vigente
             </span>
@@ -212,7 +217,7 @@ export const TrafficLightCard: React.FC<TrafficLightCardProps> = ({
             </span>
           </div>
 
-          <div className="bg-surface/90 border border-border p-3 rounded-xl flex flex-col">
+          <div className="bg-canvas-subtle border border-border p-3.5 rounded-xl flex flex-col gap-0.5 min-w-0">
             <span className="text-[10px] uppercase font-bold text-txt-muted tracking-wider">
               Días Restantes
             </span>
@@ -236,7 +241,7 @@ export const TrafficLightCard: React.FC<TrafficLightCardProps> = ({
             </span>
           </div>
 
-          <div className="bg-surface/90 border border-border p-3 rounded-xl flex flex-col col-span-2 sm:col-span-1">
+          <div className="bg-canvas-subtle border border-border p-3.5 rounded-xl flex flex-col gap-0.5 min-w-0">
             <span className="text-[10px] uppercase font-bold text-txt-muted tracking-wider">
               Deuda Pendiente
             </span>
@@ -255,9 +260,9 @@ export const TrafficLightCard: React.FC<TrafficLightCardProps> = ({
       </div>
 
       {/* Motivo Detallado y Acciones Obligatorias */}
-      <div className="px-6 py-4 bg-surface/60 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-txt-muted uppercase">Motivo:</span>
+      <div className="px-5 py-4 bg-canvas-subtle/70 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-bold text-txt-muted uppercase shrink-0">Motivo:</span>
           <span className="text-xs font-semibold text-txt-primary">{motivoSemaforo}</span>
         </div>
 
@@ -271,7 +276,7 @@ export const TrafficLightCard: React.FC<TrafficLightCardProps> = ({
               size="sm"
               onClick={() => onNavigateToPos(deudaNum > 0 ? 'deudores' : 'pos')}
               leftIcon={<Icon name="pos" className="w-4 h-4" />}
-              className="bg-status-warning text-white hover:opacity-90 border-transparent"
+              className="bg-status-warning-bg text-status-warning hover:opacity-90 border-status-warning-border font-bold"
             >
               Ir a Caja / Cobrar Deuda o Renovar
             </Button>

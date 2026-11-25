@@ -31,6 +31,7 @@ import { LockModal } from './features/auth/LockModal';
 import { LoginForm } from './features/auth/LoginForm';
 import { HomeDashboardView } from './features/home/HomeDashboardView';
 import type { AttendanceMainTab } from './features/attendance/AttendanceView';
+import type { UserManagementSubTab } from './features/auth/UserManagementTable';
 import type { CatalogSubTab } from './features/catalog/CatalogView';
 import type { DirectorySubTab } from './features/entities/EntityDirectoryView';
 import type { FinanceMainTab } from './features/finance/FinanceView';
@@ -166,6 +167,8 @@ export const App: React.FC = () => {
     useState<PrintingBackupTab>('printer');
   const [attendanceInitialTab, setAttendanceInitialTab] =
     useState<AttendanceMainTab>('monitor');
+  const [usersInitialSubTab, setUsersInitialSubTab] =
+    useState<UserManagementSubTab>('users');
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isDeveloperCardOpen, setIsDeveloperCardOpen] = useState(false);
@@ -352,6 +355,7 @@ export const App: React.FC = () => {
 
   const navigateToTab = (tab: NavigationTab) => {
     if (tab === 'pos') setPosInitialTab('pos');
+    if (tab === 'users') setUsersInitialSubTab('users');
     acknowledgeSidebarAlert(tab);
     setActiveTab(tab);
     setIsMobileSidebarOpen(false);
@@ -734,7 +738,10 @@ export const App: React.FC = () => {
         icon: 'users',
         keywords: 'usuarios recepcionistas administradores roles cuentas',
         roles: ['ADMINISTRADOR'],
-        onSelect: () => setActiveTab('users'),
+        onSelect: () => {
+          setUsersInitialSubTab('users');
+          setActiveTab('users');
+        },
       },
       {
         id: 'cmd-audit',
@@ -1355,6 +1362,10 @@ export const App: React.FC = () => {
                     setIsSearchOpen(true);
                     searchInputRef.current?.focus();
                   }}
+                  onOpenReceptionistPermissions={() => {
+                    setUsersInitialSubTab('permissions');
+                    setActiveTab('users');
+                  }}
                 />
               )}
 
@@ -1414,6 +1425,7 @@ export const App: React.FC = () => {
                   <Suspense fallback={<ModuleSkeleton rows={5} label="Cargando Usuarios..." />}>
                     <UserManagementTable
                       currentSession={session}
+                      initialSubTab={usersInitialSubTab}
                       users={users}
                       persons={entitiesHook.persons}
                       isLoading={isUsersLoading}

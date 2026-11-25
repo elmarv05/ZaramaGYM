@@ -12,12 +12,23 @@ import { UserRole } from './auth';
 
 export type PersonDocumentType = 'DNI' | 'RUC' | 'CE' | 'PASAPORTE' | 'OTRO';
 
+export type PersonGender = 'MASCULINO' | 'FEMENINO' | 'OTRO' | 'PREFIERO_NO_DECIR';
+
+export type ClientAcquisitionChannel =
+  | 'REDES_SOCIALES'
+  | 'RECOMENDACION'
+  | 'CAMINANTE_FACHADA'
+  | 'PUBLICIDAD_LOCAL'
+  | 'PROMOCION'
+  | 'OTRO';
+
 export interface PersonListItem {
   id: number;
   tipo_documento: PersonDocumentType;
   numero_documento: string;
   nombres: string;
   apellidos: string;
+  genero?: PersonGender | null;
   telefono: string | null;
   email: string | null;
   es_cliente: boolean;
@@ -34,6 +45,7 @@ export interface PersonDetail {
   nombres: string;
   apellidos: string;
   fecha_nacimiento: string | null;
+  genero?: PersonGender | null;
   telefono: string | null;
   email: string | null;
   direccion: string | null;
@@ -61,6 +73,7 @@ export interface CreatePersonInput {
   nombres: string;
   apellidos: string;
   fecha_nacimiento?: string | null;
+  genero?: PersonGender | null;
   telefono?: string | null;
   email?: string | null;
   direccion?: string | null;
@@ -72,6 +85,7 @@ export interface UpdatePersonInput {
   nombres: string;
   apellidos: string;
   fecha_nacimiento?: string | null;
+  genero?: PersonGender | null;
   telefono?: string | null;
   email?: string | null;
   direccion?: string | null;
@@ -89,6 +103,7 @@ export interface ClientListItem {
   nombres: string;
   apellidos: string;
   fecha_nacimiento?: string | null;
+  genero?: PersonGender | null;
   telefono: string | null;
   email: string | null;
   direccion?: string | null;
@@ -97,6 +112,7 @@ export interface ClientListItem {
   numero_contacto_emergencia?: string | null;
   notas_medicas?: string | null;
   peso_actual_kg: string | number | null;
+  canal_captacion?: ClientAcquisitionChannel | null;
   persona_rol_usuario?: UserRole | null;
   estado_activo: boolean;
   created_at: string;
@@ -110,6 +126,7 @@ export interface ClientDetail {
   nombres: string;
   apellidos: string;
   fecha_nacimiento: string | null;
+  genero?: PersonGender | null;
   telefono: string | null;
   email: string | null;
   direccion: string | null;
@@ -118,6 +135,7 @@ export interface ClientDetail {
   numero_contacto_emergencia: string | null;
   notas_medicas: string | null;
   peso_actual_kg: string | number | null;
+  canal_captacion?: ClientAcquisitionChannel | null;
   persona_rol_usuario?: UserRole | null;
   estado_activo: boolean;
   created_at: string;
@@ -138,6 +156,7 @@ export interface CreateClientInput {
   nombres?: string;
   apellidos?: string;
   fecha_nacimiento?: string | null;
+  genero?: PersonGender | null;
   telefono?: string | null;
   email?: string | null;
   direccion?: string | null;
@@ -145,6 +164,7 @@ export interface CreateClientInput {
   numero_contacto_emergencia?: string | null;
   notas_medicas?: string | null;
   peso_inicial_kg?: string | number | null;
+  canal_captacion?: ClientAcquisitionChannel | null;
 }
 
 export interface UpdateClientInput {
@@ -153,12 +173,14 @@ export interface UpdateClientInput {
   nombres?: string;
   apellidos?: string;
   fecha_nacimiento?: string | null;
+  genero?: PersonGender | null;
   telefono?: string | null;
   email?: string | null;
   direccion?: string | null;
   nombre_contacto_emergencia?: string | null;
   numero_contacto_emergencia?: string | null;
   notas_medicas?: string | null;
+  canal_captacion?: ClientAcquisitionChannel | null;
   modificar_datos_personales?: boolean | null;
 }
 

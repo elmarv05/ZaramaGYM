@@ -4,6 +4,7 @@ use crate::models::printing_backup::*;
 use crate::models::user::AuthSession;
 use crate::services::audit_service::record_audit;
 use crate::services::finance_service;
+use crate::services::permissions_service::{self, ReceptionistPermissionKey};
 use crate::state::AppState;
 use base64::Engine;
 use rust_decimal::Decimal;
@@ -1633,6 +1634,14 @@ pub async fn generate_financial_report_pdf(
     session: &AuthSession,
     request: GenerateFinancialReportPdfRequest,
 ) -> Result<GeneratePdfResult, AppError> {
+    permissions_service::require_permission(
+        pool,
+        session,
+        ReceptionistPermissionKey::VerDashboardModuloFinanzas,
+        "Acceso denegado: no tiene permiso para generar el reporte financiero PDF.",
+    )
+    .await?;
+
     let desde_opt = if request.fecha_desde.trim().is_empty() {
         None
     } else {

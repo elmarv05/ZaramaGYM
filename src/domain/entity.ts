@@ -5,11 +5,13 @@
 // ============================================================================
 
 import {
+  ClientAcquisitionChannel,
   CreateClientInput,
   CreateCompanyInput,
   CreatePersonInput,
   CreateSupplierInput,
   PersonDocumentType,
+  PersonGender,
   RecordClientWeightInput,
   UpdateClientInput,
   UpdateCompanyInput,
@@ -31,6 +33,42 @@ export const PERSON_DOCUMENT_TYPES: PersonDocumentType[] = [
   'PASAPORTE',
   'OTRO',
 ];
+
+export const PERSON_GENDER_OPTIONS: ReadonlyArray<{
+  value: PersonGender;
+  label: string;
+}> = [
+  { value: 'MASCULINO', label: 'Masculino' },
+  { value: 'FEMENINO', label: 'Femenino' },
+  { value: 'OTRO', label: 'Otro' },
+  { value: 'PREFIERO_NO_DECIR', label: 'Prefiero no decir' },
+];
+
+export const CLIENT_ACQUISITION_CHANNEL_OPTIONS: ReadonlyArray<{
+  value: ClientAcquisitionChannel;
+  label: string;
+}> = [
+  { value: 'REDES_SOCIALES', label: 'Redes Sociales' },
+  { value: 'RECOMENDACION', label: 'Recomendación / Referido' },
+  { value: 'CAMINANTE_FACHADA', label: 'Caminante / Fachada' },
+  { value: 'PUBLICIDAD_LOCAL', label: 'Publicidad Local' },
+  { value: 'PROMOCION', label: 'Promoción / Campaña' },
+  { value: 'OTRO', label: 'Otro' },
+];
+
+export function getGenderLabel(genero?: PersonGender | string | null): string | null {
+  if (!genero) return null;
+  const found = PERSON_GENDER_OPTIONS.find((opt) => opt.value === genero);
+  return found ? found.label : String(genero);
+}
+
+export function getAcquisitionChannelLabel(
+  canal?: ClientAcquisitionChannel | string | null
+): string | null {
+  if (!canal) return null;
+  const found = CLIENT_ACQUISITION_CHANNEL_OPTIONS.find((opt) => opt.value === canal);
+  return found ? found.label : String(canal);
+}
 
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
   RECEPCIONISTA: 1,
@@ -210,6 +248,7 @@ export function validatePersonForm(
     nombres,
     apellidos,
     fecha_nacimiento: input.fecha_nacimiento?.trim() || null,
+    genero: input.genero || null,
     telefono: input.telefono?.trim() || null,
     email: input.email?.trim() || null,
     direccion: input.direccion?.trim() || null,

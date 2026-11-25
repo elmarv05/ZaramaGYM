@@ -7,10 +7,17 @@
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  Badge,
   Button,
   Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
   Icon,
   Input,
+  Separator,
+  Skeleton,
   Tabs,
   TabsContent,
   TabsList,
@@ -182,9 +189,13 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
           <span className="text-[10px] uppercase font-bold text-txt-muted tracking-wider">
             Ingresos Hoy
           </span>
-          <span className="text-2xl font-black text-txt-primary mt-1">
-            {todaySummary?.totalIngresosHoy ?? 0}
-          </span>
+          {isLoading && !todaySummary ? (
+            <Skeleton className="h-8 w-14 mt-1 mb-1" />
+          ) : (
+            <span className="text-2xl font-black text-txt-primary mt-1">
+              {todaySummary?.totalIngresosHoy ?? 0}
+            </span>
+          )}
           <span className="text-[11px] text-txt-secondary truncate">
             {todaySummary?.ultimoIngresoHora
               ? `Último: ${todaySummary.ultimoIngresoHora.split(' ')[1] || todaySummary.ultimoIngresoHora}`
@@ -197,9 +208,13 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-status-success shrink-0" aria-hidden="true" />
             <span>Verdes</span>
           </span>
-          <span className="text-2xl font-black text-status-success mt-1">
-            {todaySummary?.totalVerde ?? 0}
-          </span>
+          {isLoading && !todaySummary ? (
+            <Skeleton className="h-8 w-12 mt-1 mb-1" />
+          ) : (
+            <span className="text-2xl font-black text-status-success mt-1">
+              {todaySummary?.totalVerde ?? 0}
+            </span>
+          )}
           <span className="text-[11px] text-txt-secondary">Membresía activa al día y sin deudas</span>
         </Card>
 
@@ -208,10 +223,14 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-status-warning shrink-0" aria-hidden="true" />
             <span>Amarillos</span>
           </span>
-          <span className="text-2xl font-black text-status-warning mt-1">
-            {todaySummary?.totalAmarillo ?? 0}
-          </span>
-          <span className="text-[11px] text-txt-secondary">Membresia por vender o deuda</span>
+          {isLoading && !todaySummary ? (
+            <Skeleton className="h-8 w-12 mt-1 mb-1" />
+          ) : (
+            <span className="text-2xl font-black text-status-warning mt-1">
+              {todaySummary?.totalAmarillo ?? 0}
+            </span>
+          )}
+          <span className="text-[11px] text-txt-secondary">Membresía por vencer o deuda</span>
         </Card>
 
         <Card padding="sm" className="shadow-2xs gap-0">
@@ -219,9 +238,13 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-status-danger shrink-0" aria-hidden="true" />
             <span>Rojos</span>
           </span>
-          <span className="text-2xl font-black text-status-danger mt-1">
-            {todaySummary?.totalPaseCredito ?? todaySummary?.totalRojoAutorizados ?? 0}
-          </span>
+          {isLoading && !todaySummary ? (
+            <Skeleton className="h-8 w-12 mt-1 mb-1" />
+          ) : (
+            <span className="text-2xl font-black text-status-danger mt-1">
+              {todaySummary?.totalPaseCredito ?? todaySummary?.totalRojoAutorizados ?? 0}
+            </span>
+          )}
           <span className="text-[11px] text-txt-secondary">Pases diarios autorizados sin membresía</span>
         </Card>
 
@@ -292,170 +315,221 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
         {/* 3. CONTENIDO SEGÚN PESTAÑA */}
         {/* ===================================================================== */}
-        {/* PESTAÑA 1: MONITOR EN VIVO & ESCÁNER QR */}
+        {/* PESTAÑA 1: MONITOR EN VIVO & ESCÁNER QR (ARQUITECTURA DE 2 PANELES)   */}
         {/* ===================================================================== */}
         <TabsContent value="monitor">
-          <section aria-label="Monitor de Control de Acceso" className="flex flex-col gap-6">
-          {/* Zona de Escaneo QR (Cámara Web, Imagen o Token Manual) */}
-          <Card padding="md" className="rounded-2xl gap-3">
-            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-              {/* Formulario de Validación Manual de Token QR */}
-              <form onSubmit={handleScanQrSubmit} className="flex-1 flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <Input
-                    id="scanner-qr-input"
-                    data-testid="scanner-qr-input"
-                    type="text"
-                    autoFocus
-                    aria-label="Token QR del socio"
-                    placeholder="Pegue o ingrese el token QR (ZG-...) y presione Enter"
-                    value={qrInput}
-                    onChange={(e) => setQrInput(e.target.value)}
-                    disabled={isActionLoading}
-                    leftIcon={<Icon name="qr" className="w-4 h-4" />}
-                    className="py-2.5 font-bold bg-canvas rounded-xl shadow-inner"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="md"
-                  disabled={isActionLoading || !qrInput.trim()}
-                  className="rounded-xl whitespace-nowrap"
-                >
-                  {isActionLoading ? 'Validando...' : 'Escanear / Validar'}
-                </Button>
-              </form>
+          <section
+            aria-label="Monitor de Control de Acceso"
+            data-testid="attendance-two-column-layout"
+            className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+          >
+            {/* PANEL 1 (COLUMNA IZQUIERDA): TERMINAL DE ESCANEO Y CAPTURA */}
+            <div
+              role="region"
+              aria-label="Panel de Escaneo y Captura"
+              data-slot="attendance-capture-panel"
+              className="lg:col-span-5 min-w-0 flex flex-col gap-4"
+            >
+              <Card className="rounded-2xl">
+                <CardHeader className="py-3.5 px-5">
+                  <div className="min-w-0 flex flex-col gap-0.5">
+                    <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                      <Icon name="qr" className="w-4 h-4 text-brand" aria-hidden="true" />
+                      <span>Terminal de Lectura & Acceso</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Valide con lector láser USB, cámara web, foto QR o documento.
+                    </CardDescription>
+                  </div>
+                  <Badge variant="success" size="sm" className="shrink-0">
+                    Activo
+                  </Badge>
+                </CardHeader>
 
-              {/* Controles de Cámara Web, Foto QR e Ingreso Manual */}
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant={isCameraActive ? 'danger' : 'secondary'}
-                  size="md"
-                  disabled={isStartingCamera}
-                  onClick={() => {
-                    clearCameraError();
-                    if (isCameraActive) {
-                      stopCamera();
-                    } else {
-                      void startCamera();
-                    }
-                  }}
-                  leftIcon={<Icon name={isCameraActive ? 'x' : 'camera'} className="w-4 h-4" />}
-                  className="rounded-xl whitespace-nowrap text-xs font-bold"
-                >
-                  {isStartingCamera
-                    ? 'Abriendo cámara...'
-                    : isCameraActive
-                    ? 'Cerrar Cámara Web'
-                    : 'Usar Cámara Web'}
-                </Button>
+                <CardContent className="flex flex-col gap-4 py-4 px-5">
+                  {/* Formulario de Validación Manual / Pistola Láser de Token QR */}
+                  <form
+                    onSubmit={handleScanQrSubmit}
+                    className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <Input
+                        id="scanner-qr-input"
+                        data-testid="scanner-qr-input"
+                        type="text"
+                        autoFocus
+                        aria-label="Token QR del socio"
+                        placeholder="Token QR (ZG-...) y Enter"
+                        value={qrInput}
+                        onChange={(e) => setQrInput(e.target.value)}
+                        disabled={isActionLoading}
+                        leftIcon={<Icon name="qr" className="w-4 h-4" />}
+                        className="py-2.5 font-bold bg-canvas rounded-xl shadow-inner"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="md"
+                      disabled={isActionLoading || !qrInput.trim()}
+                      className="rounded-xl whitespace-nowrap shrink-0"
+                    >
+                      {isActionLoading ? 'Validando...' : 'Escanear / Validar'}
+                    </Button>
+                  </form>
 
-                <label className="cursor-pointer px-3.5 py-2 min-h-[38px] rounded-xl bg-surface border border-border hover:bg-surface-hover text-txt-primary font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap focus-within:ring-2 focus-within:ring-border-focus">
-                  <Icon name="upload" className="w-4 h-4" aria-hidden="true" />
-                  <span>Leer Imagen QR</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      e.target.value = '';
-                      if (file) void scanImageFile(file);
-                    }}
-                  />
-                </label>
+                  <Separator />
 
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="md"
-                  data-testid="btn-manual-olvido-qr"
-                  onClick={() => setIsManualModalOpen(true)}
-                  leftIcon={<Icon name="user" className="w-4 h-4" />}
-                  className="rounded-xl whitespace-nowrap text-xs font-bold"
-                >
-                  Ingreso Manual por Olvido de QR
-                </Button>
-              </div>
+                  {/* Controles de Cámara Web, Foto QR e Ingreso Manual */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={isCameraActive ? 'danger' : 'secondary'}
+                      size="md"
+                      disabled={isStartingCamera}
+                      onClick={() => {
+                        clearCameraError();
+                        if (isCameraActive) {
+                          stopCamera();
+                        } else {
+                          void startCamera();
+                        }
+                      }}
+                      leftIcon={<Icon name={isCameraActive ? 'x' : 'camera'} className="w-4 h-4" />}
+                      className="rounded-xl whitespace-nowrap text-xs font-bold w-full"
+                    >
+                      {isStartingCamera
+                        ? 'Abriendo cámara...'
+                        : isCameraActive
+                        ? 'Cerrar Cámara Web'
+                        : 'Usar Cámara Web'}
+                    </Button>
+
+                    <label className="cursor-pointer px-3.5 py-2 min-h-[36px] rounded-xl bg-surface border border-border hover:bg-surface-hover hover:border-border-elevated text-txt-primary font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-2xs whitespace-nowrap focus-within:ring-[3px] focus-within:ring-ring/30">
+                      <Icon name="upload" className="w-4 h-4 text-txt-secondary" aria-hidden="true" />
+                      <span>Leer Imagen QR</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = '';
+                          if (file) void scanImageFile(file);
+                        }}
+                      />
+                    </label>
+
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="md"
+                      data-testid="btn-manual-olvido-qr"
+                      onClick={() => setIsManualModalOpen(true)}
+                      leftIcon={<Icon name="user" className="w-4 h-4" />}
+                      className="sm:col-span-2 rounded-xl whitespace-nowrap text-xs font-bold w-full"
+                    >
+                      Ingreso Manual por Olvido de QR
+                    </Button>
+                  </div>
+
+                  {cameraError && (
+                    <Alert variant="warning" floating={false} onClose={clearCameraError}>
+                      {cameraError}
+                    </Alert>
+                  )}
+
+                  {isCameraActive && (
+                    <div className="bg-canvas-subtle rounded-xl p-3 flex flex-col sm:flex-row items-center gap-3.5 border border-status-success-border">
+                      <div className="relative w-40 h-32 rounded-lg overflow-hidden border-2 border-status-success bg-canvas shrink-0">
+                        <video
+                          ref={webcamVideoRef}
+                          playsInline
+                          muted
+                          autoPlay
+                          className="w-full h-full object-cover block"
+                        />
+                        <div className="pointer-events-none absolute inset-3 border-2 border-status-success/70 rounded-md" />
+                      </div>
+                      <div className="text-xs text-txt-primary flex flex-col gap-1 min-w-0">
+                        <span className="font-bold text-status-success flex items-center gap-1.5">
+                          <span
+                            className="w-2 h-2 rounded-full bg-status-success animate-pulse motion-reduce:animate-none shrink-0"
+                            aria-hidden="true"
+                          />
+                          <span>Cámara Web Activa — Escaneo Automático</span>
+                        </span>
+                        <span className="text-txt-secondary leading-relaxed">
+                          Muestra la credencial QR frente al visor. El sistema validará automáticamente sin presionar Enter.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* SIMULADOR RÁPIDO DE SOCIOS REGISTRADOS (Acceso 1-clic) */}
+              {clients.length > 0 ? (
+                <Card variant="subtle" padding="sm" className="rounded-2xl gap-2.5">
+                  <span className="text-[11px] font-bold text-txt-secondary flex items-center gap-1.5">
+                    <Icon name="sparkles" className="w-3.5 h-3.5 text-brand" aria-hidden="true" />
+                    <span>Simulación rápida de escaneo con 1 clic (Socios en el gimnasio):</span>
+                  </span>
+                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto [scrollbar-gutter:stable] overscroll-contain pr-1">
+                    {clients.slice(0, 8).map((client) => (
+                      <Button
+                        key={client.id}
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleQuickSimulateScan(client)}
+                        disabled={isActionLoading}
+                        leftIcon={
+                          <Icon
+                            name={client.codigo_qr_token ? 'qr' : 'user'}
+                            className="w-3.5 h-3.5 text-txt-muted"
+                          />
+                        }
+                        className="hover:border-brand"
+                      >
+                        <span>
+                          {client.nombres} {client.apellidos}{' '}
+                          <span className="text-[10px] text-txt-muted font-normal">
+                            ({client.numero_documento})
+                          </span>
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                </Card>
+              ) : (
+                <Card variant="subtle" padding="sm" className="rounded-2xl gap-1.5">
+                  <span className="text-xs font-semibold text-txt-primary flex items-center gap-1.5">
+                    <Icon name="users" className="w-3.5 h-3.5 text-txt-muted" aria-hidden="true" />
+                    <span>Sin atajos rápidos de socios</span>
+                  </span>
+                  <p className="text-[11px] text-txt-muted leading-relaxed">
+                    Registra socios activos en el Directorio o utiliza el campo de token QR / Ingreso Manual para evaluar su acceso.
+                  </p>
+                </Card>
+              )}
             </div>
 
-            {cameraError && (
-              <Alert variant="warning" floating={false} onClose={clearCameraError}>
-                {cameraError}
-              </Alert>
-            )}
-
-            {isCameraActive && (
-              <div className="bg-canvas-subtle rounded-xl p-3 flex flex-col sm:flex-row items-center gap-4 border border-status-success/40">
-                <div className="relative w-48 h-36 rounded-lg overflow-hidden border-2 border-status-success/70 bg-black shrink-0">
-                  <video
-                    ref={webcamVideoRef}
-                    playsInline
-                    muted
-                    autoPlay
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="pointer-events-none absolute inset-4 border-2 border-status-success/60 rounded-md" />
-                </div>
-                <div className="text-xs text-txt-primary flex flex-col gap-1">
-                  <span className="font-bold text-status-success flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-status-success animate-pulse" aria-hidden="true" />
-                    Cámara Web Activa — Escaneo Automático
-                  </span>
-                  <span className="text-txt-secondary">
-                    Muestra la credencial QR frente a la cámara. El sistema validará automáticamente sin presionar Enter.
-                  </span>
-                </div>
-              </div>
-            )}
-          </Card>
-
-          {/* SIMULADOR RÁPIDO DE SOCIOS REGISTRADOS (Acceso 1-clic para pruebas manuales y demo) */}
-          {clients.length > 0 && (
-            <Card variant="subtle" padding="sm" className="gap-2">
-              <span className="text-[11px] font-bold text-txt-secondary flex items-center gap-1.5">
-                <Icon name="sparkles" className="w-3.5 h-3.5 text-brand" aria-hidden="true" />
-                <span>Simulación rápida de escaneo con 1 clic (Socios en el gimnasio):</span>
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {clients.slice(0, 8).map((client) => (
-                  <Button
-                    key={client.id}
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleQuickSimulateScan(client)}
-                    disabled={isActionLoading}
-                    leftIcon={
-                      <Icon
-                        name={client.codigo_qr_token ? 'qr' : 'user'}
-                        className="w-3.5 h-3.5 text-txt-muted"
-                      />
-                    }
-                    className="hover:border-brand"
-                  >
-                    <span>
-                      {client.nombres} {client.apellidos}{' '}
-                      <span className="text-[10px] text-txt-muted font-normal">
-                        ({client.numero_documento})
-                      </span>
-                    </span>
-                  </Button>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* Gran Tarjeta Visual del Semáforo */}
-          <TrafficLightCard
-            evaluation={currentEvaluation}
-            onClear={resetCurrentEvaluation}
-            onAuthorizeRedPass={handleOpenAuthRedPass}
-            onNavigateToPos={onNavigateToPos}
-            isActionLoading={isActionLoading}
-          />
+            {/* PANEL 2 (COLUMNA DERECHA): SEMÁFORO INTELIGENTE EN TIEMPO REAL */}
+            <div
+              role="region"
+              aria-label="Panel del Semáforo en Vivo"
+              data-slot="attendance-semaphore-panel"
+              className="lg:col-span-7 min-w-0 flex flex-col"
+            >
+              <TrafficLightCard
+                evaluation={currentEvaluation}
+                onClear={resetCurrentEvaluation}
+                onAuthorizeRedPass={handleOpenAuthRedPass}
+                onNavigateToPos={onNavigateToPos}
+                isActionLoading={isActionLoading}
+              />
+            </div>
           </section>
         </TabsContent>
 

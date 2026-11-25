@@ -31,6 +31,45 @@ fn check_person_access(session: &AuthSession, target_user_role: Option<UserRole>
     }
 }
 
+pub fn normalize_genero(raw: &Option<String>) -> Result<Option<String>, AppError> {
+    let trimmed = raw.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    match trimmed {
+        None => Ok(None),
+        Some(val) => {
+            let upper = val.to_uppercase();
+            match upper.as_str() {
+                "MASCULINO" | "FEMENINO" | "OTRO" | "PREFIERO_NO_DECIR" => Ok(Some(upper)),
+                other => Err(AppError::Validation(format!(
+                    "Género inválido: '{}'. Permitidos: MASCULINO, FEMENINO, OTRO, PREFIERO_NO_DECIR.",
+                    other
+                ))),
+            }
+        }
+    }
+}
+
+pub fn normalize_canal_captacion(raw: &Option<String>) -> Result<Option<String>, AppError> {
+    let trimmed = raw.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    match trimmed {
+        None => Ok(None),
+        Some(val) => {
+            let upper = val.to_uppercase();
+            match upper.as_str() {
+                "REDES_SOCIALES"
+                | "RECOMENDACION"
+                | "CAMINANTE_FACHADA"
+                | "PUBLICIDAD_LOCAL"
+                | "PROMOCION"
+                | "OTRO" => Ok(Some(upper)),
+                other => Err(AppError::Validation(format!(
+                    "Canal de captación inválido: '{}'. Permitidos: REDES_SOCIALES, RECOMENDACION, CAMINANTE_FACHADA, PUBLICIDAD_LOCAL, PROMOCION, OTRO.",
+                    other
+                ))),
+            }
+        }
+    }
+}
+
 // ============================================================================
 // 1. MÓDULO PERSONAS NATURALES
 // ============================================================================
@@ -48,6 +87,7 @@ pub async fn list_persons(
             p.numero_documento,
             p.nombres,
             p.apellidos,
+            p.genero,
             p.telefono,
             p.email,
             p.estado_activo,
@@ -119,6 +159,7 @@ pub async fn list_persons(
             numero_documento: row.get("numero_documento"),
             nombres: row.get("nombres"),
             apellidos: row.get("apellidos"),
+            genero: row.get("genero"),
             telefono: row.get("telefono"),
             email: row.get("email"),
             es_cliente: es_cliente == 1,
@@ -146,6 +187,7 @@ pub async fn get_person(
             p.nombres,
             p.apellidos,
             p.fecha_nacimiento,
+            p.genero,
             p.telefono,
             p.email,
             p.direccion,
@@ -188,6 +230,7 @@ pub async fn get_person(
         nombres: row.get("nombres"),
         apellidos: row.get("apellidos"),
         fecha_nacimiento: row.get("fecha_nacimiento"),
+        genero: row.get("genero"),
         telefono: row.get("telefono"),
         email: row.get("email"),
         direccion: row.get("direccion"),
@@ -213,6 +256,7 @@ pub async fn create_person(
     let num_doc = input.numero_documento.trim();
     let nombres = input.nombres.trim();
     let apellidos = input.apellidos.trim();
+    let genero = normalize_genero(&input.genero)?;
 
     if tipo_doc.is_empty() || num_doc.is_empty() || nombres.is_empty() || apellidos.is_empty() {
         return Err(AppError::Validation(
@@ -250,9 +294,9 @@ pub async fn create_person(
         r#"
         INSERT INTO personas (
             tipo_documento, numero_documento, nombres, apellidos, 
-            fecha_nacimiento, telefono, email, direccion, estado_activo
+            fecha_nacimiento, genero, telefono, email, direccion, estado_activo
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         "#,
     )
     .bind(&tipo_doc)
@@ -260,6 +304,7 @@ pub async fn create_person(
     .bind(nombres)
     .bind(apellidos)
     .bind(&input.fecha_nacimiento)
+    .bind(&genero)
     .bind(&input.telefono)
     .bind(&input.email)
     .bind(&input.direccion)
@@ -303,6 +348,7 @@ pub async fn update_person(
     let num_doc = input.numero_documento.trim();
     let nombres = input.nombres.trim();
     let apellidos = input.apellidos.trim();
+    let genero = normalize_genero(&input.genero)?;
 
     if tipo_doc.is_empty() || num_doc.is_empty() || nombres.is_empty() || apellidos.is_empty() {
         return Err(AppError::Validation(
@@ -327,7 +373,7 @@ pub async fn update_person(
         r#"
         UPDATE personas
         SET tipo_documento = ?, numero_documento = ?, nombres = ?, apellidos = ?,
-            fecha_nacimiento = ?, telefono = ?, email = ?, direccion = ?,
+            fecha_nacimiento = ?, genero = ?, telefono = ?, email = ?, direccion = ?,
             updated_at = datetime('now', 'localtime')
         WHERE id = ?
         "#,
@@ -337,6 +383,7 @@ pub async fn update_person(
     .bind(nombres)
     .bind(apellidos)
     .bind(&input.fecha_nacimiento)
+    .bind(&genero)
     .bind(&input.telefono)
     .bind(&input.email)
     .bind(&input.direccion)
@@ -436,6 +483,7 @@ pub async fn list_clients(
             p.nombres,
             p.apellidos,
             p.fecha_nacimiento,
+            p.genero,
             p.telefono,
             p.email,
             p.direccion,
@@ -444,6 +492,7 @@ pub async fn list_clients(
             c.numero_contacto_emergencia,
             c.notas_medicas,
             CAST(c.peso_actual_kg AS TEXT) AS peso_actual_kg,
+            c.canal_captacion,
             c.estado_activo,
             c.created_at,
             u.rol_principal AS persona_user_role
@@ -507,6 +556,7 @@ pub async fn list_clients(
             nombres: row.get("nombres"),
             apellidos: row.get("apellidos"),
             fecha_nacimiento: row.get("fecha_nacimiento"),
+            genero: row.get("genero"),
             telefono: row.get("telefono"),
             email: row.get("email"),
             direccion: row.get("direccion"),
@@ -515,6 +565,7 @@ pub async fn list_clients(
             numero_contacto_emergencia: row.get("numero_contacto_emergencia"),
             notas_medicas: row.get("notas_medicas"),
             peso_actual_kg,
+            canal_captacion: row.get("canal_captacion"),
             persona_rol_usuario,
             estado_activo: estado_num == 1,
             created_at: row.get("created_at"),
@@ -539,6 +590,7 @@ pub async fn get_client(
             p.nombres,
             p.apellidos,
             p.fecha_nacimiento,
+            p.genero,
             p.telefono,
             p.email,
             p.direccion,
@@ -547,6 +599,7 @@ pub async fn get_client(
             c.numero_contacto_emergencia,
             c.notas_medicas,
             CAST(c.peso_actual_kg AS TEXT) AS peso_actual_kg,
+            c.canal_captacion,
             c.estado_activo,
             c.created_at,
             c.updated_at,
@@ -580,6 +633,7 @@ pub async fn get_client(
         nombres: row.get("nombres"),
         apellidos: row.get("apellidos"),
         fecha_nacimiento: row.get("fecha_nacimiento"),
+        genero: row.get("genero"),
         telefono: row.get("telefono"),
         email: row.get("email"),
         direccion: row.get("direccion"),
@@ -588,6 +642,7 @@ pub async fn get_client(
         numero_contacto_emergencia: row.get("numero_contacto_emergencia"),
         notas_medicas: row.get("notas_medicas"),
         peso_actual_kg,
+        canal_captacion: row.get("canal_captacion"),
         persona_rol_usuario,
         estado_activo: estado_num == 1,
         created_at: row.get("created_at"),
@@ -600,9 +655,12 @@ pub async fn create_client(
     session: &AuthSession,
     input: CreateClientInput,
 ) -> Result<ClientDetail, AppError> {
+    let genero = normalize_genero(&input.genero)?;
+    let canal_captacion = normalize_canal_captacion(&input.canal_captacion)?;
+
     let mut tx = pool.begin().await?;
 
-    let persona_id = if let Some(pid) = input.persona_id {
+    let (persona_id, persona_ya_existia) = if let Some(pid) = input.persona_id {
         // Verificar que la persona exista y sea accesible
         let row = sqlx::query(
             r#"
@@ -623,7 +681,7 @@ pub async fn create_client(
             None => None,
         };
         check_person_access(session, target_role)?;
-        pid
+        (pid, true)
     } else {
         // Crear o buscar por numero_documento
         let num_doc = input
@@ -667,16 +725,16 @@ pub async fn create_client(
                     None => None,
                 };
                 check_person_access(session, target_role)?;
-                pid
+                (pid, true)
             }
             None => {
                 let res = sqlx::query(
                     r#"
                     INSERT INTO personas (
                         tipo_documento, numero_documento, nombres, apellidos,
-                        fecha_nacimiento, telefono, email, direccion, estado_activo
+                        fecha_nacimiento, genero, telefono, email, direccion, estado_activo
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
                     "#,
                 )
                 .bind(&tipo_doc)
@@ -684,16 +742,29 @@ pub async fn create_client(
                 .bind(nombres)
                 .bind(apellidos)
                 .bind(&input.fecha_nacimiento)
+                .bind(&genero)
                 .bind(&input.telefono)
                 .bind(&input.email)
                 .bind(&input.direccion)
                 .execute(&mut *tx)
                 .await?;
 
-                res.last_insert_rowid()
+                (res.last_insert_rowid(), false)
             }
         }
     };
+
+    if persona_ya_existia {
+        if let Some(ref g) = genero {
+            sqlx::query(
+                "UPDATE personas SET genero = ?, updated_at = datetime('now', 'localtime') WHERE id = ?",
+            )
+            .bind(g)
+            .bind(persona_id)
+            .execute(&mut *tx)
+            .await?;
+        }
+    }
 
     // Verificar que la persona no esté ya registrada como cliente
     let client_exists = sqlx::query("SELECT id FROM clientes WHERE persona_id = ?")
@@ -715,9 +786,9 @@ pub async fn create_client(
         r#"
         INSERT INTO clientes (
             persona_id, codigo_qr_token, nombre_contacto_emergencia,
-            numero_contacto_emergencia, notas_medicas, peso_actual_kg, estado_activo
+            numero_contacto_emergencia, notas_medicas, peso_actual_kg, canal_captacion, estado_activo
         )
-        VALUES (?, ?, ?, ?, ?, ?, 1)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
         "#,
     )
     .bind(persona_id)
@@ -726,6 +797,7 @@ pub async fn create_client(
     .bind(&input.numero_contacto_emergencia)
     .bind(&input.notas_medicas)
     .bind(peso_inicial_str)
+    .bind(&canal_captacion)
     .execute(&mut *tx)
     .await?;
 
@@ -781,6 +853,8 @@ pub async fn update_client(
     input: UpdateClientInput,
 ) -> Result<ClientDetail, AppError> {
     let current = get_client(pool, session, client_id).await?;
+    let genero = normalize_genero(&input.genero)?;
+    let canal_captacion = normalize_canal_captacion(&input.canal_captacion)?;
 
     let user_role_row = sqlx::query("SELECT rol_principal FROM usuarios_sistema WHERE persona_id = ?")
         .bind(current.persona_id)
@@ -806,7 +880,7 @@ pub async fn update_client(
             let apellidos = input.apellidos.trim();
 
             if tipo_doc.is_empty() && num_doc.is_empty() && nombres.is_empty() && apellidos.is_empty() {
-                false
+                genero.is_some() && genero != current.genero
             } else {
                 let difiere = (tipo_doc != current.tipo_documento && !tipo_doc.is_empty())
                     || (num_doc != current.numero_documento && !num_doc.is_empty())
@@ -815,7 +889,8 @@ pub async fn update_client(
                     || (input.telefono.is_some() && input.telefono != current.telefono)
                     || (input.email.is_some() && input.email != current.email)
                     || (input.direccion.is_some() && input.direccion != current.direccion)
-                    || (input.fecha_nacimiento.is_some() && input.fecha_nacimiento != current.fecha_nacimiento);
+                    || (input.fecha_nacimiento.is_some() && input.fecha_nacimiento != current.fecha_nacimiento)
+                    || (genero.is_some() && genero != current.genero);
 
                 if difiere {
                     true
@@ -873,7 +948,7 @@ pub async fn update_client(
             }
         }
 
-        let (fecha_nac, telefono, email, direccion) = if intencion_explicita == Some(true) {
+        let (fecha_nac, telefono, email, direccion, genero_final) = if intencion_explicita == Some(true) {
             (
                 input
                     .fecha_nacimiento
@@ -899,6 +974,7 @@ pub async fn update_client(
                     .map(str::trim)
                     .filter(|s| !s.is_empty())
                     .map(str::to_string),
+                genero,
             )
         } else {
             (
@@ -906,6 +982,7 @@ pub async fn update_client(
                 input.telefono.or(current.telefono),
                 input.email.or(current.email),
                 input.direccion.or(current.direccion),
+                genero.or(current.genero),
             )
         };
 
@@ -914,7 +991,7 @@ pub async fn update_client(
             r#"
             UPDATE personas
             SET tipo_documento = ?, numero_documento = ?, nombres = ?, apellidos = ?,
-                fecha_nacimiento = ?, telefono = ?, email = ?, direccion = ?,
+                fecha_nacimiento = ?, genero = ?, telefono = ?, email = ?, direccion = ?,
                 updated_at = datetime('now', 'localtime')
             WHERE id = ?
             "#,
@@ -924,6 +1001,7 @@ pub async fn update_client(
         .bind(&nombres)
         .bind(&apellidos)
         .bind(&fecha_nac)
+        .bind(&genero_final)
         .bind(&telefono)
         .bind(&email)
         .bind(&direccion)
@@ -932,18 +1010,19 @@ pub async fn update_client(
         .await?;
     }
 
-    // Actualizar datos médicos y contacto de emergencia en clientes
+    // Actualizar datos médicos, canal de captación y contacto de emergencia en clientes
     sqlx::query(
         r#"
         UPDATE clientes
         SET nombre_contacto_emergencia = ?, numero_contacto_emergencia = ?,
-            notas_medicas = ?, updated_at = datetime('now', 'localtime')
+            notas_medicas = ?, canal_captacion = ?, updated_at = datetime('now', 'localtime')
         WHERE id = ?
         "#,
     )
     .bind(&input.nombre_contacto_emergencia)
     .bind(&input.numero_contacto_emergencia)
     .bind(&input.notas_medicas)
+    .bind(&canal_captacion)
     .bind(client_id)
     .execute(&mut *tx)
     .await?;
@@ -1692,6 +1771,7 @@ pub async fn create_supplier(
                 let tipo_doc = pdata.tipo_documento.trim().to_uppercase();
                 let nombres = pdata.nombres.trim();
                 let apellidos = pdata.apellidos.trim();
+                let genero = normalize_genero(&pdata.genero)?;
 
                 if num_doc.is_empty() || nombres.is_empty() || apellidos.is_empty() {
                     return Err(AppError::Validation(
@@ -1727,9 +1807,9 @@ pub async fn create_supplier(
                             r#"
                             INSERT INTO personas (
                                 tipo_documento, numero_documento, nombres, apellidos,
-                                fecha_nacimiento, telefono, email, direccion, estado_activo
+                                fecha_nacimiento, genero, telefono, email, direccion, estado_activo
                             )
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
                             "#,
                         )
                         .bind(&tipo_doc)
@@ -1737,6 +1817,7 @@ pub async fn create_supplier(
                         .bind(nombres)
                         .bind(apellidos)
                         .bind(&pdata.fecha_nacimiento)
+                        .bind(&genero)
                         .bind(&pdata.telefono)
                         .bind(&pdata.email)
                         .bind(&pdata.direccion)
@@ -1956,6 +2037,7 @@ pub async fn update_supplier(
         let num_doc = p_upd.numero_documento.trim();
         let nombres = p_upd.nombres.trim();
         let apellidos = p_upd.apellidos.trim();
+        let genero = normalize_genero(&p_upd.genero)?;
 
         if tipo_doc.is_empty() || num_doc.is_empty() || nombres.is_empty() || apellidos.is_empty() {
             return Err(AppError::Validation(
@@ -1981,7 +2063,7 @@ pub async fn update_supplier(
             r#"
             UPDATE personas
             SET tipo_documento = ?, numero_documento = ?, nombres = ?, apellidos = ?,
-                fecha_nacimiento = ?, telefono = ?, email = ?, direccion = ?,
+                fecha_nacimiento = ?, genero = ?, telefono = ?, email = ?, direccion = ?,
                 updated_at = datetime('now', 'localtime')
             WHERE id = ?
             "#,
@@ -1991,6 +2073,7 @@ pub async fn update_supplier(
         .bind(nombres)
         .bind(apellidos)
         .bind(&p_upd.fecha_nacimiento)
+        .bind(&genero)
         .bind(&p_upd.telefono)
         .bind(&p_upd.email)
         .bind(&p_upd.direccion)

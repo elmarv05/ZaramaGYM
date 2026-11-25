@@ -1,5 +1,6 @@
 pub mod attendance;
 pub mod audit;
+pub mod bi;
 pub mod catalog;
 pub mod client;
 pub mod dashboard;
@@ -13,6 +14,7 @@ pub mod user;
 
 pub use attendance::*;
 pub use audit::*;
+pub use bi::*;
 pub use catalog::*;
 pub use client::*;
 pub use dashboard::*;

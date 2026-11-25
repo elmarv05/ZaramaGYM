@@ -1,5 +1,6 @@
 pub mod attendance_commands;
 pub mod auth_commands;
+pub mod bi_commands;
 pub mod catalog_commands;
 pub mod dashboard_commands;
 pub mod entity_commands;
@@ -10,6 +11,7 @@ pub mod printing_backup_commands;
 
 pub use attendance_commands::*;
 pub use auth_commands::*;
+pub use bi_commands::*;
 pub use catalog_commands::*;
 pub use dashboard_commands::*;
 pub use entity_commands::*;

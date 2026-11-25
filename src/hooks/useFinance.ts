@@ -33,11 +33,16 @@ import { ResolveStruckSaleInput, SaleDetailDto } from '../types/pos';
 
 export interface UseFinanceOptions {
   isAdmin?: boolean;
+  canViewDashboard?: boolean;
   autoFetch?: boolean;
 }
 
 export function useFinance(options: UseFinanceOptions = {}) {
-  const { isAdmin = false, autoFetch = true } = options;
+  const {
+    isAdmin = false,
+    canViewDashboard = isAdmin,
+    autoFetch = true,
+  } = options;
 
   // Estados de datos principales
   const [dashboard, setDashboard] = useState<FinancialDashboardDto | null>(null);
@@ -87,6 +92,10 @@ export function useFinance(options: UseFinanceOptions = {}) {
   // 2. DASHBOARD FINANCIERO MULTICANAL
   // ==========================================================================
   const fetchDashboard = useCallback(async (filterToUse?: FinancialReportFilter) => {
+    if (!canViewDashboard) {
+      setDashboard(null);
+      return null;
+    }
     const filter = filterToUse !== undefined ? filterToUse : reportFilter;
     try {
       const data = await financeIpc.getFinancialDashboardSummary(filter);
@@ -96,7 +105,7 @@ export function useFinance(options: UseFinanceOptions = {}) {
       setError(err as AppError);
       throw err;
     }
-  }, [reportFilter]);
+  }, [canViewDashboard, reportFilter]);
 
   // ==========================================================================
   // 3. COMPRAS A PROVEEDORES
@@ -302,11 +311,13 @@ export function useFinance(options: UseFinanceOptions = {}) {
     setError(null);
     try {
       const promises: Promise<unknown>[] = [
-        fetchDashboard(),
         fetchPurchases(),
         fetchStruckSalesTray(),
         fetchCatalogs(),
       ];
+      if (canViewDashboard) {
+        promises.push(fetchDashboard());
+      }
       if (isAdmin) {
         promises.push(fetchExpenses());
       }
@@ -316,7 +327,15 @@ export function useFinance(options: UseFinanceOptions = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin, fetchDashboard, fetchPurchases, fetchStruckSalesTray, fetchCatalogs, fetchExpenses]);
+  }, [
+    isAdmin,
+    canViewDashboard,
+    fetchDashboard,
+    fetchPurchases,
+    fetchStruckSalesTray,
+    fetchCatalogs,
+    fetchExpenses,
+  ]);
 
   // Carga automática al montar o cambiar rol
   useEffect(() => {

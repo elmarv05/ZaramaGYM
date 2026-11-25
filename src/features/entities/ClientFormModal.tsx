@@ -8,16 +8,20 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
+  ClientAcquisitionChannel,
   ClientDetail,
   ClientListItem,
   CreateClientInput,
   PersonDocumentType,
+  PersonGender,
   PersonListItem,
   UpdateClientInput,
 } from '../../types/entity';
 import { AuthSession } from '../../types/auth';
 import {
+  CLIENT_ACQUISITION_CHANNEL_OPTIONS,
   PERSON_DOCUMENT_TYPES,
+  PERSON_GENDER_OPTIONS,
   canModifyLinkedPersonData,
   validateClientForm,
 } from '../../domain/entity';
@@ -75,6 +79,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   const [nombres, setNombres] = useState('');
   const [apellidos, setApellidos] = useState('');
   const [fechaNacimiento, setFechaNacimiento] = useState('');
+  const [genero, setGenero] = useState<PersonGender | ''>('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
   const [direccion, setDireccion] = useState('');
@@ -84,6 +89,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   const [numeroEmergencia, setNumeroEmergencia] = useState('');
   const [notasMedicas, setNotasMedicas] = useState('');
   const [pesoInicialKg, setPesoInicialKg] = useState('');
+  const [canalCaptacion, setCanalCaptacion] = useState<ClientAcquisitionChannel | ''>('');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -98,6 +104,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           editingClient.fecha_nacimiento ||
           ''
       );
+      setGenero(editingClient.genero || '');
       setTelefono(editingClient.telefono || '');
       setEmail(editingClient.email || '');
       setDireccion(
@@ -122,6 +129,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setPesoInicialKg(
         editingClient.peso_actual_kg ? String(editingClient.peso_actual_kg) : ''
       );
+      setCanalCaptacion(editingClient.canal_captacion || '');
 
       setCreationMode('new');
       setEditTab('client_data');
@@ -138,6 +146,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setNombres('');
       setApellidos('');
       setFechaNacimiento('');
+      setGenero('');
       setTelefono('');
       setEmail('');
       setDireccion('');
@@ -146,6 +155,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setNumeroEmergencia('');
       setNotasMedicas('');
       setPesoInicialKg('');
+      setCanalCaptacion('');
     }
     setErrors({});
   }, [editingClient, isOpen]);
@@ -187,6 +197,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         nombre_contacto_emergencia: nombreEmergencia.trim() || null,
         numero_contacto_emergencia: numeroEmergencia.trim() || null,
         notas_medicas: notasMedicas.trim() || null,
+        canal_captacion: canalCaptacion || null,
       };
 
       if (isPersonalUnlocked) {
@@ -195,6 +206,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         updateData.nombres = nombres.trim();
         updateData.apellidos = apellidos.trim();
         updateData.fecha_nacimiento = fechaNacimiento.trim() || null;
+        updateData.genero = genero || null;
         updateData.telefono = telefono.trim() || null;
         updateData.email = email.trim() || null;
         updateData.direccion = direccion.trim() || null;
@@ -234,6 +246,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         numero_contacto_emergencia: numeroEmergencia.trim() || null,
         notas_medicas: notasMedicas.trim() || null,
         peso_inicial_kg: pesoInicialKg.trim() ? pesoInicialKg.trim() : null,
+        canal_captacion: canalCaptacion || null,
       };
 
       const val = validateClientForm(createData);
@@ -252,6 +265,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         nombres: nombres.trim(),
         apellidos: apellidos.trim(),
         fecha_nacimiento: fechaNacimiento.trim() || null,
+        genero: genero || null,
         telefono: telefono.trim() || null,
         email: email.trim() || null,
         direccion: direccion.trim() || null,
@@ -259,6 +273,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         numero_contacto_emergencia: numeroEmergencia.trim() || null,
         notas_medicas: notasMedicas.trim() || null,
         peso_inicial_kg: pesoInicialKg.trim() ? pesoInicialKg.trim() : null,
+        canal_captacion: canalCaptacion || null,
       };
 
       const val = validateClientForm(createData);
@@ -542,6 +557,17 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 disabled={(isEditing && !isPersonalUnlocked) || isLoading}
               />
 
+              <Select
+                label="Género (Opcional)"
+                options={[
+                  { value: '', label: 'Sin especificar' },
+                  ...PERSON_GENDER_OPTIONS,
+                ]}
+                value={genero}
+                onChange={(e) => setGenero(e.target.value as PersonGender | '')}
+                disabled={(isEditing && !isPersonalUnlocked) || isLoading}
+              />
+
               <Input
                 label="Teléfono Móvil (WhatsApp)"
                 placeholder="Ej: 987654321"
@@ -554,20 +580,18 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 disabled={(isEditing && !isPersonalUnlocked) || isLoading}
               />
 
-              <div className="sm:col-span-2">
-                <Input
-                  label="Correo Electrónico"
-                  type="email"
-                  placeholder="cliente@correo.com"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
-                  }}
-                  error={errors.email}
-                  disabled={(isEditing && !isPersonalUnlocked) || isLoading}
-                />
-              </div>
+              <Input
+                label="Correo Electrónico"
+                type="email"
+                placeholder="cliente@correo.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
+                }}
+                error={errors.email}
+                disabled={(isEditing && !isPersonalUnlocked) || isLoading}
+              />
 
               {isEditing && (
                 <div className="sm:col-span-2">
@@ -638,6 +662,21 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                   disabled={isLoading}
                 />
               )}
+
+              <div className={!isEditing ? '' : 'sm:col-span-2'}>
+                <Select
+                  label="Canal de Captación (Opcional)"
+                  options={[
+                    { value: '', label: 'Sin especificar' },
+                    ...CLIENT_ACQUISITION_CHANNEL_OPTIONS,
+                  ]}
+                  value={canalCaptacion}
+                  onChange={(e) =>
+                    setCanalCaptacion(e.target.value as ClientAcquisitionChannel | '')
+                  }
+                  disabled={isLoading}
+                />
+              </div>
             </div>
           </div>
         )}

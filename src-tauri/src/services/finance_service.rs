@@ -3,6 +3,7 @@ use crate::models::finance::*;
 use crate::models::pos::{PaymentChannel, PaymentMethod};
 use crate::models::user::AuthSession;
 use crate::services::audit_service::record_audit;
+use crate::services::permissions_service::{self, ReceptionistPermissionKey};
 use rust_decimal::Decimal;
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool};
 use std::str::FromStr;
@@ -1196,12 +1197,20 @@ pub async fn list_struck_sales_tray(
 // ============================================================================
 
 /// Calcula el consolidado financiero (Física, Digital y Mixta) con desglose y métricas de control.
-/// RBAC: Habilitado para RECEPCIONISTA y ADMINISTRADOR.
+/// RBAC: ADMINISTRADOR siempre; RECEPCIONISTA requiere permiso `VerDashboardModuloFinanzas`.
 pub async fn get_financial_dashboard_summary(
     pool: &SqlitePool,
-    _session: &AuthSession,
+    session: &AuthSession,
     filter: &FinancialReportFilter,
 ) -> Result<FinancialDashboardDto, AppError> {
+    permissions_service::require_permission(
+        pool,
+        session,
+        ReceptionistPermissionKey::VerDashboardModuloFinanzas,
+        "Acceso denegado: no tiene permiso para consultar el dashboard financiero.",
+    )
+    .await?;
+
     let f_desde = filter
         .fecha_desde
         .as_deref()

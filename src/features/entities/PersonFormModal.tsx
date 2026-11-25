@@ -8,10 +8,15 @@ import {
   CreatePersonInput,
   PersonDetail,
   PersonDocumentType,
+  PersonGender,
   PersonListItem,
   UpdatePersonInput,
 } from '../../types/entity';
-import { PERSON_DOCUMENT_TYPES, validatePersonForm } from '../../domain/entity';
+import {
+  PERSON_DOCUMENT_TYPES,
+  PERSON_GENDER_OPTIONS,
+  validatePersonForm,
+} from '../../domain/entity';
 import { Modal } from '../../components/primitives/Modal';
 import { Button } from '../../components/primitives/Button';
 import { Input } from '../../components/primitives/Input';
@@ -43,6 +48,7 @@ export const PersonFormModal: React.FC<PersonFormModalProps> = ({
     nombres: '',
     apellidos: '',
     fecha_nacimiento: '',
+    genero: null,
     telefono: '',
     email: '',
     direccion: '',
@@ -58,6 +64,7 @@ export const PersonFormModal: React.FC<PersonFormModalProps> = ({
         nombres: editingPerson.nombres,
         apellidos: editingPerson.apellidos,
         fecha_nacimiento: (editingPerson as PersonDetail).fecha_nacimiento || '',
+        genero: editingPerson.genero || null,
         telefono: editingPerson.telefono || '',
         email: editingPerson.email || '',
         direccion: (editingPerson as PersonDetail).direccion || '',
@@ -69,6 +76,7 @@ export const PersonFormModal: React.FC<PersonFormModalProps> = ({
         nombres: '',
         apellidos: '',
         fecha_nacimiento: '',
+        genero: null,
         telefono: '',
         email: '',
         direccion: '',
@@ -94,6 +102,7 @@ export const PersonFormModal: React.FC<PersonFormModalProps> = ({
         nombres: formData.nombres.trim(),
         apellidos: formData.apellidos.trim(),
         fecha_nacimiento: formData.fecha_nacimiento?.trim() || null,
+        genero: formData.genero || null,
         telefono: formData.telefono?.trim() || null,
         email: formData.email?.trim() || null,
         direccion: formData.direccion?.trim() || null,
@@ -101,7 +110,10 @@ export const PersonFormModal: React.FC<PersonFormModalProps> = ({
       const result = await onSubmitUpdate(editingPerson.id, updateData);
       if (result) onClose();
     } else {
-      const result = await onSubmitCreate(formData);
+      const result = await onSubmitCreate({
+        ...formData,
+        genero: formData.genero || null,
+      });
       if (result) onClose();
     }
   };
@@ -186,6 +198,22 @@ export const PersonFormModal: React.FC<PersonFormModalProps> = ({
             disabled={isLoading}
           />
 
+          <Select
+            label="Género (Opcional)"
+            options={[
+              { value: '', label: 'Sin especificar' },
+              ...PERSON_GENDER_OPTIONS,
+            ]}
+            value={formData.genero || ''}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                genero: (e.target.value || null) as PersonGender | null,
+              }))
+            }
+            disabled={isLoading}
+          />
+
           <Input
             label="Teléfono de Contacto"
             placeholder="Ej: 987654321"
@@ -198,20 +226,18 @@ export const PersonFormModal: React.FC<PersonFormModalProps> = ({
             disabled={isLoading}
           />
 
-          <div className="sm:col-span-2">
-            <Input
-              label="Correo Electrónico"
-              type="email"
-              placeholder="persona@correo.com"
-              value={formData.email || ''}
-              onChange={(e) => {
-                setFormData((prev) => ({ ...prev, email: e.target.value }));
-                if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
-              }}
-              error={errors.email}
-              disabled={isLoading}
-            />
-          </div>
+          <Input
+            label="Correo Electrónico"
+            type="email"
+            placeholder="persona@correo.com"
+            value={formData.email || ''}
+            onChange={(e) => {
+              setFormData((prev) => ({ ...prev, email: e.target.value }));
+              if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
+            }}
+            error={errors.email}
+            disabled={isLoading}
+          />
 
           <div className="sm:col-span-2">
             <Input

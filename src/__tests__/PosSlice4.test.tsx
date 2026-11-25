@@ -11,12 +11,15 @@ import { PosView } from '../features/pos/PosView';
 import { AuthSession } from '../types/auth';
 import { PlanListItem, ProductListItem } from '../types/catalog';
 import { ClientListItem } from '../types/entity';
-import { CashShiftDto, ClientCreditDto, SaleListItemDto } from '../types/pos';
+import { CashShiftDto, ClientCreditDto, SaleDetailDto, SaleListItemDto } from '../types/pos';
+import { safeInvoke } from '../services/ipc/client';
 
 // Mock de safeInvoke de Tauri IPC
 vi.mock('../services/ipc/client', () => ({
   safeInvoke: vi.fn(),
 }));
+
+const mockSafeInvoke = vi.mocked(safeInvoke);
 
 const adminSession: AuthSession = {
   user_id: 1,
@@ -196,7 +199,7 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
   // 1. CICLO DE TURNO DE CAJA (APERTURA, ARQUEO Y CIERRE)
   // ==========================================================================
   describe('1. Ciclo de Turno de Caja y Arqueo Físico', () => {
-    it('muestra alerta ámbar de caja cerrada cuando no hay turno activo y permite abrir modal', async () => {
+    it('muestra mensaje "Abrir turno de caja" en el Punto de Venta cuando no hay turno activo, oculta los paneles de venta y permite abrir modal', async () => {
       render(
         <PosView
           currentSession={recepcionistaSession}
@@ -209,14 +212,21 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
         />
       );
 
-      // Alerta visible
+      // Estado vacío progresivo del POS indicando "Abrir turno de caja"
       expect(
-        screen.getByText(/Caja Cerrada — Abre un turno para operar el Punto de Venta/i)
+        screen.getByRole('heading', { name: /Abrir turno de caja/i })
       ).toBeInTheDocument();
       expect(screen.getByText(/Sin Turno Activo/i)).toBeInTheDocument();
 
+      // NO se deben mostrar aún paneles de cliente, catálogo ni métodos de pago
+      expect(
+        screen.queryByPlaceholderText(/Buscar por Apellidos, Nombres, DNI o QR/i)
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/Productos en Stock/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Medios de Pago/i)).not.toBeInTheDocument();
+
       // Botón de abrir turno
-      const openBtn = screen.getByRole('button', { name: /Abrir Turno de Caja/i });
+      const openBtn = screen.getByRole('button', { name: /Abrir turno de caja/i });
       expect(openBtn).toBeInTheDocument();
 
       // Abrir modal
@@ -299,10 +309,10 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
   });
 
   // ==========================================================================
-  // 3. CARRITO POS MULTIDOMINIO Y VISIBILIDAD "CASO JUAN PÉREZ"
+  // 3. FLUJO SECUENCIAL Y PROGRESIVO POS (PASO 1 CLIENTE -> PASO 2 PRODUCTOS -> PASO 3 PAGO -> MODAL FINAL)
   // ==========================================================================
-  describe('3. Carrito POS Multidominio y Búsqueda de Clientes', () => {
-    it('permite buscar y seleccionar a un cliente registrado (Caso Juan Pérez)', async () => {
+  describe('3. Flujo Secuencial Progresivo: Cliente -> Productos y Detalle -> Pago', () => {
+    it('Paso 1: al tener turno abierto muestra SOLO el panel para seleccionar el cliente y permite identificar socio (Caso Juan Pérez)', async () => {
       render(
         <PosView
           currentSession={recepcionistaSession}
@@ -315,17 +325,22 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
         />
       );
 
+      // Stepper accesible en Paso 1 y exclusividad de vista (sin catálogo ni pagos aún)
+      expect(screen.getByRole('navigation', { name: /Progreso de venta POS/i })).toBeInTheDocument();
+      expect(screen.queryByText(/Productos en Stock/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Medios de Pago/i)).not.toBeInTheDocument();
+
       // Escribir en el buscador de cliente
       const searchInput = screen.getByPlaceholderText(/Buscar por Apellidos, Nombres, DNI o QR/i);
       fireEvent.change(searchInput, { target: { value: 'Juan' } });
 
-      // Aparece resultado flotante
+      // Aparece resultado
       await waitFor(() => {
         expect(screen.getByText(/Juan Pérez García/i)).toBeInTheDocument();
       });
 
       // Seleccionar cliente
-      const selectBtn = screen.getByText('Seleccionar');
+      const selectBtn = screen.getByRole('button', { name: /Seleccionar.*Juan Pérez García/i });
       fireEvent.click(selectBtn);
 
       // Ahora aparece identificado con badge verde
@@ -337,7 +352,7 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
       expect(screen.getByText(/Saldo pendiente por Plan Trimestral/i)).toBeInTheDocument();
     });
 
-    it('agrega productos al carrito y actualiza subtotales y total a pagar', async () => {
+    it('Paso 2: avanza al apartado de productos y lista de detalles de venta escogidos, ocultando aún métodos de pago', async () => {
       render(
         <PosView
           currentSession={recepcionistaSession}
@@ -350,20 +365,31 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
         />
       );
 
-      // El carrito empieza vacío
+      // Avanzar desde Paso 1 como Público General
+      fireEvent.click(
+        screen.getByRole('button', { name: /Continuar como Público General/i })
+      );
+
+      // En Paso 2: Catálogo y lista de detalles visibles, pero aún NO métodos de pago
       expect(screen.getByText(/El carrito está vacío/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Medios de Pago/i)).not.toBeInTheDocument();
+
+      // El botón Confirmar al final del detalle está deshabilitado mientras no hay ítems
+      const confirmItemsBtn = screen.getByTestId('btn-pos-confirm-items');
+      expect(confirmItemsBtn).toBeDisabled();
 
       // Agregar Agua Mineral (S/ 2.50)
       const addBtns = screen.getAllByRole('button', { name: /\+ Agregar/i });
       fireEvent.click(addBtns[0]);
 
-      // El carrito ahora tiene 1 ítem
+      // El carrito ahora tiene 1 ítem y habilita el botón Confirmar
       expect(screen.getByText(/Carrito de Compra \(1 ítem\)/i)).toBeInTheDocument();
       expect(screen.getAllByText(/Agua Mineral 600ml/i).length).toBeGreaterThanOrEqual(2);
       expect(screen.getAllByText(/S\/ 2.50/i).length).toBeGreaterThanOrEqual(1);
+      expect(confirmItemsBtn).not.toBeDisabled();
     });
 
-    it('permite inscribir planes de membresía con fecha de inicio proyectada', async () => {
+    it('permite inscribir planes de membresía con fecha de inicio proyectada en el Paso 2', async () => {
       render(
         <PosView
           currentSession={recepcionistaSession}
@@ -375,6 +401,12 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
           credits={[]}
         />
       );
+
+      // Seleccionar socio Juan Pérez en Paso 1 y continuar a Paso 2
+      const searchInput = screen.getByPlaceholderText(/Buscar por Apellidos, Nombres, DNI o QR/i);
+      fireEvent.change(searchInput, { target: { value: 'Juan' } });
+      fireEvent.click(await screen.findByRole('button', { name: /Seleccionar.*Juan Pérez García/i }));
+      fireEvent.click(screen.getByTestId('btn-pos-continue-to-items'));
 
       // Cambiar catálogo a Planes
       const planesTab = screen.getByRole('button', { name: /Planes & Pases/i });
@@ -394,10 +426,72 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
   });
 
   // ==========================================================================
-  // 4. SPLIT DE PAGOS, VUELTO Y CRÉDITO AUTOMÁTICO
+  // 4. PASO 3: MÉTODOS DE PAGO, CONFIRMAR VENTA Y MODAL FINAL DE DETALLE
   // ==========================================================================
-  describe('4. Panel de Pagos Mixtos y Crédito Automático', () => {
-    it('calcula vuelto reactivo cuando el efectivo entregado supera el total', async () => {
+  describe('4. Paso 3: Vista de Métodos de Pago, Confirmar Venta y Modal Final', () => {
+    it('al confirmar el detalle pasa a métodos de pago, calcula vuelto reactivo y al confirmar venta muestra el modal final del detalle generado', async () => {
+      const mockCreatedSale: SaleDetailDto = {
+        id: 555,
+        turno_caja_id: 10,
+        cliente_id: 5,
+        cliente_nombre_completo: 'Juan Pérez García',
+        cliente_numero_documento: '44556677',
+        usuario_vendedor_id: 3,
+        usuario_vendedor_username: 'recep1',
+        subtotal: '2.50',
+        descuento: '0.00',
+        total_venta: '2.50',
+        monto_pagado_efectivo: '2.50',
+        monto_pagado_digital: '0.00',
+        saldo_credito_generado: '0.00',
+        estado_venta: 'COMPLETADA',
+        tachado_por_usuario_id: null,
+        tachado_por_username: null,
+        fecha_tachado: null,
+        motivo_tachado: null,
+        resuelto_por_admin_id: null,
+        resuelto_por_admin_username: null,
+        fecha_resolucion_tachado: null,
+        nota_resolucion_tachado: null,
+        notas: null,
+        created_at: '2026-11-24 15:00:00',
+        items: [
+          {
+            id: 1,
+            tipo_item: 'PRODUCTO',
+            producto_id: 1,
+            producto_sku: 'PROD-AGUA-600',
+            plan_id: null,
+            plan_codigo: null,
+            credito_id: null,
+            descripcion: 'Agua Mineral 600ml',
+            cantidad: 1,
+            precio_unitario: '2.50',
+            subtotal: '2.50',
+            fecha_inicio_plan: null,
+            fecha_fin_plan: null,
+          },
+        ],
+        pagos: [
+          {
+            id: 1,
+            metodo_pago: 'EFECTIVO',
+            canal_caja: 'FISICA',
+            monto: '2.50',
+            referencia_operacion: null,
+            estado_pago: 'ACTIVO',
+            created_at: '2026-11-24 15:00:00',
+          },
+        ],
+      };
+
+      mockSafeInvoke.mockImplementation(async (cmd: string) => {
+        if (cmd === 'create_pos_sale') return mockCreatedSale;
+        if (cmd === 'get_active_cash_shift') return mockOpenShift;
+        if (cmd === 'get_sale_receipt') return null;
+        return [];
+      });
+
       render(
         <PosView
           currentSession={recepcionistaSession}
@@ -410,9 +504,20 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
         />
       );
 
-      // Agregar Agua Mineral (S/ 2.50)
+      // Paso 1 -> Seleccionar cliente y continuar
+      const searchInput = screen.getByPlaceholderText(/Buscar por Apellidos, Nombres, DNI o QR/i);
+      fireEvent.change(searchInput, { target: { value: 'Juan' } });
+      fireEvent.click(await screen.findByRole('button', { name: /Seleccionar.*Juan Pérez García/i }));
+      fireEvent.click(screen.getByTestId('btn-pos-continue-to-items'));
+
+      // Paso 2 -> Agregar Agua Mineral (S/ 2.50) y pulsar Confirmar para ir a Pago
       const addBtn = screen.getAllByRole('button', { name: /\+ Agregar/i })[0];
       fireEvent.click(addBtn);
+      fireEvent.click(screen.getByTestId('btn-pos-confirm-items'));
+
+      // Paso 3 -> Ya no se ve el catálogo, ahora se ven los Métodos de Pago
+      expect(screen.queryByText(/Productos en Stock/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/Medios de Pago/i)).toBeInTheDocument();
 
       // Pagar con billete de S/ 10.00 en efectivo
       const cashInput = screen.getByLabelText(/Monto en Efectivo en Gaveta/i);
@@ -422,9 +527,30 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
       await waitFor(() => {
         expect(screen.getAllByText(/Vuelto: S\/ 7.50/i).length).toBeGreaterThanOrEqual(1);
       });
+
+      // Confirmar Venta -> Ejecuta create_pos_sale, muestra el modal final del detalle y reinicia wizard a Paso 1
+      const confirmSaleBtn = screen.getByRole('button', { name: /Confirmar Venta/i });
+      fireEvent.click(confirmSaleBtn);
+
+      await waitFor(() => {
+        expect(mockSafeInvoke).toHaveBeenCalledWith(
+          'create_pos_sale',
+          expect.objectContaining({
+            input: expect.objectContaining({
+              cliente_id: 5,
+            }),
+          })
+        );
+      });
+
+      // Modal final del detalle de la venta generada (#555) abierto con Fecha y Hora visible
+      expect(await screen.findByText(/#555/)).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByText(/Fecha y Hora:/i)).toBeInTheDocument();
+      expect(screen.getByText('2026-11-24 15:00:00')).toBeInTheDocument();
     });
 
-    it('alerta cuando se realiza pago parcial y no se ha identificado a un cliente', async () => {
+    it('alerta en el Paso 3 cuando se realiza pago parcial y no se ha identificado a un cliente', async () => {
       render(
         <PosView
           currentSession={recepcionistaSession}
@@ -437,11 +563,17 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
         />
       );
 
-      // Agregar Proteína (S/ 130.00)
+      // Paso 1 -> Continuar como Público General
+      fireEvent.click(
+        screen.getByRole('button', { name: /Continuar como Público General/i })
+      );
+
+      // Paso 2 -> Agregar Proteína (S/ 130.00) y confirmar detalle
       const addBtn = screen.getAllByRole('button', { name: /\+ Agregar/i })[1];
       fireEvent.click(addBtn);
+      fireEvent.click(screen.getByTestId('btn-pos-confirm-items'));
 
-      // Pagar solo S/ 50.00 en efectivo
+      // Paso 3 -> Pagar solo S/ 50.00 en efectivo
       const cashInput = screen.getByLabelText(/Monto en Efectivo en Gaveta/i);
       fireEvent.change(cashInput, { target: { value: '50.00' } });
 
@@ -481,6 +613,69 @@ describe('Suite Frontend: Slice 4 - Punto de Venta, Caja, Créditos y Tachados',
       // Botón Ver Detalle
       const detailBtns = screen.getAllByRole('button', { name: /Ver Detalle/i });
       expect(detailBtns.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('permite filtrar las ventas por cliente, rango de fechas y usuario vendedor', async () => {
+      const extendedSales: SaleListItemDto[] = [
+        ...mockSales,
+        {
+          id: 103,
+          turno_caja_id: 10,
+          cliente_nombre_completo: 'María López',
+          total_venta: '130.00',
+          monto_pagado_efectivo: '130.00',
+          monto_pagado_digital: '0.00',
+          saldo_credito_generado: '0.00',
+          estado_venta: 'COMPLETADA',
+          usuario_vendedor_username: 'admin',
+          created_at: '2026-11-15 11:00:00',
+        },
+      ];
+
+      render(
+        <PosView
+          currentSession={recepcionistaSession}
+          initialTab="ventas"
+          activeShift={mockOpenShift}
+          products={mockProducts}
+          plans={mockPlans}
+          clients={mockClients}
+          sales={extendedSales}
+          credits={[]}
+        />
+      );
+
+      expect(screen.getByText('#101')).toBeInTheDocument();
+      expect(screen.getByText('#102')).toBeInTheDocument();
+      expect(screen.getByText('#103')).toBeInTheDocument();
+
+      // 1. Filtrar por cliente
+      const clientFilter = screen.getByLabelText(/Filtrar ventas por cliente/i);
+      fireEvent.change(clientFilter, { target: { value: 'María' } });
+      expect(screen.getByText('#103')).toBeInTheDocument();
+      expect(screen.queryByText('#101')).not.toBeInTheDocument();
+
+      // Limpiar filtros
+      fireEvent.click(screen.getByRole('button', { name: /Limpiar filtros/i }));
+      expect(screen.getByText('#101')).toBeInTheDocument();
+
+      // 2. Filtrar por usuario vendedor
+      const userFilter = screen.getByLabelText(/Filtrar ventas por usuario/i);
+      fireEvent.change(userFilter, { target: { value: 'admin' } });
+      expect(screen.getByText('#103')).toBeInTheDocument();
+      expect(screen.queryByText('#101')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /Limpiar filtros/i }));
+
+      // 3. Filtrar por rango de fechas
+      const dateFrom = screen.getByLabelText(/Filtrar ventas desde fecha/i);
+      const dateTo = screen.getByLabelText(/Filtrar ventas hasta fecha/i);
+      fireEvent.change(dateFrom, { target: { value: '2026-11-14' } });
+      fireEvent.change(dateTo, { target: { value: '2026-11-14' } });
+
+      expect(screen.getByText('#101')).toBeInTheDocument();
+      expect(screen.getByText('#102')).toBeInTheDocument();
+      expect(screen.queryByText('#103')).not.toBeInTheDocument();
     });
 
     it('abre modal de tachado Paso 1 y valida motivo >= 5 caracteres', async () => {

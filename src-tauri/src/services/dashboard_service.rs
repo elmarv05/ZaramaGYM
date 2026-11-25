@@ -3,8 +3,9 @@ use crate::models::dashboard::{
     ExpiringMembershipAlert, ExportFileResult, ExportFormat, ExportSalesReportRequest,
     HomeDashboardMetricsDto, HourlyAttendancePoint,
 };
-use crate::models::user::{AuthSession, UserRole};
+use crate::models::user::AuthSession;
 use crate::services::audit_service::record_audit;
+use crate::services::permissions_service::{self, ReceptionistPermissionKey};
 use crate::services::printing_backup_service::{
     get_printing_backup_config, MinimalPdfDocument, TabularPdfColumn,
 };
@@ -139,8 +140,13 @@ pub async fn get_home_dashboard_metrics(
     let ingresos_hoy_digital = parse_decimal(today_rev_row.get("hoy_digital"));
     let ingresos_hoy_total = ingresos_hoy_fisico + ingresos_hoy_digital;
 
-    // 5. Ingresos del mes (RBAC: solo ADMINISTRADOR)
-    let can_view_monthly_revenue = session.rol == UserRole::Administrador;
+    // 5. Ingresos del mes (RBAC configurable)
+    let can_view_monthly_revenue = permissions_service::has_permission(
+        pool,
+        session,
+        ReceptionistPermissionKey::VerIngresosMesOperativo,
+    )
+    .await?;
     let (ingresos_mes_fisico, ingresos_mes_digital, ingresos_mes_total) =
         if can_view_monthly_revenue {
             let month_rev_row = sqlx::query(
@@ -261,7 +267,7 @@ pub async fn get_home_dashboard_metrics(
 // ============================================================================
 
 #[derive(Debug, Clone)]
-enum ExportCell {
+pub(crate) enum ExportCell {
     Text(String),
     Number(String),
 }
@@ -292,7 +298,15 @@ fn escape_csv_field(value: &str) -> String {
     }
 }
 
-fn build_csv_bytes(headers: &[&str], rows: &[Vec<ExportCell>]) -> Vec<u8> {
+fn sanitize_csv_formula(value: &str) -> std::borrow::Cow<'_, str> {
+    if value.starts_with(['=', '+', '-', '@', '\t', '\r']) {
+        std::borrow::Cow::Owned(format!("'{}", value))
+    } else {
+        std::borrow::Cow::Borrowed(value)
+    }
+}
+
+pub(crate) fn build_csv_bytes(headers: &[&str], rows: &[Vec<ExportCell>]) -> Vec<u8> {
     let mut out: Vec<u8> = Vec::with_capacity(2048);
     // UTF-8 BOM para apertura correcta en Excel Windows (tildes / ñ)
     out.extend_from_slice(&[0xEF, 0xBB, 0xBF]);
@@ -304,7 +318,10 @@ fn build_csv_bytes(headers: &[&str], rows: &[Vec<ExportCell>]) -> Vec<u8> {
     for row in rows {
         let line: Vec<String> = row
             .iter()
-            .map(|c| escape_csv_field(c.as_str()))
+            .map(|c| match c {
+                ExportCell::Text(s) => escape_csv_field(&sanitize_csv_formula(s)),
+                ExportCell::Number(n) => escape_csv_field(n),
+            })
             .collect();
         out.extend_from_slice(line.join(",").as_bytes());
         out.extend_from_slice(b"\r\n");
@@ -444,7 +461,7 @@ fn build_zip_store(entries: &[(&str, &[u8])]) -> Vec<u8> {
     zip
 }
 
-fn build_xlsx_bytes(sheet_name: &str, headers: &[&str], rows: &[Vec<ExportCell>]) -> Vec<u8> {
+pub(crate) fn build_xlsx_bytes(sheet_name: &str, headers: &[&str], rows: &[Vec<ExportCell>]) -> Vec<u8> {
     let content_types = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
@@ -564,7 +581,7 @@ fn build_xlsx_bytes(sheet_name: &str, headers: &[&str], rows: &[Vec<ExportCell>]
     ])
 }
 
-async fn finalize_export_and_audit(
+pub(crate) async fn finalize_export_and_audit(
     pool: &SqlitePool,
     session: &AuthSession,
     report_type: &str,
@@ -620,6 +637,14 @@ pub async fn export_clients_roster(
     session: &AuthSession,
     format: ExportFormat,
 ) -> Result<ExportFileResult, AppError> {
+    permissions_service::require_permission(
+        pool,
+        session,
+        ReceptionistPermissionKey::ExportarClientes,
+        "Acceso denegado: no tiene permiso para exportar el padrón general de clientes.",
+    )
+    .await?;
+
     let today = Local::now().date_naive();
     let today_str = today.format("%Y-%m-%d").to_string();
     let issued_at = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
@@ -808,6 +833,14 @@ pub async fn export_debtors_portfolio(
     session: &AuthSession,
     format: ExportFormat,
 ) -> Result<ExportFileResult, AppError> {
+    permissions_service::require_permission(
+        pool,
+        session,
+        ReceptionistPermissionKey::ExportarDeudores,
+        "Acceso denegado: no tiene permiso para exportar la cartera de deudores.",
+    )
+    .await?;
+
     let today_str = Local::now().format("%Y-%m-%d").to_string();
     let issued_at = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
@@ -960,6 +993,14 @@ pub async fn export_sales_cash_report(
     session: &AuthSession,
     request: ExportSalesReportRequest,
 ) -> Result<ExportFileResult, AppError> {
+    permissions_service::require_permission(
+        pool,
+        session,
+        ReceptionistPermissionKey::ExportarVentasCaja,
+        "Acceso denegado: no tiene permiso para exportar el reporte de ventas y caja.",
+    )
+    .await?;
+
     let desde_opt = validate_optional_date(&request.fecha_desde, "fecha_desde")?;
     let hasta_opt = validate_optional_date(&request.fecha_hasta, "fecha_hasta")?;
     if let (Some(ref d), Some(ref h)) = (&desde_opt, &hasta_opt) {

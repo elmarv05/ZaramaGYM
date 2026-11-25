@@ -343,6 +343,8 @@ async fn test_cp_pos_04_membership_sale_day_overflow_active() {
             numero_contacto_emergencia: None,
             notas_medicas: None,
             peso_inicial_kg: None,
+            genero: None,
+            canal_captacion: None,
         },
     )
     .await
@@ -395,7 +397,7 @@ async fn test_cp_pos_04_membership_sale_day_overflow_active() {
     let m = &memberships[0];
     assert_eq!(m.estado, ClientMembershipState::Activa);
     assert_eq!(m.fecha_inicio, "2024-01-31");
-    assert_eq!(m.fecha_vencimiento, "2024-03-02", "Day Overflow debe proyectar al 2024-03-02");
+    assert_eq!(m.fecha_vencimiento, "2024-03-02 23:59:59", "Day Overflow debe proyectar al 2024-03-02 23:59:59");
     assert_eq!(m.precio_pactado, Decimal::new(8000, 2));
 }
 
@@ -445,6 +447,8 @@ async fn test_cp_pos_05_partial_payment_automatic_credit_generation() {
             numero_contacto_emergencia: None,
             notas_medicas: None,
             peso_inicial_kg: None,
+            genero: None,
+            canal_captacion: None,
         },
     )
     .await
@@ -549,6 +553,8 @@ async fn test_cp_pos_06_debt_amortization_in_pos() {
             numero_contacto_emergencia: None,
             notas_medicas: None,
             peso_inicial_kg: None,
+            genero: None,
+            canal_captacion: None,
         },
     )
     .await
@@ -1263,6 +1269,8 @@ async fn test_cp_pos_11_juan_perez_case_visibility_in_pos() {
             numero_contacto_emergencia: None,
             notas_medicas: Some("Entrenamiento funcional".into()),
             peso_inicial_kg: None,
+            genero: None,
+            canal_captacion: None,
         },
     )
     .await

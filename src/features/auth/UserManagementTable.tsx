@@ -5,7 +5,7 @@
 // Ubicación: src/features/auth/UserManagementTable.tsx
 // ============================================================================
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   AuthSession,
   CreateUserInput,
@@ -28,6 +28,7 @@ import { Icon } from '../../components/primitives/Icon';
 import { Input } from '../../components/primitives/Input';
 import { Select } from '../../components/primitives/Select';
 import { Modal } from '../../components/primitives/Modal';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/primitives/Tabs';
 import { preventEnterKeySubmit } from '../../utils/formSafety';
 import { Alert } from '../../components/primitives/Alert';
 import {
@@ -47,9 +48,13 @@ import {
   EntityFlashCardSkeletonGrid,
 } from '../entities/EntityFlashCard';
 import { EntityProfileModal } from '../entities/EntityProfileModal';
+import { ReceptionistPermissionsTab } from './ReceptionistPermissionsTab';
+
+export type UserManagementSubTab = 'users' | 'permissions';
 
 export interface UserManagementTableProps {
   currentSession: AuthSession;
+  initialSubTab?: UserManagementSubTab;
   users: UserListItem[];
   persons?: PersonListItem[];
   isLoading: boolean;
@@ -68,6 +73,7 @@ type UserEditTab = 'account' | 'person';
 
 export const UserManagementTable: React.FC<UserManagementTableProps> = ({
   currentSession,
+  initialSubTab = 'users',
   users,
   persons = [],
   isLoading,
@@ -80,6 +86,11 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
   onUpdatePhoto,
   onClearError,
 }) => {
+  const [activeSubTab, setActiveSubTab] = useState<UserManagementSubTab>(initialSubTab);
+
+  useEffect(() => {
+    setActiveSubTab(initialSubTab);
+  }, [initialSubTab]);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [selectedProfileUser, setSelectedProfileUser] = useState<UserListItem | null>(null);
@@ -425,8 +436,25 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
   };
 
   return (
-    <div className="w-full flex flex-col gap-4">
-      {/* Input oculto para cambio de foto en fila */}
+    <Tabs
+      value={activeSubTab}
+      onValueChange={(next) => setActiveSubTab(next as UserManagementSubTab)}
+      className="w-full gap-5"
+    >
+      <TabsList aria-label="Sub-pestañas de Usuarios y Permisos">
+        <TabsTrigger value="users">
+          <Icon name="users" className="w-4 h-4" aria-hidden="true" />
+          <span>Usuarios del Sistema</span>
+        </TabsTrigger>
+        <TabsTrigger value="permissions">
+          <Icon name="shield" className="w-4 h-4" aria-hidden="true" />
+          <span>Permisos de Recepción</span>
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="users">
+        <div className="w-full flex flex-col gap-4">
+          {/* Input oculto para cambio de foto en fila */}
       <input
         ref={tableFileInputRef}
         type="file"
@@ -1448,6 +1476,12 @@ export const UserManagementTable: React.FC<UserManagementTableProps> = ({
           </form>
         </Modal>
       )}
-    </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="permissions">
+        <ReceptionistPermissionsTab />
+      </TabsContent>
+    </Tabs>
   );
 };

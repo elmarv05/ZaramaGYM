@@ -52,6 +52,8 @@ async fn create_test_client(
             numero_contacto_emergencia: None,
             notas_medicas: None,
             peso_inicial_kg: None,
+            genero: None,
+            canal_captacion: None,
         },
     )
     .await

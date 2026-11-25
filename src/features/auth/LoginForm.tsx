@@ -107,7 +107,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           <div
             role="group"
             aria-label="Selector de modo de color"
-            className="inline-flex items-center p-1 rounded-full bg-surface/95 dark:bg-surface/90 border border-white/25 dark:border-border shadow-md gap-0.5"
+            className="inline-flex items-center p-1 rounded-full bg-surface border border-border-elevated shadow-md gap-1"
           >
             <Button
               type="button"

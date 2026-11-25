@@ -13,7 +13,8 @@ use zarama_gym_lib::models::{
     UpdateExpenseDto, UserRole,
 };
 use zarama_gym_lib::services::{
-    auth_service, catalog_service, entity_service, finance_service, pos_service,
+    auth_service, catalog_service, entity_service, finance_service, permissions_service,
+    pos_service,
 };
 use zarama_gym_lib::state::AppState;
 
@@ -946,6 +947,32 @@ async fn test_cp_fin_09_rbac_shield_operational_expenses() {
         "Recepcionista debe poder visualizar la bandeja global de tachados"
     );
 
+    // Secure-by-Default: sin permiso ver_dashboard_modulo_finanzas, RECEPCIONISTA recibe Forbidden
+    assert!(
+        matches!(
+            finance_service::get_financial_dashboard_summary(
+                &state.pool(),
+                &recep_session,
+                &FinancialReportFilter::default()
+            )
+            .await,
+            Err(AppError::Forbidden(_))
+        ),
+        "Recepcionista sin permiso ver_dashboard_modulo_finanzas debe recibir Forbidden"
+    );
+
+    // Admin habilita ver_dashboard_modulo_finanzas
+    permissions_service::update_receptionist_permissions(
+        &state.pool(),
+        &admin_session,
+        zarama_gym_lib::models::ReceptionistPermissionsDto {
+            ver_dashboard_modulo_finanzas: true,
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
     assert!(
         finance_service::get_financial_dashboard_summary(
             &state.pool(),
@@ -954,7 +981,7 @@ async fn test_cp_fin_09_rbac_shield_operational_expenses() {
         )
         .await
         .is_ok(),
-        "Recepcionista debe poder consultar el dashboard financiero"
+        "Recepcionista debe poder consultar el dashboard financiero tras habilitar el permiso"
     );
 }
 
@@ -1274,6 +1301,8 @@ async fn test_cp_fin_12_financial_control_indicators_credits_and_struck_sales() 
             numero_contacto_emergencia: None,
             notas_medicas: None,
             peso_inicial_kg: None,
+            genero: None,
+            canal_captacion: None,
         },
     )
     .await

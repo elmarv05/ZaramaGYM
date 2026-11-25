@@ -9,6 +9,7 @@ import {
   ExportFormat,
   ExportSalesReportRequest,
   HomeDashboardMetricsDto,
+  ReceptionistPermissionsDto,
 } from '../../types/dashboard';
 import { safeInvoke } from './client';
 
@@ -18,6 +19,31 @@ export const dashboardIpc = {
    */
   async getHomeDashboardMetrics(): Promise<HomeDashboardMetricsDto> {
     return safeInvoke<HomeDashboardMetricsDto>('get_home_dashboard_metrics');
+  },
+
+  /**
+   * Consulta la configuración actual de permisos del rol Recepcionista (Admin)
+   */
+  async getReceptionistPermissions(): Promise<ReceptionistPermissionsDto> {
+    return safeInvoke<ReceptionistPermissionsDto>('get_receptionist_permissions');
+  },
+
+  /**
+   * Consulta los permisos efectivos del usuario en sesión
+   */
+  async getMyEffectivePermissions(): Promise<ReceptionistPermissionsDto> {
+    return safeInvoke<ReceptionistPermissionsDto>('get_my_effective_permissions');
+  },
+
+  /**
+   * Actualiza la matriz de permisos del rol Recepcionista (solo Admin)
+   */
+  async updateReceptionistPermissions(
+    input: ReceptionistPermissionsDto
+  ): Promise<ReceptionistPermissionsDto> {
+    return safeInvoke<ReceptionistPermissionsDto>('update_receptionist_permissions', {
+      input,
+    });
   },
 
   /**

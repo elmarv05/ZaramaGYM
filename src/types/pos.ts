@@ -177,6 +177,9 @@ export interface SaleListItemDto {
 export interface SaleFilter {
   turno_caja_id?: number;
   cliente_id?: number;
+  cliente_busqueda?: string;
+  usuario_vendedor_id?: number;
+  usuario_vendedor_username?: string;
   estado_venta?: SaleState;
   fecha_desde?: string;
   fecha_hasta?: string;

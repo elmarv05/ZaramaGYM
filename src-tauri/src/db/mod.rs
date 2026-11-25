@@ -44,7 +44,7 @@ pub async fn init_db(database_url: &str) -> Result<SqlitePool, AppError> {
 }
 
 /// Versión actual del esquema SQLite (PRAGMA user_version) para arranque ultra-rápido en frío.
-const CURRENT_SCHEMA_VERSION: i64 = 9;
+const CURRENT_SCHEMA_VERSION: i64 = 10;
 
 /// Ejecuta las sentencias DDL fundacionales y asegura el seed del usuario root con hash válido.
 /// Si la BD ya está en `CURRENT_SCHEMA_VERSION`, retorna al instante (< 1ms).
@@ -62,6 +62,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
         .execute(pool)
         .await
         .map_err(|e| AppError::Internal(format!("Error actualizando LAN_MDNS_HOSTNAME a zaramagym.local: {}", e)))?;
+        normalize_membership_expiration_timestamps(pool).await?;
         return Ok(());
     }
 
@@ -183,6 +184,56 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
         .await
         .map_err(|e| AppError::Internal(format!("Error creando índices de rendimiento SQLite: {}", e)))?;
 
+    // 13. Migración 010: Demografía BI (genero, canal_captacion), índices BI y seeds RBAC
+    if current_version < 10 {
+        let personas_cols = sqlx::query("PRAGMA table_info(personas);")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| AppError::Internal(format!("Error verificando columnas de personas: {}", e)))?;
+
+        let has_genero = personas_cols.iter().any(|row| {
+            let col_name: String = row.get("name");
+            col_name.eq_ignore_ascii_case("genero")
+        });
+
+        if !has_genero {
+            sqlx::query(
+                "ALTER TABLE personas ADD COLUMN genero TEXT CHECK (genero IS NULL OR genero IN ('MASCULINO', 'FEMENINO', 'OTRO', 'PREFIERO_NO_DECIR'));",
+            )
+            .execute(pool)
+            .await
+            .map_err(|e| AppError::Internal(format!("Error agregando columna genero a personas: {}", e)))?;
+        }
+
+        let clientes_cols = sqlx::query("PRAGMA table_info(clientes);")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| AppError::Internal(format!("Error verificando columnas de clientes: {}", e)))?;
+
+        let has_canal_captacion = clientes_cols.iter().any(|row| {
+            let col_name: String = row.get("name");
+            col_name.eq_ignore_ascii_case("canal_captacion")
+        });
+
+        if !has_canal_captacion {
+            sqlx::query(
+                "ALTER TABLE clientes ADD COLUMN canal_captacion TEXT CHECK (canal_captacion IS NULL OR canal_captacion IN ('REDES_SOCIALES', 'RECOMENDACION', 'CAMINANTE_FACHADA', 'PUBLICIDAD_LOCAL', 'PROMOCION', 'OTRO'));",
+            )
+            .execute(pool)
+            .await
+            .map_err(|e| AppError::Internal(format!("Error agregando columna canal_captacion a clientes: {}", e)))?;
+        }
+
+        let migration_010_sql = include_str!("../../migrations/010_bi_demographics_and_rbac.sql");
+        sqlx::raw_sql(migration_010_sql)
+            .execute(pool)
+            .await
+            .map_err(|e| AppError::Internal(format!("Error ejecutando migración 010: {}", e)))?;
+    }
+
+    // Normalizar fechas de vencimiento sin hora (YYYY-MM-DD -> YYYY-MM-DD 23:59:59)
+    normalize_membership_expiration_timestamps(pool).await?;
+
     // Marcar versión de esquema para arranque instantáneo en reinicios posteriores
     let set_version_sql = format!("PRAGMA user_version = {};", CURRENT_SCHEMA_VERSION);
     sqlx::raw_sql(&set_version_sql)
@@ -190,6 +241,21 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
         .await
         .map_err(|e| AppError::Internal(format!("Error actualizando PRAGMA user_version: {}", e)))?;
 
+    Ok(())
+}
+
+async fn normalize_membership_expiration_timestamps(pool: &SqlitePool) -> Result<(), AppError> {
+    sqlx::query(
+        "UPDATE membresias_clientes SET fecha_vencimiento = trim(fecha_vencimiento) || ' 23:59:59' WHERE length(trim(fecha_vencimiento)) = 10;",
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| {
+        AppError::Internal(format!(
+            "Error normalizando fecha_vencimiento en membresias_clientes: {}",
+            e
+        ))
+    })?;
     Ok(())
 }
 

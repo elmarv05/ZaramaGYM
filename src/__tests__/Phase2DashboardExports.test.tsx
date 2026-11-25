@@ -345,6 +345,9 @@ describe('Fase 2: Home Dashboard Interactivo y Exportaciones CSV / XLSX / PDF', 
         expect(screen.getByText('S/ 8650.00')).toBeInTheDocument();
       });
 
+      // Para ADMINISTRADOR, el Centro Oficial de Reportes Contables vive en la pestaña 6
+      await user.click(screen.getByRole('tab', { name: /control, riesgo y reportes/i }));
+
       await user.click(screen.getByRole('button', { name: /Exportar Padrón de Clientes en CSV/i }));
       await waitFor(() => {
         expect(mockedInvoke).toHaveBeenCalledWith('export_clients_roster', { format: 'CSV' });

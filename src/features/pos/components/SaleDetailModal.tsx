@@ -325,7 +325,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
       size="xl"
     >
       <div className="flex flex-col gap-4 text-xs">
-        {/* Cabecera de Estado y Turno */}
+        {/* Cabecera de Estado, Turno, Fecha y Hora */}
         <div className="bg-canvas-subtle p-3.5 rounded-xl border border-border flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="font-bold text-txt-secondary">Estado:</span>
@@ -334,6 +334,14 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
           <div>
             <span className="text-txt-muted">Turno de Caja: </span>
             <strong className="text-txt-primary">#{sale.turno_caja_id}</strong>
+          </div>
+          <div>
+            <span className="text-txt-muted">Fecha y Hora: </span>
+            <strong className="text-txt-primary font-mono">{sale.created_at}</strong>
+          </div>
+          <div>
+            <span className="text-txt-muted">Usuario: </span>
+            <strong className="text-txt-primary">@{sale.usuario_vendedor_username}</strong>
           </div>
           <div>
             <span className="text-txt-muted">Cliente: </span>

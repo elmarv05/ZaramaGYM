@@ -126,6 +126,7 @@ async fn test_restore_rejects_corrupt_non_sqlite_and_missing_tables_without_touc
             email: None,
             direccion: None,
             fecha_nacimiento: None,
+            genero: None,
         },
     )
     .await
@@ -217,6 +218,7 @@ async fn test_restore_rejects_corrupt_non_sqlite_and_missing_tables_without_touc
             email: None,
             direccion: None,
             fecha_nacimiento: None,
+            genero: None,
         },
     )
     .await
@@ -242,6 +244,7 @@ async fn test_restore_database_full_cycle_via_source_path_and_base64() {
             email: None,
             direccion: None,
             fecha_nacimiento: None,
+            genero: None,
         },
     )
     .await
@@ -272,6 +275,7 @@ async fn test_restore_database_full_cycle_via_source_path_and_base64() {
             email: None,
             direccion: None,
             fecha_nacimiento: None,
+            genero: None,
         },
     )
     .await
@@ -345,6 +349,7 @@ async fn test_restore_database_full_cycle_via_source_path_and_base64() {
             email: None,
             direccion: None,
             fecha_nacimiento: None,
+            genero: None,
         },
     )
     .await

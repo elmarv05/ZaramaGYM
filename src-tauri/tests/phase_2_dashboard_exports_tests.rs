@@ -10,10 +10,11 @@ use zarama_gym_lib::errors::AppError;
 use zarama_gym_lib::models::{
     CreateClientInput, CreatePosSaleInput, CreateProductInput, CreateUserInput, ExportFormat,
     ExportSalesReportRequest, LoginCredentials, OpenCashShiftInput, PaymentMethod, PosItemType,
-    PosPaymentInput, PosSaleItemInput, ProductCategory, UserRole,
+    PosPaymentInput, PosSaleItemInput, ProductCategory, ReceptionistPermissionsDto, UserRole,
 };
 use zarama_gym_lib::services::{
-    auth_service, catalog_service, dashboard_service, entity_service, pos_service,
+    auth_service, catalog_service, dashboard_service, entity_service, permissions_service,
+    pos_service,
 };
 use zarama_gym_lib::state::AppState;
 
@@ -105,6 +106,8 @@ async fn create_sample_client(
             numero_contacto_emergencia: None,
             notas_medicas: None,
             peso_inicial_kg: None,
+            genero: None,
+            canal_captacion: None,
         },
     )
     .await
@@ -545,7 +548,52 @@ async fn test_exports_clients_debtors_and_sales_in_csv_xlsx_pdf_with_rbac_and_au
     .await
     .unwrap();
 
-    // 1. Padrón de clientes en CSV, XLSX y PDF (permitido incluso para RECEPCIONISTA)
+    // 0. Secure-by-Default: con permisos en OFF, RECEPCIONISTA recibe Forbidden en las 3 exportaciones
+    let err_roster =
+        dashboard_service::export_clients_roster(&state.pool(), &recep, ExportFormat::Csv).await;
+    assert!(
+        matches!(err_roster, Err(AppError::Forbidden(_))),
+        "Recepcionista sin permiso exportar_clientes debe recibir Forbidden"
+    );
+
+    let err_debtors =
+        dashboard_service::export_debtors_portfolio(&state.pool(), &recep, ExportFormat::Csv).await;
+    assert!(
+        matches!(err_debtors, Err(AppError::Forbidden(_))),
+        "Recepcionista sin permiso exportar_deudores debe recibir Forbidden"
+    );
+
+    let err_sales = dashboard_service::export_sales_cash_report(
+        &state.pool(),
+        &recep,
+        ExportSalesReportRequest {
+            fecha_desde: None,
+            fecha_hasta: None,
+            canal_filtro: Some("FISICA".into()),
+            format: ExportFormat::Csv,
+        },
+    )
+    .await;
+    assert!(
+        matches!(err_sales, Err(AppError::Forbidden(_))),
+        "Recepcionista sin permiso exportar_ventas_caja debe recibir Forbidden"
+    );
+
+    // Admin habilita los permisos de exportación para recepcionista
+    permissions_service::update_receptionist_permissions(
+        &state.pool(),
+        &admin,
+        ReceptionistPermissionsDto {
+            exportar_clientes: true,
+            exportar_deudores: true,
+            exportar_ventas_caja: true,
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    // 1. Padrón de clientes en CSV, XLSX y PDF (habilitado para RECEPCIONISTA tras activación)
     let roster_csv =
         dashboard_service::export_clients_roster(&state.pool(), &recep, ExportFormat::Csv)
             .await

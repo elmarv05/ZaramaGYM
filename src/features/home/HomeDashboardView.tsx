@@ -5,14 +5,18 @@
 // Ubicación: src/features/home/HomeDashboardView.tsx
 // ============================================================================
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert } from '../../components/primitives/Alert';
 import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
 import { Icon, IconName } from '../../components/primitives/Icon';
 import { Skeleton } from '../../components/primitives/Skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/primitives/Tabs';
+import { triggerBase64FileDownload } from '../../domain/printingBackup';
+import { biIpc } from '../../services/ipc/biIpc';
 import { normalizeAppError } from '../../services/ipc/client';
 import { useDashboard } from '../../hooks/useDashboard';
+import { useEffectivePermissions } from '../../hooks/useReceptionistPermissions';
 import { formatLoginTimestamp } from '../../utils/dateFormat';
 import { AppError, AuthSession } from '../../types/auth';
 import {
@@ -21,6 +25,20 @@ import {
   HomeDashboardMetricsDto,
   HourlyAttendancePoint,
 } from '../../types/dashboard';
+import { computeDatePresetRange } from './components/BiFilterBar';
+import { BiAttendanceTab } from './tabs/BiAttendanceTab';
+import { BiControlTab } from './tabs/BiControlTab';
+import { BiFinanceTab } from './tabs/BiFinanceTab';
+import { BiInventoryTab } from './tabs/BiInventoryTab';
+import { BiMembersTab } from './tabs/BiMembersTab';
+
+export type HomeBiSubTab =
+  | 'operativo'
+  | 'finanzas'
+  | 'socios'
+  | 'asistencia'
+  | 'inventario'
+  | 'control';
 
 export type HomeNavigationTarget =
   | 'home'
@@ -39,8 +57,10 @@ export type HomeExportKind = 'clients' | 'debtors' | 'sales';
 export interface HomeDashboardViewProps {
   session: AuthSession;
   clientsCount?: number;
+  initialSubTab?: HomeBiSubTab;
   onNavigate: (tab: HomeNavigationTarget) => void;
   onOpenSearch?: () => void;
+  onOpenReceptionistPermissions?: () => void;
 
   // Props opcionales para testing desacoplado e inyección externa
   metrics?: HomeDashboardMetricsDto | null;
@@ -62,8 +82,10 @@ interface ExportFeedbackState {
 export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
   session,
   clientsCount = 0,
+  initialSubTab = 'operativo',
   onNavigate,
   onOpenSearch,
+  onOpenReceptionistPermissions,
   metrics: propMetrics,
   isLoading: propIsLoading,
   error: propError,
@@ -72,6 +94,13 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
 }) => {
   const shouldAutoFetch = propMetrics === undefined;
   const hook = useDashboard({ autoFetch: shouldAutoFetch });
+  const { permissions: effectivePermissions } = useEffectivePermissions(session?.rol);
+
+  const [activeSubTab, setActiveSubTab] = useState<HomeBiSubTab>(initialSubTab);
+
+  useEffect(() => {
+    setActiveSubTab(initialSubTab);
+  }, [initialSubTab]);
 
   const rawMetrics = propMetrics !== undefined ? propMetrics : hook.metrics;
   const metrics: HomeDashboardMetricsDto | null =
@@ -135,6 +164,43 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
     }
   };
 
+  const handleGenerateExecutivePdfFallback = async () => {
+    setLocalExportingKey('executive-bi-pdf');
+    setExportFeedback(null);
+    try {
+      const range = computeDatePresetRange('30d');
+      const result = await biIpc.generateExecutiveBiReportPdf({
+        fecha_desde: range.fecha_desde,
+        fecha_hasta: range.fecha_hasta,
+        canal_caja: 'MIXTA',
+      });
+      triggerBase64FileDownload(result.content_base64, result.filename, result.mime_type);
+      setExportFeedback({
+        variant: 'success',
+        title: 'Reporte Ejecutivo PDF generado',
+        message: `Archivo descargado: ${result.filename}.`,
+      });
+    } catch (err) {
+      const normalized =
+        typeof normalizeAppError === 'function'
+          ? normalizeAppError(err)
+          : {
+              code: 'Internal' as const,
+              message:
+                err instanceof Error
+                  ? err.message
+                  : 'No se pudo generar el Reporte Ejecutivo PDF.',
+            };
+      setExportFeedback({
+        variant: 'danger',
+        title: 'Error al generar Reporte Ejecutivo PDF',
+        message: normalized.message,
+      });
+    } finally {
+      setLocalExportingKey(null);
+    }
+  };
+
   const attendanceSlots = useMemo(
     () => (Array.isArray(metrics?.afluencia_por_franja) ? metrics.afluencia_por_franja : []),
     [metrics]
@@ -160,7 +226,46 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
 
   const maxSlotTotal = Math.max(peakSlot?.total || 0, 1);
 
-  const canViewMonthly = session.rol === 'ADMINISTRADOR';
+  const isAdmin = session.rol === 'ADMINISTRADOR';
+  const canViewMonthly =
+    isAdmin ||
+    (effectivePermissions.ver_ingresos_mes_operativo &&
+      metrics?.can_view_monthly_revenue !== false);
+
+  const canViewFinanceTab = isAdmin || effectivePermissions.ver_tab_finanzas;
+  const canViewSociosTab = isAdmin || effectivePermissions.ver_tab_socios;
+  const canViewAsistenciaTab = isAdmin || effectivePermissions.ver_tab_asistencia;
+  const canViewInventarioTab = isAdmin || effectivePermissions.ver_tab_inventario;
+  const canViewControlTab = isAdmin || effectivePermissions.ver_tab_control;
+  const canExportContextualBi = isAdmin || effectivePermissions.exportar_contextual_bi;
+  const canExportExecutivePdf =
+    isAdmin || effectivePermissions.exportar_reporte_ejecutivo_pdf;
+
+  const visibleSubTabIds = useMemo<HomeBiSubTab[]>(() => {
+    const list: HomeBiSubTab[] = ['operativo'];
+    if (canViewFinanceTab) list.push('finanzas');
+    if (canViewSociosTab) list.push('socios');
+    if (canViewAsistenciaTab) list.push('asistencia');
+    if (canViewInventarioTab) list.push('inventario');
+    if (canViewControlTab) list.push('control');
+    return list;
+  }, [
+    canViewFinanceTab,
+    canViewSociosTab,
+    canViewAsistenciaTab,
+    canViewInventarioTab,
+    canViewControlTab,
+  ]);
+
+  const effectiveSubTab: HomeBiSubTab = visibleSubTabIds.includes(activeSubTab)
+    ? activeSubTab
+    : 'operativo';
+
+  useEffect(() => {
+    if (!visibleSubTabIds.includes(activeSubTab)) {
+      setActiveSubTab('operativo');
+    }
+  }, [visibleSubTabIds, activeSubTab]);
 
   const shortcuts: {
     label: string;
@@ -203,26 +308,113 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
     title: string;
     subtitle: string;
     icon: IconName;
+    allowed: boolean;
   }[] = [
     {
       kind: 'clients',
       title: 'Padrón de Clientes',
       subtitle: 'Socios, documentos, contacto y estado de membresía',
       icon: 'users',
+      allowed: isAdmin || effectivePermissions.exportar_clientes,
     },
     {
       kind: 'debtors',
       title: 'Cartera de Deudores',
       subtitle: 'Créditos pendientes, amortizaciones y saldos por cobrar',
       icon: 'credit-card',
+      allowed: isAdmin || effectivePermissions.exportar_deudores,
     },
     {
       kind: 'sales',
       title: 'Ventas y Movimientos de Caja',
       subtitle: 'Resumen contable físico vs digital del periodo actual',
       icon: 'receipt',
+      allowed: isAdmin || effectivePermissions.exportar_ventas_caja,
     },
   ];
+
+  const visibleExportRows = exportRows.filter((row) => row.allowed);
+
+  const renderReportsCenterSection = (titleText: string, subtitleText: string) => {
+    if (visibleExportRows.length === 0) return null;
+    return (
+      <section
+        aria-labelledby="quick-exports-heading"
+        className="bg-surface border border-border/90 rounded-2xl p-5 shadow-xs dark:shadow-[0_1px_2px_0_rgb(0_0_0/0.45),inset_0_1px_0_0_rgba(255,255,255,0.02)] flex flex-col gap-4"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
+          <div className="flex items-center gap-2">
+            <Icon name="download" className="w-4 h-4 text-brand" />
+            <div>
+              <h3 id="quick-exports-heading" className="text-sm font-bold text-txt-primary">
+                {titleText}
+              </h3>
+              <p className="text-[11px] text-txt-muted">{subtitleText}</p>
+            </div>
+          </div>
+        </div>
+
+        {exportFeedback && (
+          <Alert
+            variant={exportFeedback.variant}
+            title={exportFeedback.title}
+            onClose={() => setExportFeedback(null)}
+          >
+            {exportFeedback.message}
+          </Alert>
+        )}
+
+        <div
+          className={`grid grid-cols-1 gap-4 ${
+            visibleExportRows.length === 1
+              ? 'md:grid-cols-1'
+              : visibleExportRows.length === 2
+              ? 'md:grid-cols-2'
+              : 'md:grid-cols-3'
+          }`}
+        >
+          {visibleExportRows.map((row) => (
+            <div
+              key={row.kind}
+              className="p-4 rounded-xl border border-border bg-canvas-subtle/50 flex flex-col justify-between gap-3"
+            >
+              <div className="flex items-start gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center text-brand shrink-0">
+                  <Icon name={row.icon} className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs font-bold text-txt-primary">{row.title}</h4>
+                  <p className="text-[11px] text-txt-muted leading-snug">{row.subtitle}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(['CSV', 'XLSX', 'PDF'] as ExportFormat[]).map((fmt) => {
+                  const key = `${row.kind}-${fmt}`;
+                  const label = fmt === 'XLSX' ? 'Excel (.xlsx)' : fmt;
+                  return (
+                    <Button
+                      key={fmt}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isAnyExporting}
+                      isLoading={localExportingKey === key}
+                      aria-label={`Exportar ${row.title} en ${label}`}
+                      onClick={() => void handleExport(row.kind, fmt)}
+                      className="text-[11px] flex-1"
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  };
 
   return (
     <div className="w-full flex flex-col gap-6">
@@ -273,6 +465,18 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
               <span className="w-2 h-2 rounded-full bg-status-info shrink-0" aria-hidden="true" />
               Socios activos: {activeClientsCount}
             </span>
+            {isAdmin && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 whitespace-nowrap"
+                onClick={() => onOpenReceptionistPermissions?.()}
+                leftIcon={<Icon name="shield" className="w-3.5 h-3.5" />}
+              >
+                Permisos de Recepción
+              </Button>
+            )}
             <Button
               type="button"
               variant="secondary"
@@ -287,6 +491,57 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
           </div>
         </div>
       </section>
+
+      {/* Shell de 6 Sub-Pestañas BI + RBAC */}
+      <Tabs
+        value={effectiveSubTab}
+        onValueChange={(next) => setActiveSubTab(next as HomeBiSubTab)}
+        className="w-full gap-6"
+      >
+        <TabsList aria-label="Sub-pestañas de Inteligencia de Negocio">
+          <TabsTrigger value="operativo">
+            <Icon name="activity" className="w-4 h-4" aria-hidden="true" />
+            <span>Operativo (Hoy)</span>
+          </TabsTrigger>
+
+          {canViewFinanceTab && (
+            <TabsTrigger value="finanzas">
+              <Icon name="finance" className="w-4 h-4" aria-hidden="true" />
+              <span>Finanzas</span>
+            </TabsTrigger>
+          )}
+
+          {canViewSociosTab && (
+            <TabsTrigger value="socios">
+              <Icon name="users" className="w-4 h-4" aria-hidden="true" />
+              <span>Clientes y Retención</span>
+            </TabsTrigger>
+          )}
+
+          {canViewAsistenciaTab && (
+            <TabsTrigger value="asistencia">
+              <Icon name="calendar" className="w-4 h-4" aria-hidden="true" />
+              <span>Asistencia</span>
+            </TabsTrigger>
+          )}
+
+          {canViewInventarioTab && (
+            <TabsTrigger value="inventario">
+              <Icon name="package" className="w-4 h-4" aria-hidden="true" />
+              <span>Inventario</span>
+            </TabsTrigger>
+          )}
+
+          {canViewControlTab && (
+            <TabsTrigger value="control">
+              <Icon name="shield" className="w-4 h-4" aria-hidden="true" />
+              <span>Control, Riesgo y Reportes</span>
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        {/* TAB 1: OPERATIVO (HOY) */}
+        <TabsContent value="operativo" className="flex flex-col gap-6">
 
       {/* Estado de Error (con reintento) */}
       {error && (
@@ -695,76 +950,59 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
         </>
       )}
 
-      {/* Centro Rápido de Exportaciones (CSV / Excel .xlsx / PDF) */}
-      <section
-        aria-labelledby="quick-exports-heading"
-        className="bg-surface border border-border/90 rounded-2xl p-5 shadow-xs dark:shadow-[0_1px_2px_0_rgb(0_0_0/0.45),inset_0_1px_0_0_rgba(255,255,255,0.02)] flex flex-col gap-4"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-2">
-            <Icon name="download" className="w-4 h-4 text-brand" />
-            <div>
-              <h3 id="quick-exports-heading" className="text-sm font-bold text-txt-primary">
-                Centro Rápido de Exportaciones Contables
-              </h3>
-              <p className="text-[11px] text-txt-muted">
-                Descarga inmediata en formato universal CSV, Excel (.xlsx) o PDF ejecutivo
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {exportFeedback && (
-          <Alert
-            variant={exportFeedback.variant}
-            title={exportFeedback.title}
-            onClose={() => setExportFeedback(null)}
-          >
-            {exportFeedback.message}
-          </Alert>
+      {/* Fallback UX: si no tiene acceso a la pestaña 6 (Control y Reportes) pero sí a exportaciones, conserva aquí el Centro Rápido */}
+      {!canViewControlTab &&
+        renderReportsCenterSection(
+          'Centro Rápido de Exportaciones Contables',
+          'Descarga inmediata en formato universal CSV, Excel (.xlsx) o PDF ejecutivo'
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {exportRows.map((row) => (
-            <div
-              key={row.kind}
-              className="p-4 rounded-xl border border-border bg-canvas-subtle/50 flex flex-col justify-between gap-3"
+      {!canViewControlTab && canExportExecutivePdf && (
+        <section
+          aria-labelledby="executive-pdf-fallback-heading"
+          className="bg-surface border border-border/90 rounded-2xl p-5 shadow-xs dark:shadow-[0_1px_2px_0_rgb(0_0_0/0.45),inset_0_1px_0_0_rgba(255,255,255,0.02)] flex flex-col gap-3"
+        >
+          {visibleExportRows.length === 0 && exportFeedback && (
+            <Alert
+              floating={false}
+              variant={exportFeedback.variant}
+              title={exportFeedback.title}
+              onClose={() => setExportFeedback(null)}
             >
-              <div className="flex items-start gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center text-brand shrink-0">
-                  <Icon name={row.icon} className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-xs font-bold text-txt-primary">{row.title}</h4>
-                  <p className="text-[11px] text-txt-muted leading-snug">{row.subtitle}</p>
-                </div>
+              {exportFeedback.message}
+            </Alert>
+          )}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-brand/10 border border-brand/25 text-brand flex items-center justify-center shrink-0">
+                <Icon name="printer" className="w-4 h-4" />
               </div>
-
-              <div className="flex flex-wrap items-center gap-1.5">
-                {(['CSV', 'XLSX', 'PDF'] as ExportFormat[]).map((fmt) => {
-                  const key = `${row.kind}-${fmt}`;
-                  const label = fmt === 'XLSX' ? 'Excel (.xlsx)' : fmt;
-                  return (
-                    <Button
-                      key={fmt}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isAnyExporting}
-                      isLoading={localExportingKey === key}
-                      aria-label={`Exportar ${row.title} en ${label}`}
-                      onClick={() => void handleExport(row.kind, fmt)}
-                      className="text-[11px] flex-1"
-                    >
-                      {label}
-                    </Button>
-                  );
-                })}
+              <div>
+                <h3
+                  id="executive-pdf-fallback-heading"
+                  className="text-sm font-bold text-txt-primary"
+                >
+                  Reporte Ejecutivo PDF Consolidado
+                </h3>
+                <p className="text-[11px] text-txt-muted">
+                  Consolida en un PDF multipágina Finanzas, Socios, Asistencia e Inventario/Control de los últimos 30 días (Canal Mixta).
+                </p>
               </div>
             </div>
-          ))}
-        </div>
-      </section>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              disabled={isAnyExporting}
+              isLoading={localExportingKey === 'executive-bi-pdf'}
+              leftIcon={<Icon name="download" className="w-4 h-4" />}
+              onClick={() => void handleGenerateExecutivePdfFallback()}
+            >
+              Generar Reporte Ejecutivo (PDF)
+            </Button>
+          </div>
+        </section>
+      )}
 
       {/* Tarjeta de Atajos Rápidos de Operador */}
       <section
@@ -800,6 +1038,62 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
           ))}
         </div>
       </section>
+        </TabsContent>
+
+        {/* TAB 2: FINANZAS Y RENTABILIDAD (BI-SLICE 2) */}
+        {canViewFinanceTab && (
+          <TabsContent value="finanzas">
+            <BiFinanceTab canExportContextual={canExportContextualBi} />
+          </TabsContent>
+        )}
+
+        {/* TAB 3: SOCIOS Y RETENCIÓN (BI-SLICE 3A) */}
+        {canViewSociosTab && (
+          <TabsContent value="socios">
+            <BiMembersTab
+              canExportContextual={canExportContextualBi}
+              onNavigateToEntities={() => onNavigate('directory')}
+            />
+          </TabsContent>
+        )}
+
+        {/* TAB 4: ASISTENCIA Y DEMANDA (BI-SLICE 3B) */}
+        {canViewAsistenciaTab && (
+          <TabsContent value="asistencia">
+            <BiAttendanceTab canExportContextual={canExportContextualBi} />
+          </TabsContent>
+        )}
+
+        {/* TAB 5: PRODUCTOS E INVENTARIO (BI-SLICE 4A) */}
+        {canViewInventarioTab && (
+          <TabsContent value="inventario">
+            <BiInventoryTab canExportContextual={canExportContextualBi} />
+          </TabsContent>
+        )}
+
+        {/* TAB 6: CONTROL, RIESGO Y REPORTES (BI-SLICE 4B + BI-SLICE 5) */}
+        {canViewControlTab && (
+          <TabsContent value="control">
+            <BiControlTab
+              canExportContextual={canExportContextualBi}
+              canExportExecutivePdf={canExportExecutivePdf}
+              officialReportsSlot={
+                visibleExportRows.length > 0 ? (
+                  renderReportsCenterSection(
+                    'Centro Oficial de Reportes Contables',
+                    'Descarga inmediata en formato universal CSV, Excel (.xlsx) o PDF ejecutivo'
+                  )
+                ) : (
+                  <Alert floating={false} variant="info" title="Sin reportes habilitados para tu rol">
+                    Solicita a un Administrador habilitar permisos de exportación en Usuarios y
+                    Permisos si requieres generar reportes contables.
+                  </Alert>
+                )
+              }
+            />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 };
